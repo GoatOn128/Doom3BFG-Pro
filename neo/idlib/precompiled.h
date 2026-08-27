@@ -108,7 +108,7 @@ const int MAX_EXPRESSION_REGISTERS = 4096;
 #include "../aas/AASFileManager.h"
 
 // game
-#include "../d3xp/Game.h"
+#include "../game/Game.h"
 
 // Session / Network
 #include "../sys/LightweightCompression.h"
@@ -132,7 +132,7 @@ const int MAX_EXPRESSION_REGISTERS = 4096;
 
 #ifdef GAME_DLL
 
-#include "../d3xp/Game_local.h"
+#include "../game/Game_local.h"
 
 #else
 

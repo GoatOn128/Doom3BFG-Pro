@@ -106,49 +106,19 @@ target_compile_options(jxrlib_encoder PRIVATE
     /W0
     /wd4996)
 
-file(GLOB_RECURSE GAME_D3XP_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/d3xp/*.cpp")
-list(REMOVE_ITEM GAME_D3XP_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/d3xp/EndLevel.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/d3xp/gamesys/Callbacks.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/d3xp/menus/MenuWidget_DevList.cpp")
+file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/game/*.cpp")
+list(REMOVE_ITEM GAME_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/game/EndLevel.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/game/gamesys/Callbacks.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/game/menus/MenuWidget_DevList.cpp")
 # Game classes and events register themselves through static initializers and
 # are looked up by name from DoomScript.  An ordinary static archive lets the
 # linker discard translation units (such as AI_Vagary.cpp) that have no native
 # symbol reference, so include every game object in the executable.
-add_library(game_d3xp OBJECT ${GAME_D3XP_SOURCES})
-darklight_common_target(game_d3xp)
-target_compile_definitions(game_d3xp PRIVATE __DOOM__ _D3XP CTF)
-
-file(GLOB DOOMCLASSIC_SOURCES CONFIGURE_DEPENDS
-    "${DARKLIGHT_ROOT}/doomclassic/doom/*.cpp")
-list(REMOVE_ITEM DOOMCLASSIC_SOURCES
-    "${DARKLIGHT_ROOT}/doomclassic/doom/DoomLeaderboards.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/Networking.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/PlayerProfile.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/Precompiled.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/doomdef.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/doomstat.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/i_main.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/i_net.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/i_net_ps3.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/i_net_xbox.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/i_video_xbox.cpp"
-    "${DARKLIGHT_ROOT}/doomclassic/doom/m_swap.cpp")
-add_library(doomclassic STATIC ${DOOMCLASSIC_SOURCES})
-darklight_common_target(doomclassic)
-target_include_directories(doomclassic PRIVATE
-    "${DARKLIGHT_ROOT}/doomclassic/Main")
-target_compile_definitions(doomclassic PRIVATE _D3XP CTF)
-
-file(GLOB TIMIDITY_SOURCES CONFIGURE_DEPENDS
-    "${DARKLIGHT_ROOT}/doomclassic/timidity/*.cpp")
-add_library(timidity STATIC ${TIMIDITY_SOURCES})
-darklight_common_target(timidity)
-target_include_directories(timidity PRIVATE
-    "${DARKLIGHT_ROOT}/doomclassic/Main"
-    "${DARKLIGHT_ROOT}/doomclassic/timidity")
-target_compile_definitions(timidity PRIVATE _D3XP CTF)
+add_library(game OBJECT ${GAME_SOURCES})
+darklight_common_target(game)
+target_compile_definitions(game PRIVATE __DOOM__ _D3XP CTF)
 
 file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/aas/*.cpp"
@@ -194,11 +164,9 @@ target_compile_definitions(Darklight PRIVATE __DOOM__)
 target_link_directories(Darklight PRIVATE "${DXSDK_DIR}/Lib/x86")
 target_link_libraries(Darklight PRIVATE
     idlib
-    game_d3xp
+    game
     external
     jxrlib_encoder
-    doomclassic
-    timidity
     xinput
     dbghelp
     dinput8
