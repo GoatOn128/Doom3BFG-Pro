@@ -201,11 +201,14 @@ class idBackgroundVmtrUpdater;
 struct vtRuntimeDiskPage_t {
 	int64			offset;
 	int			length;
+	int			x;
+	int			y;
+	int			level;
 };
 
 class idVMTRData {
 public:
-	static const int VMTR_FILE_VERSION = 26;
+	static const int VMTR_FILE_VERSION = 27;
 	explicit		idVMTRData( idVirtualTexture * virtualTexture );
 					~idVMTRData();
 	void			ReadVmtrFile();
@@ -273,7 +276,7 @@ public:
 	static const int VT_PAGE_TEXELS = 128;
 	static const int VT_PAGE_BORDER = 4;
 	static const int VT_INTERIOR_TEXELS = 120;
-	static const int VT_CACHE_PAGES_WIDE = 16;
+	static const int VT_CACHE_PAGES_WIDE = 64;
 	static const int VT_FEEDBACK_WIDTH = 160;
 	static const int VT_FEEDBACK_HEIGHT = 120;
 	bool			runtimeReady;
@@ -286,12 +289,13 @@ public:
 	int			feedbackPreviousScissor[4];
 	bool			feedbackPreviousScissorEnabled;
 	bool			feedbackUsesSceneDepth;
-	idList< vtRuntimeDiskPage_t > runtimeLeafPages;
+	idList< vtRuntimeDiskPage_t > runtimePages;
 	idList< int >	runtimePageToSlot;
 	idList< int >	runtimePagePending;
 	idList< int >	runtimePageLastVisible;
 	idList< int >	runtimeSlotToPage;
 	idList< int >	runtimeSlotLastUsed;
+	idList< byte > runtimeSlotPinned;
 	idList< byte > runtimePageTableShadow;
 	int			runtimeFrame;
 	int			runtimeLatestFeedbackFrame;
@@ -310,8 +314,10 @@ public:
 private:
 	void			QueueVirtualTextureFallbackImages();
 	void			ProcessVirtualTextureFallbackImages();
-	bool			BuildLeafPageIndex();
-	bool			MakePageResident( int pageX, int pageY );
+	bool			BuildRuntimePageIndex();
+	int			RuntimePageIndex( int level, int pageX, int pageY ) const;
+	bool			MakePageResident( int level, int pageX, int pageY );
+	void			RefreshPageTableRegion( int pageIndex );
 	void			QueueFeedbackPixels( const byte * pixels );
 	void			ProcessFeedbackPages( vtFeedbackJob_t * job );
 	void			UploadPageTable();

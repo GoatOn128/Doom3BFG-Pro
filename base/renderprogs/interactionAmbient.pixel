@@ -65,13 +65,15 @@ void main( PS_IN fragment, out PS_OUT result ) {
 	if ( rpUser1.w > 0.5 ) {
 		float2 atlasTexCoord = frac( fragment.texcoord4.xy ) * rpUser0.xy + rpUser0.zw;
 		half4 pageMapping = tex2D( samp9, atlasTexCoord );
-		if ( pageMapping.z > 0.5 ) {
+		if ( pageMapping.w > 0.5 ) {
 			float2 physicalPage = floor( pageMapping.xy * 255.0 + 0.5 );
+			float residentLevel = floor( pageMapping.z * 255.0 + 0.5 );
+			float levelPagesWide = max( 1.0, rpUser1.y / exp2( residentLevel ) );
 			float physicalWidth = rpUser1.z * 128.0;
 			float2 pageOrigin = physicalPage * 128.0 + 4.0;
-			float2 bumpLocal = frac( ( frac( fragment.texcoord1.xy ) * rpUser0.xy + rpUser0.zw ) * rpUser1.y );
-			float2 diffuseLocal = frac( atlasTexCoord * rpUser1.y );
-			float2 specularLocal = frac( ( frac( fragment.texcoord5.xy ) * rpUser0.xy + rpUser0.zw ) * rpUser1.y );
+			float2 bumpLocal = frac( ( frac( fragment.texcoord1.xy ) * rpUser0.xy + rpUser0.zw ) * levelPagesWide );
+			float2 diffuseLocal = frac( atlasTexCoord * levelPagesWide );
+			float2 specularLocal = frac( ( frac( fragment.texcoord5.xy ) * rpUser0.xy + rpUser0.zw ) * levelPagesWide );
 			float2 bumpTC = ( pageOrigin + bumpLocal * 120.0 ) / physicalWidth;
 			float2 diffuseTC = ( pageOrigin + diffuseLocal * 120.0 ) / physicalWidth;
 			float2 specularTC = ( pageOrigin + specularLocal * 120.0 ) / physicalWidth;

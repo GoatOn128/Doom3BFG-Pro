@@ -68,6 +68,7 @@ struct vtRuntimePageJob_t {
 	int pageIndex;
 	int pageX;
 	int pageY;
+	int pageLevel;
 	vtRuntimeDiskPage_t diskRef;
 	idFile * pageFile;
 	idList< byte > planes;
@@ -172,6 +173,7 @@ static bool DecodeRuntimePage( vtRuntimePageJob_t & job ) {
 	memcpy( &page, diskData.Ptr(), sizeof( page ) );
 	page.Swap();
 	if ( page.magic != PAGE_SUBROOT_MAGIC || page.pageCompression != COMP_HDP ||
+			page.x != job.pageX || page.y != job.pageY || page.level != job.pageLevel ||
 			job.diskRef.length < static_cast< int >( sizeof( page ) + sizeof( HDPHeader_t ) ) ) {
 		return false;
 	}
@@ -640,14 +642,37 @@ idVirtualMaterial * idVirtualTextureSystem::VirtualMaterialForMaterial( const id
 		? vt.vmtrData->VirtualMaterialForMaterial( material ) : NULL;
 }
 
-bool idVirtualTextureSystem::BuildLeafPageIndex() {
+int idVirtualTextureSystem::RuntimePageIndex( int level, int pageX, int pageY ) const {
+	const idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
+	if ( level < 0 || level >= vt.header.numLevels ) {
+		return -1;
+	}
+	int offset = 0;
+	for ( int mip = 0; mip < level; ++mip ) {
+		const int mipWidth = Max( 1, vt.header.pagesWide >> mip );
+		offset += mipWidth * mipWidth;
+	}
+	const int mipWidth = Max( 1, vt.header.pagesWide >> level );
+	if ( pageX < 0 || pageY < 0 || pageX >= mipWidth || pageY >= mipWidth ) {
+		return -1;
+	}
+	const int index = offset + pageY * mipWidth + pageX;
+	return index >= 0 && index < runtimePages.Num() ? index : -1;
+}
+
+bool idVirtualTextureSystem::BuildRuntimePageIndex() {
 	idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
-	if ( vt.pageFile == NULL || vt.header.pagesWide <= 0 ) {
+	if ( vt.pageFile == NULL || vt.header.pagesWide <= 0 || vt.header.numLevels <= 0 ||
+			vt.header.numLevels > idVirtualTexture::PAGEFILE_MAX_LOD_CLAMP ) {
 		return false;
 	}
-	const int pageCount = vt.header.pagesWide * vt.header.pagesWide;
-	runtimeLeafPages.SetNum( pageCount );
-	memset( runtimeLeafPages.Ptr(), 0, pageCount * sizeof( runtimeLeafPages[0] ) );
+	int pageCount = 0;
+	for ( int level = 0; level < vt.header.numLevels; ++level ) {
+		const int mipWidth = Max( 1, vt.header.pagesWide >> level );
+		pageCount += mipWidth * mipWidth;
+	}
+	runtimePages.SetNum( pageCount );
+	memset( runtimePages.Ptr(), 0, pageCount * sizeof( runtimePages[0] ) );
 
 	idList< runtimePageRef_t > queue;
 	runtimePageRef_t root;
@@ -671,13 +696,17 @@ bool idVirtualTextureSystem::BuildLeafPageIndex() {
 				page.level != ref.level ) {
 			return false;
 		}
+		const int pageIndex = RuntimePageIndex( ref.level, ref.x, ref.y );
+		if ( pageIndex < 0 ) {
+			return false;
+		}
+		vtRuntimeDiskPage_t & runtimePage = runtimePages[pageIndex];
+		runtimePage.offset = ref.offset;
+		runtimePage.length = ref.length;
+		runtimePage.x = ref.x;
+		runtimePage.y = ref.y;
+		runtimePage.level = ref.level;
 		if ( ref.level == 0 ) {
-			if ( ref.x >= vt.header.pagesWide || ref.y >= vt.header.pagesWide ) {
-				return false;
-			}
-			vtRuntimeDiskPage_t & leaf = runtimeLeafPages[ref.y * vt.header.pagesWide + ref.x];
-			leaf.offset = ref.offset;
-			leaf.length = ref.length;
 			continue;
 		}
 		for ( int quadrant = 0; quadrant < 4; ++quadrant ) {
@@ -693,8 +722,8 @@ bool idVirtualTextureSystem::BuildLeafPageIndex() {
 			queue.Append( child );
 		}
 	}
-	for ( int page = 0; page < runtimeLeafPages.Num(); ++page ) {
-		if ( runtimeLeafPages[page].length == 0 ) {
+	for ( int page = 0; page < runtimePages.Num(); ++page ) {
+		if ( runtimePages[page].length == 0 ) {
 			return false;
 		}
 	}
@@ -705,7 +734,7 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	if ( runtimeReady ) {
 		return true;
 	}
-	if ( !r_virtualTexture.GetBool() || !BuildLeafPageIndex() ) {
+	if ( !r_virtualTexture.GetBool() || !BuildRuntimePageIndex() ) {
 		return false;
 	}
 
@@ -736,9 +765,9 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	vt.pageTableImage->SubImageUpload( 0, 0, 0, 0, opts.width, opts.height,
 		runtimePageTableShadow.Ptr() );
 
-	runtimePageToSlot.SetNum( runtimeLeafPages.Num() );
-	runtimePagePending.SetNum( runtimeLeafPages.Num() );
-	runtimePageLastVisible.SetNum( runtimeLeafPages.Num() );
+	runtimePageToSlot.SetNum( runtimePages.Num() );
+	runtimePagePending.SetNum( runtimePages.Num() );
+	runtimePageLastVisible.SetNum( runtimePages.Num() );
 	for ( int i = 0; i < runtimePageToSlot.Num(); ++i ) {
 		runtimePageToSlot[i] = -1;
 		runtimePagePending[i] = 0;
@@ -747,9 +776,11 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	const int slotCount = VT_CACHE_PAGES_WIDE * VT_CACHE_PAGES_WIDE;
 	runtimeSlotToPage.SetNum( slotCount );
 	runtimeSlotLastUsed.SetNum( slotCount );
+	runtimeSlotPinned.SetNum( slotCount );
 	for ( int i = 0; i < slotCount; ++i ) {
 		runtimeSlotToPage[i] = -1;
 		runtimeSlotLastUsed[i] = 0;
+		runtimeSlotPinned[i] = 0;
 	}
 
 	feedbackDestination = new ( TAG_RENDER ) idRenderDestination( "vtFeedback",
@@ -780,10 +811,22 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	runtimeFeedbackPending = false;
 	runtimeDebugMode = vt_showFeedback.GetInteger();
 	runtimeReady = true;
+	// Keep the root and the next two quadtree levels resident. These 21 pages
+	// provide a stable fallback while finer feedback-driven pages stream.
+	const int firstPinnedLevel = Max( 0, vt.header.numLevels - 3 );
+	for ( int level = vt.header.numLevels - 1; level >= firstPinnedLevel; --level ) {
+		const int mipWidth = Max( 1, vt.header.pagesWide >> level );
+		for ( int y = 0; y < mipWidth; ++y ) {
+			for ( int x = 0; x < mipWidth; ++x ) {
+				MakePageResident( level, x, y );
+			}
+		}
+	}
 	InvalidateTextureBindingCache();
-	idLib::Printf( "VT runtime: %ix%i virtual pages, %ix%i physical cache, %ix%i feedback\n",
+	idLib::Printf( "VT runtime: %ix%i virtual pages, %ix%i physical cache (%ix%i texels), %ix%i feedback\n",
 		vt.header.pagesWide, vt.header.pagesWide, VT_CACHE_PAGES_WIDE,
-		VT_CACHE_PAGES_WIDE, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
+		VT_CACHE_PAGES_WIDE, VT_CACHE_PAGES_WIDE * VT_PAGE_TEXELS,
+		VT_CACHE_PAGES_WIDE * VT_PAGE_TEXELS, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	return true;
 }
 
@@ -797,15 +840,50 @@ void idVirtualTextureSystem::UploadPageTable() {
 	InvalidateTextureBindingCache();
 }
 
-bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
+void idVirtualTextureSystem::RefreshPageTableRegion( int pageIndex ) {
+	if ( pageIndex < 0 || pageIndex >= runtimePages.Num() || runtimePageTableShadow.Num() == 0 ) {
+		return;
+	}
+	const idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
+	const vtRuntimeDiskPage_t & changedPage = runtimePages[pageIndex];
+	const int regionSize = 1 << changedPage.level;
+	const int firstX = changedPage.x * regionSize;
+	const int firstY = changedPage.y * regionSize;
+	const int lastX = Min( vt.header.pagesWide, firstX + regionSize );
+	const int lastY = Min( vt.header.pagesWide, firstY + regionSize );
+	for ( int leafY = firstY; leafY < lastY; ++leafY ) {
+		for ( int leafX = firstX; leafX < lastX; ++leafX ) {
+			byte * mapping = runtimePageTableShadow.Ptr() +
+				( leafY * vt.header.pagesWide + leafX ) * 4;
+			memset( mapping, 0, 4 );
+			for ( int level = 0; level < vt.header.numLevels; ++level ) {
+				const int candidate = RuntimePageIndex( level, leafX >> level, leafY >> level );
+				if ( candidate < 0 ) {
+					continue;
+				}
+				const int slot = runtimePageToSlot[candidate];
+				if ( slot < 0 ) {
+					continue;
+				}
+				mapping[0] = static_cast< byte >( slot % VT_CACHE_PAGES_WIDE );
+				mapping[1] = static_cast< byte >( slot / VT_CACHE_PAGES_WIDE );
+				mapping[2] = static_cast< byte >( level );
+				mapping[3] = 255;
+				break;
+			}
+		}
+	}
+}
+
+bool idVirtualTextureSystem::MakePageResident( int level, int pageX, int pageY ) {
 	if ( !runtimeReady || runtimePageWorker == NULL ) {
 		return false;
 	}
 	idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
-	if ( pageX < 0 || pageY < 0 || pageX >= vt.header.pagesWide || pageY >= vt.header.pagesWide ) {
+	const int pageIndex = RuntimePageIndex( level, pageX, pageY );
+	if ( pageIndex < 0 ) {
 		return false;
 	}
-	const int pageIndex = pageY * vt.header.pagesWide + pageX;
 	const int residentSlot = runtimePageToSlot[pageIndex];
 	if ( residentSlot >= 0 ) {
 		runtimeSlotLastUsed[residentSlot] = runtimeFrame;
@@ -814,7 +892,7 @@ bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
 	if ( runtimePagePending[pageIndex] != 0 ) {
 		return false;
 	}
-	const vtRuntimeDiskPage_t & ref = runtimeLeafPages[pageIndex];
+	const vtRuntimeDiskPage_t & ref = runtimePages[pageIndex];
 	if ( ref.length < static_cast< int >( sizeof( pageHeader_t ) ) || ref.length > 1024 * 1024 ) {
 		return false;
 	}
@@ -822,6 +900,7 @@ bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
 	job->pageIndex = pageIndex;
 	job->pageX = pageX;
 	job->pageY = pageY;
+	job->pageLevel = level;
 	job->diskRef = ref;
 	job->pageFile = vt.pageFile;
 	job->decoded = false;
@@ -893,9 +972,14 @@ void idVirtualTextureSystem::UpdateRuntime() {
 				delete job;
 				continue;
 			}
-			slot = 0;
-			for ( int i = 1; i < runtimeSlotLastUsed.Num(); ++i ) {
-				if ( runtimeSlotLastUsed[i] < runtimeSlotLastUsed[slot] ) { slot = i; }
+			slot = -1;
+			for ( int i = 0; i < runtimeSlotLastUsed.Num(); ++i ) {
+				if ( runtimeSlotPinned[i] != 0 ) { continue; }
+				if ( slot < 0 || runtimeSlotLastUsed[i] < runtimeSlotLastUsed[slot] ) { slot = i; }
+			}
+			if ( slot < 0 ) {
+				delete job;
+				continue;
 			}
 			if ( protectedFrame > 0 && runtimeSlotLastUsed[slot] >= protectedFrame ) {
 				// The working set is larger than the physical cache. Keep the
@@ -906,7 +990,7 @@ void idVirtualTextureSystem::UpdateRuntime() {
 			const int evictedPage = runtimeSlotToPage[slot];
 			if ( evictedPage >= 0 ) {
 				runtimePageToSlot[evictedPage] = -1;
-				memset( runtimePageTableShadow.Ptr() + evictedPage * 4, 0, 4 );
+				RefreshPageTableRegion( evictedPage );
 				++runtimeEvictions;
 			}
 		}
@@ -924,18 +1008,16 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		runtimeSlotToPage[slot] = job->pageIndex;
 		runtimeSlotLastUsed[slot] = runtimePageLastVisible[job->pageIndex] > 0
 			? runtimePageLastVisible[job->pageIndex] : runtimeFrame;
+		runtimeSlotPinned[slot] = job->pageLevel >=
+			Max( 0, vts[PAGESOURCE_VMTR].header.numLevels - 3 ) ? 1 : 0;
 		runtimePageToSlot[job->pageIndex] = slot;
-		byte * mapping = runtimePageTableShadow.Ptr() + job->pageIndex * 4;
-		mapping[0] = static_cast< byte >( slot % VT_CACHE_PAGES_WIDE );
-		mapping[1] = static_cast< byte >( slot / VT_CACHE_PAGES_WIDE );
-		mapping[2] = 255;
-		mapping[3] = 255;
+		RefreshPageTableRegion( job->pageIndex );
 		++runtimeUploads;
 		++uploaded;
 		pageTableChanged = true;
 		if ( runtimeUploads == 1 ) {
-			idLib::Printf( "VT runtime: worker decoded first page (%i,%i), uploaded to slot %i\n",
-				job->pageX, job->pageY, slot );
+			idLib::Printf( "VT runtime: worker decoded first page mip %i (%i,%i), uploaded to slot %i\n",
+				job->pageLevel, job->pageX, job->pageY, slot );
 		}
 		delete job;
 	}
@@ -967,8 +1049,13 @@ bool idVirtualTextureSystem::BindVirtualMaterial( const idMaterial * material ) 
 
 idVec4 idVirtualTextureSystem::FeedbackParms( const idVirtualMaterial * material ) const {
 	if ( material == NULL ) { return idVec4( 0.0f ); }
+	const float feedbackToViewX = static_cast< float >( VT_FEEDBACK_WIDTH ) /
+		Max( 1, feedbackPreviousViewport[2] );
+	const float feedbackToViewY = static_cast< float >( VT_FEEDBACK_HEIGHT ) /
+		Max( 1, feedbackPreviousViewport[3] );
 	return idVec4( static_cast< float >( PAGESOURCE_VMTR ),
-		static_cast< float >( vts[PAGESOURCE_VMTR].header.pagesWide ), 1.0f, 0.0f );
+		static_cast< float >( vts[PAGESOURCE_VMTR].header.pagesWide ),
+		feedbackToViewX, feedbackToViewY );
 }
 
 bool idVirtualTextureSystem::BeginFeedbackPass() {
@@ -1037,9 +1124,8 @@ void idVirtualTextureSystem::ProcessFeedbackPages( vtFeedbackJob_t * job ) {
 		const int textureAndLevel = static_cast< int >( yAndTexture >> 11 );
 		const int level = textureAndLevel & 15;
 		const int texture = ( textureAndLevel >> 4 ) & 15;
-		if ( texture == PAGESOURCE_VMTR && level == 0 && x >= 0 && y >= 0 &&
-				x < vt.header.pagesWide && y < vt.header.pagesWide ) {
-			const int pageIndex = y * vt.header.pagesWide + x;
+		const int pageIndex = texture == PAGESOURCE_VMTR ? RuntimePageIndex( level, x, y ) : -1;
+		if ( pageIndex >= 0 ) {
 			runtimePageLastVisible[pageIndex] = Max( runtimePageLastVisible[pageIndex], job->frame );
 			const int slot = runtimePageToSlot[pageIndex];
 			if ( slot >= 0 ) {
@@ -1057,11 +1143,10 @@ void idVirtualTextureSystem::ProcessFeedbackPages( vtFeedbackJob_t * job ) {
 		const int textureAndLevel = static_cast< int >( yAndTexture >> 11 );
 		const int level = textureAndLevel & 15;
 		const int texture = ( textureAndLevel >> 4 ) & 15;
-		if ( texture == PAGESOURCE_VMTR && level == 0 && x >= 0 && y >= 0 &&
-				x < vt.header.pagesWide && y < vt.header.pagesWide ) {
-			const int pageIndex = y * vt.header.pagesWide + x;
+		const int pageIndex = texture == PAGESOURCE_VMTR ? RuntimePageIndex( level, x, y ) : -1;
+		if ( pageIndex >= 0 ) {
 			if ( runtimePageToSlot[pageIndex] < 0 && runtimePagePending[pageIndex] == 0 ) {
-				MakePageResident( x, y );
+				MakePageResident( level, x, y );
 				++queuedThisFrame;
 			}
 		}
@@ -1108,12 +1193,13 @@ void idVirtualTextureSystem::InvalidateRuntime() {
 	feedbackPBO[0].FreeBufferObject();
 	feedbackPBO[1].FreeBufferObject();
 	feedbackPBOIssued[0] = feedbackPBOIssued[1] = false;
-	runtimeLeafPages.Clear();
+	runtimePages.Clear();
 	runtimePageToSlot.Clear();
 	runtimePagePending.Clear();
 	runtimePageLastVisible.Clear();
 	runtimeSlotToPage.Clear();
 	runtimeSlotLastUsed.Clear();
+	runtimeSlotPinned.Clear();
 	runtimePageTableShadow.Clear();
 	runtimeFeedbackPending = false;
 	idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
@@ -1123,9 +1209,20 @@ void idVirtualTextureSystem::InvalidateRuntime() {
 }
 
 void idVirtualTextureSystem::PrintRuntimeStats() const {
+	int residentPages = 0;
+	int pinnedPages = 0;
+	for ( int slot = 0; slot < runtimeSlotToPage.Num(); ++slot ) {
+		if ( runtimeSlotToPage[slot] >= 0 ) {
+			++residentPages;
+			pinnedPages += runtimeSlotPinned[slot] != 0 ? 1 : 0;
+		}
+	}
 	idLib::Printf( "VT runtime: %s, frame %i, requests %i, uploads %i, evictions %i, feedback %i analyses / %i nodes\n",
 		runtimeReady ? "active" : "inactive", runtimeFrame, runtimeRequests,
 		runtimeUploads, runtimeEvictions, runtimeFeedbackAnalyses, runtimeFeedbackPages );
+	idLib::Printf( "VT physical cache: %ix%i texels, %i/%i pages resident (%i pinned fallbacks)\n",
+		VT_CACHE_PAGES_WIDE * VT_PAGE_TEXELS, VT_CACHE_PAGES_WIDE * VT_PAGE_TEXELS,
+		residentPages, VT_CACHE_PAGES_WIDE * VT_CACHE_PAGES_WIDE, pinnedPages );
 	idLib::Printf( "VT source images: %i lowest-mip-only, %i pending, %.1f MiB released\n",
 		demotedFallbackImages.Num(), pendingFallbackImages.Num(),
 		runtimeSourceBytesReleased / ( 1024.0f * 1024.0f ) );

@@ -233,6 +233,128 @@ struct archivePageRef_t {
 	uint16 length;
 };
 
+static bool DecodeArchivePagePlanes( idFile * file, const archivePageRef_t & ref,
+		int diskOffsetScale, int expectedX, int expectedY, int expectedLevel,
+		idList< byte > & planes, idStr & error ) {
+	const int storedBytes = ref.length * diskOffsetScale;
+	if ( file == NULL || storedBytes < static_cast< int >( sizeof( pageHeader_t ) +
+			sizeof( HDPHeader_t ) ) ) {
+		error = "invalid child page reference while building VMTR mips";
+		return false;
+	}
+	idList< byte > diskData;
+	diskData.SetNum( storedBytes );
+	const int64 offset = static_cast< int64 >( ref.offset ) * diskOffsetScale;
+	if ( file->ReadAt( offset, diskData.Ptr(), storedBytes ) != storedBytes ) {
+		error.Format( "could not read child page mip %i (%i,%i)",
+			expectedLevel, expectedX, expectedY );
+		return false;
+	}
+	pageHeader_t page;
+	memcpy( &page, diskData.Ptr(), sizeof( page ) );
+	page.Swap();
+	if ( page.magic != PAGE_SUBROOT_MAGIC || page.pageCompression != COMP_HDP ||
+			page.x != expectedX || page.y != expectedY || page.level != expectedLevel ) {
+		error.Format( "invalid child page header at mip %i (%i,%i)",
+			expectedLevel, expectedX, expectedY );
+		return false;
+	}
+	HDPHeader_t hdp;
+	memcpy( &hdp, diskData.Ptr() + sizeof( page ), sizeof( hdp ) );
+	hdp.diffuseSize = static_cast< uint16 >( BigShort( static_cast< short >( hdp.diffuseSize ) ) );
+	hdp.normalSize = static_cast< uint16 >( BigShort( static_cast< short >( hdp.normalSize ) ) );
+	hdp.specularSize = static_cast< uint16 >( BigShort( static_cast< short >( hdp.specularSize ) ) );
+	hdp.powerSize = static_cast< uint16 >( BigShort( static_cast< short >( hdp.powerSize ) ) );
+	hdp.alphaSize = static_cast< uint16 >( BigShort( static_cast< short >( hdp.alphaSize ) ) );
+	const int streamBytes = hdp.diffuseSize + hdp.normalSize + hdp.specularSize +
+		hdp.powerSize + hdp.alphaSize + ( ( hdp.flags & 8 ) != 0 ? 2048 : 0 );
+	if ( hdp.diffuseSize == 0 || hdp.normalSize == 0 || hdp.specularSize == 0 ||
+			streamBytes > storedBytes - sizeof( page ) - sizeof( hdp ) ) {
+		error.Format( "invalid HDP streams in child page mip %i (%i,%i)",
+			expectedLevel, expectedX, expectedY );
+		return false;
+	}
+	planes.SetNum( idVirtualTextureEncoder::PAGE_RGBA_BYTES * 3 );
+	const byte * stream = diskData.Ptr() + sizeof( page ) + sizeof( hdp );
+	byte * diffuse = planes.Ptr();
+	byte * normal = diffuse + idVirtualTextureEncoder::PAGE_RGBA_BYTES;
+	byte * specular = normal + idVirtualTextureEncoder::PAGE_RGBA_BYTES;
+	if ( !JxrLibDecompressBareRGB( stream, hdp.diffuseSize, diffuse,
+			idVirtualTextureEncoder::PAGE_TEXELS, idVirtualTextureEncoder::PAGE_TEXELS,
+			idVirtualTextureEncoder::PAGE_TEXELS * 4 ) ||
+			!JxrLibDecompressBareRGB( stream + hdp.diffuseSize, hdp.normalSize, normal,
+				idVirtualTextureEncoder::PAGE_TEXELS, idVirtualTextureEncoder::PAGE_TEXELS,
+				idVirtualTextureEncoder::PAGE_TEXELS * 4 ) ||
+			!JxrLibDecompressBareRGB( stream + hdp.diffuseSize + hdp.normalSize,
+				hdp.specularSize, specular, idVirtualTextureEncoder::PAGE_TEXELS,
+				idVirtualTextureEncoder::PAGE_TEXELS,
+				idVirtualTextureEncoder::PAGE_TEXELS * 4 ) ) {
+		error.Format( "could not decode child page mip %i (%i,%i)",
+			expectedLevel, expectedX, expectedY );
+		return false;
+	}
+	return true;
+}
+
+static const byte * ChildMosaicPixel( const idList< byte > children[4], int plane,
+		int fineX, int fineY ) {
+	static const int border = 4;
+	static const int interior = idVirtualTextureEncoder::PAGE_TEXELS - border * 2;
+	const int maxFine = interior * 2 + border - 1;
+	fineX = idMath::ClampInt( -border, maxFine, fineX );
+	fineY = idMath::ClampInt( -border, maxFine, fineY );
+	const int childX = fineX < 0 ? 0 : ( fineX >= interior * 2 ? 1 : fineX / interior );
+	const int childY = fineY < 0 ? 0 : ( fineY >= interior * 2 ? 1 : fineY / interior );
+	const int localX = fineX < 0 ? border + fineX :
+		( fineX >= interior * 2 ? border + interior + fineX - interior * 2 :
+			border + fineX % interior );
+	const int localY = fineY < 0 ? border + fineY :
+		( fineY >= interior * 2 ? border + interior + fineY - interior * 2 :
+			border + fineY % interior );
+	return children[childY * 2 + childX].Ptr() +
+		plane * idVirtualTextureEncoder::PAGE_RGBA_BYTES +
+		( localY * idVirtualTextureEncoder::PAGE_TEXELS + localX ) * 4;
+}
+
+static void BuildParentPagePlanes( const idList< byte > children[4],
+		idList< byte > & parent ) {
+	parent.SetNum( idVirtualTextureEncoder::PAGE_RGBA_BYTES * 3 );
+	for ( int plane = 0; plane < 3; ++plane ) {
+		byte * destination = parent.Ptr() + plane * idVirtualTextureEncoder::PAGE_RGBA_BYTES;
+		for ( int y = 0; y < idVirtualTextureEncoder::PAGE_TEXELS; ++y ) {
+			const int fineY = ( y - 4 ) * 2;
+			for ( int x = 0; x < idVirtualTextureEncoder::PAGE_TEXELS; ++x ) {
+				const int fineX = ( x - 4 ) * 2;
+				const byte * samples[4] = {
+					ChildMosaicPixel( children, plane, fineX, fineY ),
+					ChildMosaicPixel( children, plane, fineX + 1, fineY ),
+					ChildMosaicPixel( children, plane, fineX, fineY + 1 ),
+					ChildMosaicPixel( children, plane, fineX + 1, fineY + 1 ) };
+				byte * pixel = destination +
+					( y * idVirtualTextureEncoder::PAGE_TEXELS + x ) * 4;
+				for ( int channel = 0; channel < 4; ++channel ) {
+					pixel[channel] = static_cast< byte >( ( samples[0][channel] +
+						samples[1][channel] + samples[2][channel] + samples[3][channel] + 2 ) >> 2 );
+				}
+				if ( plane == 1 ) {
+					idVec3 normal( pixel[0] * ( 2.0f / 255.0f ) - 1.0f,
+						pixel[1] * ( 2.0f / 255.0f ) - 1.0f,
+						pixel[2] * ( 2.0f / 255.0f ) - 1.0f );
+					if ( normal.Normalize() == 0.0f ) {
+						normal.Set( 0.0f, 0.0f, 1.0f );
+					}
+					pixel[0] = static_cast< byte >( idMath::ClampInt( 0, 255,
+						idMath::Ftoi( ( normal.x * 0.5f + 0.5f ) * 255.0f + 0.5f ) ) );
+					pixel[1] = static_cast< byte >( idMath::ClampInt( 0, 255,
+						idMath::Ftoi( ( normal.y * 0.5f + 0.5f ) * 255.0f + 0.5f ) ) );
+					pixel[2] = static_cast< byte >( idMath::ClampInt( 0, 255,
+						idMath::Ftoi( ( normal.z * 0.5f + 0.5f ) * 255.0f + 0.5f ) ) );
+				}
+			}
+		}
+	}
+}
+
 } // namespace
 
 bool idVirtualTextureEncoder::WriteUncompressedPageFile( const char * osPath,
@@ -523,6 +645,11 @@ bool idVirtualTextureEncoder::WriteHDPPageArchive( const char * pagesOSPath,
 	for ( int width = pagesWide; width > 1; width >>= 1 ) {
 		++numLevels;
 	}
+	if ( numLevels > idVirtualTexture::PAGEFILE_MAX_LOD_CLAMP ) {
+		error.Format( "VMTR atlas requires %i mip levels; the page feedback ABI supports at most %i",
+			numLevels, idVirtualTexture::PAGEFILE_MAX_LOD_CLAMP );
+		return false;
+	}
 
 	int levelStarts[32];
 	int levelWidths[32];
@@ -662,12 +789,39 @@ bool idVirtualTextureEncoder::WriteHDPPageArchive( const char * pagesOSPath,
 			}
 		}
 	}
-	// Parent pages are neutral but contain the offsets of the four finer pages.
+	// Build each coarser page from its four decoded children. Keeping only four
+	// child pages live bounds memory while producing a real, filterable mip
+	// pyramid instead of the old neutral placeholders.
+	idList< byte > childPlanes[4];
+	idList< byte > parentPlanes;
 	for ( int level = 1; level < numLevels; ++level ) {
+		output->Flush();
 		const int width = levelWidths[level];
+		const int childWidth = levelWidths[level - 1];
 		for ( int y = 0; y < width; ++y ) {
 			for ( int x = 0; x < width; ++x ) {
-				if ( !WritePage( x, y, level, neutralPayload, "neutral mip" ) ) {
+				bool decodedChildren = true;
+				for ( int quadrant = 0; quadrant < 4; ++quadrant ) {
+					const int childX = x * 2 + ( quadrant & 1 );
+					const int childY = y * 2 + ( ( quadrant >> 1 ) & 1 );
+					const archivePageRef_t & child = pageRefs[levelStarts[level - 1] +
+						childY * childWidth + childX];
+					if ( !DecodeArchivePagePlanes( output, child, diskOffsetScale,
+							childX, childY, level - 1, childPlanes[quadrant], error ) ) {
+						decodedChildren = false;
+						break;
+					}
+				}
+				if ( !decodedChildren ) {
+					delete output;
+					return false;
+				}
+				BuildParentPagePlanes( childPlanes, parentPlanes );
+				if ( !EncodeHDPPagePayload( parentPlanes.Ptr(),
+						parentPlanes.Ptr() + PAGE_RGBA_BYTES,
+						parentPlanes.Ptr() + PAGE_RGBA_BYTES * 2,
+						quality, encodedPayload, error ) ||
+						!WritePage( x, y, level, encodedPayload, "generated mip" ) ) {
 					delete output;
 					return false;
 				}

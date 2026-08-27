@@ -3099,7 +3099,10 @@ idFile *idFileSystemLocal::OpenExplicitFileWrite( const char *OSPath ) {
 	}
 	f->name = OSPath;
 	f->fullPath = OSPath;
-	f->mode = ( 1 << FS_WRITE );
+	// Explicit output files are opened with GENERIC_READ | GENERIC_WRITE. Expose
+	// both capabilities so streaming archive writers can flush and read back
+	// earlier records while appending derived mip records to the same file.
+	f->mode = ( 1 << FS_READ ) | ( 1 << FS_WRITE );
 	f->handleSync = false;
 	f->fileSize = 0;
 
