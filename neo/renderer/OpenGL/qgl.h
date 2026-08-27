@@ -139,6 +139,7 @@ extern PFNGLDELETEFRAMEBUFFERSPROC			qglDeleteFramebuffers;
 extern PFNGLFRAMEBUFFERTEXTURE2DPROC		qglFramebufferTexture2D;
 extern PFNGLCHECKFRAMEBUFFERSTATUSPROC		qglCheckFramebufferStatus;
 extern PFNGLDRAWBUFFERSPROC					qglDrawBuffers;
+extern PFNGLBLITFRAMEBUFFERPROC				qglBlitFramebuffer;
 
 // GL_ARB_uniform_buffer_object
 extern PFNGLGETUNIFORMBLOCKINDEXPROC		qglGetUniformBlockIndex;

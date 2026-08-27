@@ -245,6 +245,7 @@ public:
 	bool			BindVirtualMaterial( const idMaterial * material );
 	bool			BeginFeedbackPass();
 	void			EndFeedbackPass();
+	bool			FeedbackUsesSceneDepth() const { return feedbackUsesSceneDepth; }
 	idVec4			FeedbackParms( const idVirtualMaterial * material ) const;
 	void			InvalidateRuntime();
 	void			PrintRuntimeStats() const;
@@ -273,7 +274,7 @@ public:
 	static const int VT_PAGE_TEXELS = 128;
 	static const int VT_PAGE_BORDER = 4;
 	static const int VT_INTERIOR_TEXELS = 120;
-	static const int VT_CACHE_PAGES_WIDE = 8;
+	static const int VT_CACHE_PAGES_WIDE = 16;
 	static const int VT_FEEDBACK_WIDTH = 160;
 	static const int VT_FEEDBACK_HEIGHT = 120;
 	bool			runtimeReady;
@@ -285,6 +286,7 @@ public:
 	int			feedbackPreviousViewport[4];
 	int			feedbackPreviousScissor[4];
 	bool			feedbackPreviousScissorEnabled;
+	bool			feedbackUsesSceneDepth;
 	idList< vtRuntimeDiskPage_t > runtimeLeafPages;
 	idList< int >	runtimePageToSlot;
 	idList< int >	runtimePagePending;
@@ -298,6 +300,7 @@ public:
 	int			runtimeFeedbackAnalyses;
 	int			runtimeFeedbackPages;
 	bool			runtimeFeedbackPending;
+	int			runtimeDebugMode;
 	idVirtualTexturePageWorker * runtimePageWorker;
 	idVirtualTextureArchiveWorker * archiveWorker;
 
@@ -312,3 +315,4 @@ private:
 
 extern idVirtualTextureSystem virtualTextureSystem;
 extern idCVar r_virtualTextureFeedbackInterval;
+extern idCVar vt_showFeedback;

@@ -2289,10 +2289,11 @@ static void RB_DrawVirtualTextureFeedback( drawSurf_t ** drawSurfs, int numDrawS
 	if ( !virtualTextureSystem.BeginFeedbackPass() ) {
 		return;
 	}
-	// Feedback may run after fog/post state has touched depth and culling.  Use
-	// conservative coverage here: over-requesting an occluded material is safe,
-	// while dropping it would leave a visible page unresolved next frame.
-	GL_State( GLS_DEPTHFUNC_ALWAYS, true );
+	// The feedback target receives a downscaled copy of the scene depth. This
+	// keeps walls and glass-separated rooms from flooding residency with hidden
+	// pages. Fall back to conservative coverage if the depth blit is unavailable.
+	GL_State( virtualTextureSystem.FeedbackUsesSceneDepth()
+		? GLS_DEPTHFUNC_LESS | GLS_DEPTHMASK : GLS_DEPTHFUNC_ALWAYS, true );
 	GL_Cull( CT_TWO_SIDED );
 	backEnd.currentSpace = NULL;
 	int feedbackDraws = 0;

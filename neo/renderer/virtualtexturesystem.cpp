@@ -22,6 +22,9 @@ idCVar r_virtualTextureUploadBudget( "r_virtualTextureUploadBudget", "4", CVAR_R
 idCVar r_virtualTextureFeedbackInterval( "r_virtualTextureFeedbackInterval", "4",
 	CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER,
 	"render VT feedback once every N frames", 1, 16 );
+idCVar vt_showFeedback( "vt_showFeedback", "0",
+	CVAR_RENDERER | CVAR_INTEGER,
+	"visualize streamed VMTR pages: 1 = borders/numbers, 2 = borders/numbers/page colors", 0, 2 );
 
 namespace {
 
@@ -59,6 +62,80 @@ struct vtFeedbackJob_t {
 	idList< byte > pageStorage;
 	int pageCount;
 };
+
+static const char * vtDebugDigits[10] = {
+	"111101101101111", "010110010010111", "111001111100111", "111001111001111",
+	"101101111001001", "111100111001111", "111100111101111", "111001001001001",
+	"111101111101111", "111101111001111"
+};
+
+static void SetVTDebugPixel( byte * rgba, int x, int y, const byte color[3] ) {
+	if ( x < 0 || y < 0 || x >= idVirtualTextureSystem::VT_PAGE_TEXELS ||
+			y >= idVirtualTextureSystem::VT_PAGE_TEXELS ) { return; }
+	byte * pixel = rgba + ( y * idVirtualTextureSystem::VT_PAGE_TEXELS + x ) * 4;
+	pixel[0] = color[0]; pixel[1] = color[1]; pixel[2] = color[2]; pixel[3] = 255;
+}
+
+static void DrawVTDebugDigit( byte * rgba, int originX, int originY, int scale,
+		int digit, const byte color[3] ) {
+	digit = idMath::ClampInt( 0, 9, digit );
+	const char * glyph = vtDebugDigits[digit];
+	for ( int gy = 0; gy < 5; ++gy ) {
+		for ( int gx = 0; gx < 3; ++gx ) {
+			if ( glyph[gy * 3 + gx] != '1' ) { continue; }
+			for ( int py = 0; py < scale; ++py ) {
+				for ( int px = 0; px < scale; ++px ) {
+					SetVTDebugPixel( rgba, originX + gx * scale + px,
+						originY + gy * scale + py, color );
+				}
+			}
+		}
+	}
+}
+
+static void OverlayVTPageDebug( vtRuntimePageJob_t & job, int mode ) {
+	if ( mode <= 0 || job.planes.Num() < idVirtualTextureSystem::VT_PAGE_TEXELS *
+			idVirtualTextureSystem::VT_PAGE_TEXELS * 4 ) { return; }
+	byte * diffuse = job.planes.Ptr();
+	if ( mode >= 2 ) {
+		const byte tint[3] = {
+			static_cast< byte >( 48 + ( job.pageX * 67 + job.pageY * 17 ) % 160 ),
+			static_cast< byte >( 48 + ( job.pageX * 23 + job.pageY * 83 ) % 160 ),
+			static_cast< byte >( 48 + ( job.pageX * 97 + job.pageY * 31 ) % 160 ) };
+		for ( int y = 4; y < 124; ++y ) {
+			for ( int x = 4; x < 124; ++x ) {
+				byte * pixel = diffuse + ( y * idVirtualTextureSystem::VT_PAGE_TEXELS + x ) * 4;
+				for ( int channel = 0; channel < 3; ++channel ) {
+					pixel[channel] = static_cast< byte >( ( pixel[channel] * 2 + tint[channel] ) / 3 );
+				}
+			}
+		}
+	}
+	const byte borderColor[3] = { 190, 255, 24 };
+	for ( int i = 4; i < 124; ++i ) {
+		for ( int thickness = 0; thickness < 2; ++thickness ) {
+			SetVTDebugPixel( diffuse, i, 4 + thickness, borderColor );
+			SetVTDebugPixel( diffuse, i, 123 - thickness, borderColor );
+			SetVTDebugPixel( diffuse, 4 + thickness, i, borderColor );
+			SetVTDebugPixel( diffuse, 123 - thickness, i, borderColor );
+		}
+	}
+	const byte shadow[3] = { 8, 8, 8 };
+	const byte xColor[3] = { 24, 255, 150 };
+	const byte yColor[3] = { 255, 40, 110 };
+	const int scale = 4;
+	const int startX = 28;
+	const int startY = 54;
+	const int positions[4] = { startX, startX + 16, startX + 44, startX + 60 };
+	const int digits[4] = { ( job.pageX / 10 ) % 10, job.pageX % 10,
+		( job.pageY / 10 ) % 10, job.pageY % 10 };
+	for ( int digit = 0; digit < 4; ++digit ) {
+		DrawVTDebugDigit( diffuse, positions[digit] + 2, startY + 2, scale,
+			digits[digit], shadow );
+		DrawVTDebugDigit( diffuse, positions[digit], startY, scale,
+			digits[digit], digit < 2 ? xColor : yColor );
+	}
+}
 
 static bool DecodeRuntimePage( vtRuntimePageJob_t & job ) {
 	const int pageTexels = idVirtualTextureSystem::VT_PAGE_TEXELS;
@@ -247,10 +324,10 @@ private:
 idVirtualTextureSystem::idVirtualTextureSystem()
 	: initialized( false ), runtimeReady( false ), feedbackDestination( NULL ),
 	  feedbackWriteIndex( 0 ), feedbackPreviousFBO( 0 ),
-	  feedbackPreviousScissorEnabled( false ), runtimeFrame( 0 ),
+	  feedbackPreviousScissorEnabled( false ), feedbackUsesSceneDepth( false ), runtimeFrame( 0 ),
 	  runtimeRequests( 0 ), runtimeUploads( 0 ), runtimeEvictions( 0 ),
 	  runtimeFeedbackAnalyses( 0 ), runtimeFeedbackPages( 0 ),
-	  runtimeFeedbackPending( false ),
+	  runtimeFeedbackPending( false ), runtimeDebugMode( 0 ),
 	  runtimePageWorker( NULL ), archiveWorker( NULL ) {
 	feedbackPBOIssued[0] = feedbackPBOIssued[1] = false;
 	memset( feedbackPreviousViewport, 0, sizeof( feedbackPreviousViewport ) );
@@ -631,6 +708,7 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	runtimeFrame = runtimeRequests = runtimeUploads = runtimeEvictions = 0;
 	runtimeFeedbackAnalyses = runtimeFeedbackPages = 0;
 	runtimeFeedbackPending = false;
+	runtimeDebugMode = vt_showFeedback.GetInteger();
 	runtimeReady = true;
 	InvalidateTextureBindingCache();
 	idLib::Printf( "VT runtime: %ix%i virtual pages, %ix%i physical cache, %ix%i feedback\n",
@@ -686,6 +764,13 @@ bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
 void idVirtualTextureSystem::UpdateRuntime() {
 	PollArchiveBuild();
 	if ( !runtimeReady || runtimePageWorker == NULL ) { return; }
+	if ( runtimeDebugMode != vt_showFeedback.GetInteger() ) {
+		// Debug markings are applied during page transcode/upload, matching the
+		// Tech 5 page visualization. Recreate residency when the mode changes so
+		// already-loaded pages cannot retain stale markings.
+		InvalidateRuntime();
+		return;
+	}
 	if ( vtFeedbackJob_t * feedbackJob = runtimePageWorker->PopCompletedFeedback() ) {
 		runtimeFeedbackPending = false;
 		ProcessFeedbackPages( feedbackJob );
@@ -721,6 +806,7 @@ void idVirtualTextureSystem::UpdateRuntime() {
 			}
 		}
 		const int planeBytes = VT_PAGE_TEXELS * VT_PAGE_TEXELS * 4;
+		OverlayVTPageDebug( *job, runtimeDebugMode );
 		const int physicalX = ( slot % VT_CACHE_PAGES_WIDE ) * VT_PAGE_TEXELS;
 		const int physicalY = ( slot / VT_CACHE_PAGES_WIDE ) * VT_PAGE_TEXELS;
 		idPhysicalPages & pool = physicalPagesPool[PHYSICAL_PAGES_POOL_VMTR];
@@ -787,13 +873,24 @@ bool idVirtualTextureSystem::BeginFeedbackPass() {
 	qglGetIntegerv( GL_VIEWPORT, feedbackPreviousViewport );
 	qglGetIntegerv( GL_SCISSOR_BOX, feedbackPreviousScissor );
 	feedbackPreviousScissorEnabled = qglIsEnabled( GL_SCISSOR_TEST ) != 0;
+	feedbackUsesSceneDepth = false;
+	if ( qglBlitFramebuffer != NULL ) {
+		qglBindFramebuffer( GL_READ_FRAMEBUFFER, feedbackPreviousFBO );
+		qglBindFramebuffer( GL_DRAW_FRAMEBUFFER, feedbackDestination->FBOhandle );
+		qglBlitFramebuffer( feedbackPreviousViewport[0], feedbackPreviousViewport[1],
+			feedbackPreviousViewport[0] + feedbackPreviousViewport[2],
+			feedbackPreviousViewport[1] + feedbackPreviousViewport[3],
+			0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT,
+			GL_DEPTH_BUFFER_BIT, GL_NEAREST );
+		feedbackUsesSceneDepth = qglGetError() == GL_NO_ERROR;
+	}
 	qglBindFramebuffer( GL_FRAMEBUFFER, feedbackDestination->FBOhandle );
 	qglDrawBuffer( GL_COLOR_ATTACHMENT0 );
 	qglReadBuffer( GL_COLOR_ATTACHMENT0 );
 	GL_Viewport( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	GL_Scissor( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	qglEnable( GL_SCISSOR_TEST );
-	GL_Clear( true, true, false, 0, 0.0f, 0.0f, 0.0f, 0.0f );
+	GL_Clear( true, !feedbackUsesSceneDepth, false, 0, 0.0f, 0.0f, 0.0f, 0.0f );
 	return true;
 }
 

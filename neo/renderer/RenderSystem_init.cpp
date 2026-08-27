@@ -269,6 +269,7 @@ PFNGLDELETEFRAMEBUFFERSPROC			qglDeleteFramebuffers;
 PFNGLFRAMEBUFFERTEXTURE2DPROC		qglFramebufferTexture2D;
 PFNGLCHECKFRAMEBUFFERSTATUSPROC		qglCheckFramebufferStatus;
 PFNGLDRAWBUFFERSPROC					qglDrawBuffers;
+PFNGLBLITFRAMEBUFFERPROC				qglBlitFramebuffer;
 
 // GL_ARB_uniform_buffer_object
 PFNGLGETUNIFORMBLOCKINDEXPROC			qglGetUniformBlockIndex;
@@ -504,6 +505,7 @@ static void R_CheckPortableExtensions() {
 		qglFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)GLimp_ExtensionPointer( "glFramebufferTexture2D" );
 		qglCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)GLimp_ExtensionPointer( "glCheckFramebufferStatus" );
 		qglDrawBuffers = (PFNGLDRAWBUFFERSPROC)GLimp_ExtensionPointer( "glDrawBuffers" );
+		qglBlitFramebuffer = (PFNGLBLITFRAMEBUFFERPROC)GLimp_ExtensionPointer( "glBlitFramebuffer" );
 	}
 
 	// GL_ARB_uniform_buffer_object
