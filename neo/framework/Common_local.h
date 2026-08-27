@@ -404,7 +404,7 @@ private:
 	int					time_gameDraw;			// game present time
 	uint64				time_frontend;			// renderer frontend time
 	uint64				time_backend;			// renderer backend time
-	uint64				time_shadows;			// renderer backend waiting for shadow volumes to be created
+	uint64				time_shadows;			// renderer shadow processing time
 	uint64				time_gpu;				// total gpu time, at least for PC
 
 	// Used during loading screens

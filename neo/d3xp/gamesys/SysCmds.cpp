@@ -918,7 +918,7 @@ void Cmd_TestLight_f( const idCmdArgs &args ) {
 	}
 
 	for ( i = 0; i < MAX_GENTITIES; i++ ) {
-		name = va( "spawned_light_%d", i );		// not just light_, or it might pick up a prelight shadow
+		name = va( "spawned_light_%d", i );
 		if ( !gameLocal.FindEntity( name ) ) {
 			break;
 		}

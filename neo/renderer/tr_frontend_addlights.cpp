@@ -32,8 +32,6 @@ If you have questions concerning this license or the applicable additional terms
 #include "tr_local.h"
 
 extern idCVar r_useAreasConnectedForShadowCulling;
-extern idCVar r_forceShadowCaps;
-extern idCVar r_useShadowPreciseInsideTest;
 
 idCVar r_useAreasConnectedForShadowCulling( "r_useAreasConnectedForShadowCulling", "2", CVAR_RENDERER | CVAR_INTEGER, "cull entities cut off by doors" );
 idCVar r_useParallelAddLights( "r_useParallelAddLights", "1", CVAR_RENDERER | CVAR_BOOL, "aadd all lights in parallel with jobs" );
@@ -89,7 +87,7 @@ Allocates and fills in vLight->entityInteractionState.
 Calc the light shader values, removing any light from the viewLight list
 if it is determined to not have any visible effect due to being flashed off or turned off.
 
-Add any precomputed shadow volumes.
+Prepare the light and its shadow-map state.
 ===================
 */
 static void R_AddSingleLight( viewLight_t * vLight ) {
@@ -360,9 +358,7 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 		}
 	}
 
-	// Static-world casters now arrive as ordinary model surfaces.  The old
-	// prelight model contains extruded stencil geometry and is intentionally
-	// not submitted to the shadow-buffer path.
+	// Static-world casters arrive through the ordinary model-surface path.
 }
 
 REGISTER_PARALLEL_JOB( R_AddSingleLight, "R_AddSingleLight" );

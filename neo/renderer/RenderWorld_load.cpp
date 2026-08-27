@@ -107,7 +107,7 @@ void idRenderWorldLocal::TouchWorldModels() {
 
 /*
 ================
-idRenderWorldLocal::ReadBinaryShadowModel
+idRenderWorldLocal::ReadBinaryModel
 ================
 */
 idRenderModel *idRenderWorldLocal::ReadBinaryModel( idFile *fileIn ) {
@@ -141,7 +141,7 @@ idRenderModel *idRenderWorldLocal::ParseModel( idLexer *src, const char *mapName
 
 	if ( fileOut != NULL ) {
 		// write out the type so the binary reader knows what to instantiate
-		fileOut->WriteString( "shadowmodel" );
+		fileOut->WriteString( "model" );
 		fileOut->WriteString( token );
 	}
 
@@ -275,25 +275,10 @@ idRenderModel *idRenderWorldLocal::ParseModel( idLexer *src, const char *mapName
 
 /*
 ================
-idRenderWorldLocal::ReadBinaryShadowModel
+idRenderWorldLocal::SkipLegacyShadowModel
 ================
 */
-idRenderModel *idRenderWorldLocal::ReadBinaryShadowModel( idFile *fileIn ) {
-	idStrStatic< MAX_OSPATH > name;
-	fileIn->ReadString( name );
-	idRenderModel * model = renderModelManager->AllocModel();
-	model->InitEmpty( name );
-	if ( model->LoadBinaryModel( fileIn, mapTimeStamp ) ) {
-		return model;
-	}
-	return NULL;
-}
-/*
-================
-idRenderWorldLocal::ParseShadowModel
-================
-*/
-idRenderModel *idRenderWorldLocal::ParseShadowModel( idLexer *src, idFile *fileOut ) {
+void idRenderWorldLocal::SkipLegacyShadowModel( idLexer *src ) {
 	idToken token;
 
 	src->ExpectTokenString( "{" );
@@ -301,68 +286,22 @@ idRenderModel *idRenderWorldLocal::ParseShadowModel( idLexer *src, idFile *fileO
 	// parse the name
 	src->ExpectAnyToken( &token );
 
-	idRenderModel * model = renderModelManager->AllocModel();
-	model->InitEmpty( token );
-
-	if ( fileOut != NULL ) {
-		// write out the type so the binary reader knows what to instantiate
-		fileOut->WriteString( "shadowmodel" );
-		fileOut->WriteString( token );
+	// Keep accepting legacy .proc files, but discard the pre-extruded stencil
+	// mesh. Shadow maps build caster lists from ordinary world surfaces.
+	const int numShadowVerts = src->ParseInt();
+	src->ParseInt(); // indexes without caps
+	src->ParseInt(); // indexes without front caps
+	const int numShadowIndexes = src->ParseInt();
+	src->ParseInt(); // cap plane bits
+	float discardedVertex[3];
+	for ( int j = 0; j < numShadowVerts; ++j ) {
+		src->Parse1DMatrix( 3, discardedVertex );
 	}
-
-	srfTriangles_t * tri = R_AllocStaticTriSurf();
-
-	tri->numVerts = src->ParseInt();
-	tri->numShadowIndexesNoCaps = src->ParseInt();
-	tri->numShadowIndexesNoFrontCaps = src->ParseInt();
-	tri->numIndexes = src->ParseInt();
-	tri->shadowCapPlaneBits = src->ParseInt();
-
-	assert( ( tri->numVerts & 1 ) == 0 );
-
-	R_AllocStaticTriSurfPreLightShadowVerts( tri, ALIGN( tri->numVerts, 2 ) );
-	tri->bounds.Clear();
-	for ( int j = 0; j < tri->numVerts; j++ ) {
-		float vec[8];
-
-		src->Parse1DMatrix( 3, vec );
-		tri->preLightShadowVertexes[j].xyzw[0] = vec[0];
-		tri->preLightShadowVertexes[j].xyzw[1] = vec[1];
-		tri->preLightShadowVertexes[j].xyzw[2] = vec[2];
-		tri->preLightShadowVertexes[j].xyzw[3] = 1.0f;		// no homogenous value
-
-		tri->bounds.AddPoint( tri->preLightShadowVertexes[j].xyzw.ToVec3() );
+	for ( int j = 0; j < numShadowIndexes; ++j ) {
+		src->ParseInt();
 	}
-	// clear the last vertex if it wasn't stored
-	if ( ( tri->numVerts & 1 ) != 0 ) {
-		tri->preLightShadowVertexes[ALIGN( tri->numVerts, 2 ) - 1].xyzw.Zero();
-	}
-
-	// to be consistent set the number of vertices to half the number of shadow vertices
-	tri->numVerts = ALIGN( tri->numVerts, 2 ) / 2;
-
-	R_AllocStaticTriSurfIndexes( tri, tri->numIndexes );
-	for ( int j = 0; j < tri->numIndexes; j++ ) {
-		tri->indexes[j] = src->ParseInt();
-	}
-
-	// add the completed surface to the model
-	modelSurface_t surf;
-	surf.id = 0;
-	surf.shader = tr.defaultMaterial;
-	surf.geometry = tri;
-
-	model->AddSurface( surf );
 
 	src->ExpectTokenString( "}" );
-
-	// NOTE: we do NOT do a model->FinishSurfaceces, because we don't need sil edges, planes, tangents, etc.
-
-	if ( fileOut != NULL && model->SupportsBinaryModel() && r_binaryLoadRenderModels.GetBool() ) {
-		model->WriteBinaryModel( fileOut, &mapTimeStamp );
-	}
-
-	return model;
 }
 
 /*
@@ -784,13 +723,20 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 					renderModelManager->AddModel( lastModel );
 					localModels.Append( lastModel );
 				} else if ( type == "shadowmodel" ) {
+					// Version-one generated proc files also tagged ordinary area models
+					// as "shadowmodel". Keep those maps loadable, but discard actual
+					// prelight stencil geometry instead of registering it.
 					idRenderModel * lastModel = ReadBinaryModel( file );
 					if ( lastModel == NULL ) {
 						loaded = false;
 						break;
 					}
-					renderModelManager->AddModel( lastModel );
-					localModels.Append( lastModel );
+					if ( idStr::Icmpn( lastModel->Name(), "_prelight_", 10 ) == 0 ) {
+						renderModelManager->FreeModel( lastModel );
+					} else {
+						renderModelManager->AddModel( lastModel );
+						localModels.Append( lastModel );
+					}
 				} else if ( type == "interareaportals" ) {
 					ReadBinaryAreaPortals( file );
 				} else if ( type == "nodes" ) {
@@ -860,15 +806,7 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 			}
 
 			if ( token == "shadowModel" ) {
-				lastModel = ParseShadowModel( src, outputFile );
-
-				// add it to the model manager list
-				renderModelManager->AddModel( lastModel );
-
-				// save it in the list to free when clearing this map
-				localModels.Append( lastModel );
-
-				numEntries++;
+				SkipLegacyShadowModel( src );
 				continue;
 			}
 

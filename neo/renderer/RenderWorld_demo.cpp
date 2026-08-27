@@ -430,16 +430,14 @@ void	idRenderWorldLocal::WriteRenderLight( qhandle_t handle, const renderLight_t
 	common->WriteDemo()->WriteVec3( light->up );
 	common->WriteDemo()->WriteVec3( light->start );
 	common->WriteDemo()->WriteVec3( light->end );
-	common->WriteDemo()->WriteInt( (int&)light->prelightModel );
+	// Keep the removed renderer-model stream slot for demo compatibility.
+	common->WriteDemo()->WriteInt( 0 );
 	common->WriteDemo()->WriteInt( light->lightId );
 	common->WriteDemo()->WriteInt( (int&)light->shader );
 	for ( int i = 0; i < MAX_ENTITY_SHADER_PARMS; i++)
 		common->WriteDemo()->WriteFloat( light->shaderParms[i] );
 	common->WriteDemo()->WriteInt( (int&)light->referenceSound );
 
-	if ( light->prelightModel ) {
-		common->WriteDemo()->WriteHashString( light->prelightModel->Name() );
-	}
 	if ( light->shader ) {
 		common->WriteDemo()->WriteHashString( light->shader->GetName() );
 	}
@@ -461,6 +459,7 @@ ReadRenderLight
 void	idRenderWorldLocal::ReadRenderLight( ) {
 	renderLight_t	light;
 	int				index;
+	int				legacyModelFlag;
 
 	common->ReadDemo()->ReadInt( index );
 	if ( index < 0 ) {
@@ -482,14 +481,15 @@ void	idRenderWorldLocal::ReadRenderLight( ) {
 	common->ReadDemo()->ReadVec3( light.up );
 	common->ReadDemo()->ReadVec3( light.start );
 	common->ReadDemo()->ReadVec3( light.end );
-	common->ReadDemo()->ReadInt( (int&)light.prelightModel );
+	common->ReadDemo()->ReadInt( legacyModelFlag );
 	common->ReadDemo()->ReadInt( light.lightId );
 	common->ReadDemo()->ReadInt( (int&)light.shader );
 	for ( int i = 0; i < MAX_ENTITY_SHADER_PARMS; i++)
 		common->ReadDemo()->ReadFloat( light.shaderParms[i] );
 	common->ReadDemo()->ReadInt( (int&)light.referenceSound );
-	if ( light.prelightModel ) {
-		light.prelightModel = renderModelManager->FindModel( common->ReadDemo()->ReadHashString() );
+	if ( legacyModelFlag ) {
+		// Consume the old model name so legacy demo streams remain aligned.
+		common->ReadDemo()->ReadHashString();
 	}
 	if ( light.shader ) {
 		light.shader = declManager->FindMaterial( common->ReadDemo()->ReadHashString() );

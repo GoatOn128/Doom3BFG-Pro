@@ -480,7 +480,6 @@ void idMD5Mesh::UpdateSurface( const struct renderEntity_s *ent, const idJointMa
 		}
 		tri->verts = deformInfo->verts;
 		tri->ambientCache = deformInfo->staticAmbientCache;
-		tri->shadowCache = deformInfo->staticShadowCache;
 		tri->referencedVerts = true;
 	} else {
 		if ( tri->verts == NULL || tri->verts == deformInfo->verts ) {
@@ -752,14 +751,8 @@ bool idRenderModelMD5::LoadBinaryModel( idFile * file, const ID_TIME_T sourceTim
 			}
 		}
 
-		idShadowVertSkinned * shadowVerts = (idShadowVertSkinned *) Mem_Alloc( ALIGN( deform.numOutputVerts * 2 * sizeof( idShadowVertSkinned ), 16 ), TAG_MODEL );
-		idShadowVertSkinned::CreateShadowCache( shadowVerts, deform.verts, deform.numOutputVerts );
-
 		deform.staticAmbientCache = vertexCache.AllocStaticVertex( deform.verts, ALIGN( deform.numOutputVerts * sizeof( idDrawVert ), VERTEX_CACHE_ALIGN ) );
 		deform.staticIndexCache = vertexCache.AllocStaticIndex( deform.indexes, ALIGN( deform.numIndexes * sizeof( triIndex_t ), INDEX_CACHE_ALIGN ) );
-		deform.staticShadowCache = vertexCache.AllocStaticVertex( shadowVerts, ALIGN( deform.numOutputVerts * 2 * sizeof( idShadowVertSkinned ), VERTEX_CACHE_ALIGN ) );
-
-		Mem_Free( shadowVerts );
 
 		file->ReadBig( meshes[i].surfaceNum );
 	}

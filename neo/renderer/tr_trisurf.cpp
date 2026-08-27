@@ -51,14 +51,12 @@ for calculating tangent vectors for bump mapping.
 Artists should take care to have identical texels in all maps (bump/diffuse/specular)
 in this case
 
-Vertexes that only match in position are merged for shadow edge finding.
+Vertexes that only match in position share topology for geometric edge diagnostics.
 
 Degenerate triangles.
 
-Overlapped triangles, even if normals or texcoords differ, must be removed.
-for the silhoette based stencil shadow algorithm to function properly.
-Is this true???
-Is the overlapped triangle problem just an example of the trippled edge problem?
+Overlapped triangles, even if normals or texcoords differ, should be removed
+to keep the shared-position topology unambiguous.
 
 Interpenetrating triangles are not currently clipped to surfaces.
 Do they effect the shadows?
@@ -79,11 +77,7 @@ Topology is determined by a collection of triangle indexes.
 The edge list can be built up from this, and stays valid even under
 deformations.
 
-Somewhat non-intuitively, concave edges cannot be optimized away, or the
-stencil shadow algorithm miscounts.
-
-Face normals are needed for generating shadow volumes and for calculating
-the silhouette, but they will change with any deformation.
+Face normals and silhouette topology change with deformation.
 
 Vertex normals and vertex tangents will change with each deformation,
 but they may be able to be transformed instead of recalculated.
@@ -128,12 +122,6 @@ int R_TriSurfMemory( const srfTriangles_t *tri ) {
 		return total;
 	}
 
-	if ( tri->preLightShadowVertexes != NULL ) {
-		total += tri->numVerts * 2 * sizeof( tri->preLightShadowVertexes[0] );
-	}
-	if ( tri->staticShadowVertexes != NULL ) {
-		total += tri->numVerts * 2 * sizeof( tri->staticShadowVertexes[0] );
-	}
 	if ( tri->verts != NULL ) {
 		if ( tri->ambientSurface == NULL || tri->verts != tri->ambientSurface->verts ) {
 			total += tri->numVerts * sizeof( tri->verts[0] );
@@ -175,7 +163,6 @@ void R_FreeStaticTriSurfVertexCaches( srfTriangles_t * tri ) {
 	// without a level change
 	tri->ambientCache = 0;
 	tri->indexCache = 0;
-	tri->shadowCache = 0;
 }
 
 /*
@@ -221,13 +208,6 @@ void R_FreeStaticTriSurf( srfTriangles_t *tri ) {
 		if ( tri->dupVerts != NULL ) {
 			Mem_Free( tri->dupVerts );
 		}
-	}
-
-	if ( tri->preLightShadowVertexes != NULL ) {
-		Mem_Free( tri->preLightShadowVertexes );
-	}
-	if ( tri->staticShadowVertexes != NULL ) {
-		Mem_Free( tri->staticShadowVertexes );
 	}
 
 	// clear the tri out so we don't retain stale data
@@ -353,16 +333,6 @@ R_AllocStaticTriSurfSilEdges
 void R_AllocStaticTriSurfSilEdges( srfTriangles_t *tri, int numSilEdges ) {
 	assert( tri->silEdges == NULL );
 	tri->silEdges = (silEdge_t *)Mem_Alloc16( numSilEdges * sizeof( silEdge_t ), TAG_TRI_SIL_EDGE );
-}
-
-/*
-=================
-R_AllocStaticTriSurfPreLightShadowVerts
-=================
-*/
-void R_AllocStaticTriSurfPreLightShadowVerts( srfTriangles_t *tri, int numVerts ) {
-	assert( tri->preLightShadowVertexes == NULL );
-	tri->preLightShadowVertexes = (idShadowVert *)Mem_Alloc16( numVerts * sizeof( idShadowVert ), TAG_TRI_SHADOW );
 }
 
 /*
@@ -1819,14 +1789,8 @@ deformInfo_t *R_BuildDeformInfo( int numVerts, const idDrawVert *verts, int numI
 		tri.dominantTris = NULL;
 	}
 
-	idShadowVertSkinned * shadowVerts = (idShadowVertSkinned *) Mem_Alloc16( ALIGN( deform->numOutputVerts * 2 * sizeof( idShadowVertSkinned ), 16 ), TAG_MODEL );
-	idShadowVertSkinned::CreateShadowCache( shadowVerts, deform->verts, deform->numOutputVerts );
-
 	deform->staticAmbientCache = vertexCache.AllocStaticVertex( deform->verts, ALIGN( deform->numOutputVerts * sizeof( idDrawVert ), VERTEX_CACHE_ALIGN ) );
 	deform->staticIndexCache = vertexCache.AllocStaticIndex( deform->indexes, ALIGN( deform->numIndexes * sizeof( triIndex_t ), INDEX_CACHE_ALIGN ) );
-	deform->staticShadowCache = vertexCache.AllocStaticVertex( shadowVerts, ALIGN( deform->numOutputVerts * 2 * sizeof( idShadowVertSkinned ), VERTEX_CACHE_ALIGN ) );
-
-	Mem_Free( shadowVerts );
 
 	return deform;
 }
@@ -1913,7 +1877,6 @@ void R_InitDrawSurfFromTri( drawSurf_t & ds, srfTriangles_t & tri ) {
 	// deformed surfaces will not have any vertices but the ambient cache will have already
 	// been created for them.
 	if ( ( tri.verts == NULL ) && !tri.referencedIndexes ) {
-		// pre-generated shadow models will not have any verts, just shadowVerts
 		tri.ambientCache = 0;
 	} else if ( !vertexCache.CacheIsCurrent( tri.ambientCache ) ) {
 		tri.ambientCache = vertexCache.AllocVertex( tri.verts, ALIGN( tri.numVerts * sizeof( tri.verts[0] ), VERTEX_CACHE_ALIGN ) );
@@ -1925,7 +1888,6 @@ void R_InitDrawSurfFromTri( drawSurf_t & ds, srfTriangles_t & tri ) {
 	ds.numIndexes = tri.numIndexes;
 	ds.ambientCache = tri.ambientCache;
 	ds.indexCache = tri.indexCache;
-	ds.shadowCache = tri.shadowCache;
 	ds.jointCache = 0;
 }
 
@@ -1933,14 +1895,13 @@ void R_InitDrawSurfFromTri( drawSurf_t & ds, srfTriangles_t & tri ) {
 ===================
 R_CreateStaticBuffersForTri
 
-For static surfaces, the indexes, ambient, and shadow buffers can be pre-created at load
+For static surfaces, the index and ambient buffers can be pre-created at load
 time, rather than being re-created each frame in the frame temporary buffers.
 ===================
 */
 void R_CreateStaticBuffersForTri( srfTriangles_t & tri ) {
 	tri.indexCache = 0;
 	tri.ambientCache = 0;
-	tri.shadowCache = 0;
 
 	// index cache
 	if ( tri.indexes != NULL ) {
@@ -1952,25 +1913,4 @@ void R_CreateStaticBuffersForTri( srfTriangles_t & tri ) {
 		tri.ambientCache = vertexCache.AllocStaticVertex( tri.verts, ALIGN( tri.numVerts * sizeof( tri.verts[0] ), VERTEX_CACHE_ALIGN ) );
 	}
 
-	// shadow cache
-	if ( tri.preLightShadowVertexes != NULL ) {
-		// this should only be true for the _prelight<NAME> pre-calculated shadow volumes
-		assert( tri.verts == NULL );	// pre-light shadow volume surfaces don't have ambient vertices
-		const int shadowSize = ALIGN( tri.numVerts * 2 * sizeof( idShadowVert ), VERTEX_CACHE_ALIGN );
-		tri.shadowCache = vertexCache.AllocStaticVertex( tri.preLightShadowVertexes, shadowSize );
-	} else if ( tri.verts != NULL ) {
-		// the shadowVerts for normal models include all the xyz values duplicated
-		// for a W of 1 (near cap) and a W of 0 (end cap, projected to infinity)
-		const int shadowSize = ALIGN( tri.numVerts * 2 * sizeof( idShadowVert ), VERTEX_CACHE_ALIGN );
-		if ( tri.staticShadowVertexes == NULL ) {
-			tri.staticShadowVertexes = (idShadowVert *) Mem_Alloc16( shadowSize, TAG_TEMP );
-			idShadowVert::CreateShadowCache( tri.staticShadowVertexes, tri.verts, tri.numVerts );
-		}
-		tri.shadowCache = vertexCache.AllocStaticVertex( tri.staticShadowVertexes, shadowSize );
-
-#if !defined( KEEP_INTERACTION_CPU_DATA )
-		Mem_Free( tri.staticShadowVertexes );
-		tri.staticShadowVertexes = NULL;
-#endif
-	}
 }

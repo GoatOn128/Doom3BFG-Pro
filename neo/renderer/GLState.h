@@ -142,7 +142,6 @@ static const uint64 GLS_OVERRIDE						= 1ull << 63;		// override the render prog
 
 static const uint64 GLS_DEFAULT = 0;
 
-#define STENCIL_SHADOW_TEST_VALUE		128
-#define STENCIL_SHADOW_MASK_VALUE		255
+#define STENCIL_BASE_VALUE		128
 
 #endif /* !__GLSTATE_H__ */

@@ -175,10 +175,6 @@ public:
 
 	void	BindShader_Depth() { BindShader_Builtin( BUILTIN_DEPTH ); }
 	void	BindShader_DepthSkinned() { BindShader_Builtin( BUILTIN_DEPTH_SKINNED ); }
-	void	BindShader_Shadow() { BindShader( builtinShaders[BUILTIN_SHADOW], -1 ); }
-	void	BindShader_ShadowSkinned() { BindShader( builtinShaders[BUILTIN_SHADOW_SKINNED], -1 ); }
-	void	BindShader_ShadowDebug() { BindShader_Builtin( BUILTIN_SHADOW_DEBUG ); }
-	void	BindShader_ShadowDebugSkinned() { BindShader_Builtin( BUILTIN_SHADOW_DEBUG_SKINNED ); }
 
 	void	BindShader_BlendLight() { BindShader_Builtin( BUILTIN_BLENDLIGHT ); }
 	void	BindShader_Fog() { BindShader_Builtin( BUILTIN_FOG ); }
@@ -239,11 +235,6 @@ protected:
 
 		BUILTIN_DEPTH,
 		BUILTIN_DEPTH_SKINNED,
-		BUILTIN_SHADOW,
-		BUILTIN_SHADOW_SKINNED,
-		BUILTIN_SHADOW_DEBUG,
-		BUILTIN_SHADOW_DEBUG_SKINNED,
-
 		BUILTIN_BLENDLIGHT,
 		BUILTIN_FOG,
 		BUILTIN_FOG_SKINNED,

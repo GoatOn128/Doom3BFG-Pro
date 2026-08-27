@@ -69,8 +69,7 @@ static void R_PerformanceCounters() {
 	}
 	
 	if ( r_showAddModel.GetBool() ) {
-		common->Printf( "callback:%i createShadowVolumes:%i\n",
-			tr.pc.c_entityDefCallbacks, tr.pc.c_createShadowVolumes );
+		common->Printf( "callback:%i\n", tr.pc.c_entityDefCallbacks );
 		common->Printf( "viewEntities:%i  shadowEntities:%i  viewLights:%i\n", tr.pc.c_visibleViewEntities,
 			tr.pc.c_shadowViewEntities, tr.pc.c_viewLights );
 	}

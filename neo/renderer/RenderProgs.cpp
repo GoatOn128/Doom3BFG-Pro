@@ -97,9 +97,6 @@ void idRenderProgManager::Init() {
 
 		{ BUILTIN_DEPTH, "depth.vfp" },
 		{ BUILTIN_DEPTH_SKINNED, "depth_skinned.vfp" },
-		{ BUILTIN_SHADOW_DEBUG, "shadowDebug.vfp" },
-		{ BUILTIN_SHADOW_DEBUG_SKINNED, "shadowDebug_skinned.vfp" },
-
 		{ BUILTIN_BLENDLIGHT, "blendlight.vfp" },
 		{ BUILTIN_FOG, "fog.vfp" },
 		{ BUILTIN_FOG_SKINNED, "fog_skinned.vfp" },
@@ -128,13 +125,6 @@ void idRenderProgManager::Init() {
 		LoadGLSLProgram( i, i, i );
 	}
 
-	// Special case handling for fastZ shaders
-	builtinShaders[BUILTIN_SHADOW] = FindVertexShader( "shadow.vp" );
-	builtinShaders[BUILTIN_SHADOW_SKINNED] = FindVertexShader( "shadow_skinned.vp" );
-
-	FindGLSLProgram( "shadow.vp", builtinShaders[BUILTIN_SHADOW], -1 );
-	FindGLSLProgram( "shadow_skinned.vp", builtinShaders[BUILTIN_SHADOW_SKINNED], -1 );
-
 	glslUniforms.SetNum( RENDERPARM_USER + MAX_GLSL_USER_PARMS, vec4_zero );
 
 	vertexShaders[builtinShaders[BUILTIN_TEXTURE_VERTEXCOLOR_SKINNED]].usesJoints = true;
@@ -144,8 +134,6 @@ void idRenderProgManager::Init() {
 	vertexShaders[builtinShaders[BUILTIN_ENVIRONMENT_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_BUMPY_ENVIRONMENT_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_DEPTH_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_SHADOW_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_SHADOW_DEBUG_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_FOG_SKINNED]].usesJoints = true;
 
 	cmdSystem->AddCommand( "reloadShaders", R_ReloadShaders, CMD_FL_RENDERER, "reloads shaders" );

@@ -187,7 +187,7 @@ public:
 	// RenderWorld_load.cpp
 
 	idRenderModel *			ParseModel( idLexer *src, const char *mapName, ID_TIME_T mapTimeStamp, idFile *fileOut );
-	idRenderModel *			ParseShadowModel( idLexer *src, idFile *fileOut );
+	void					SkipLegacyShadowModel( idLexer *src );
 	void					SetupAreaRefs();
 	void					ParseInterAreaPortals( idLexer *src, idFile *fileOut );
 	void					ParseNodes( idLexer *src, idFile *fileOut );
@@ -201,7 +201,6 @@ public:
 	void					ReadBinaryAreaPortals( idFile *file );
 	void					ReadBinaryNodes( idFile *file );
 	idRenderModel *			ReadBinaryModel( idFile *file );
-	idRenderModel *			ReadBinaryShadowModel( idFile *file );
 
 	//--------------------------
 	// RenderWorld_portals.cpp
@@ -218,9 +217,6 @@ public:
 	void					BuildConnectedAreas_r( int areaNum );
 	void					BuildConnectedAreas();
 	void					FindViewLightsAndEntities();
-
-	void					FloodLightThroughArea_r( idRenderLightLocal *light, int areaNum, const portalStack_t *ps );
-	void					FlowLightThroughPortals( idRenderLightLocal *light );
 
 	int						NumPortals() const;
 	qhandle_t				FindPortal( const idBounds &b ) const;

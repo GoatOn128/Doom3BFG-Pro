@@ -131,7 +131,6 @@ idRenderLightCommitted::idRenderLightCommitted() {
 	memset( &parms, 0, sizeof( parms ) );
 	memset( lightProject, 0, sizeof( lightProject ) );
 
-	lightHasMoved			= false;
 	world					= NULL;
 	index					= 0;
 	areaNum					= 0;

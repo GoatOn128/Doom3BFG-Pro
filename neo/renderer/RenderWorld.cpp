@@ -502,18 +502,12 @@ void idRenderWorldLocal::CommitLightDef( idRenderLightLocal * light ) {
 			staged.parallel == light->parms.parallel && staged.pointLight == light->parms.pointLight &&
 			staged.right == light->parms.right && staged.start == light->parms.start &&
 			staged.target == light->parms.target && staged.up == light->parms.up &&
-			light->stagedLightShader == light->lightShader && staged.prelightModel == light->parms.prelightModel;
-		if ( !shapeUnchanged ) {
-			light->lightHasMoved = true;
-		}
+			light->stagedLightShader == light->lightShader;
 	}
 
 	light->parms = staged;
 	light->lightShader = light->stagedLightShader;
 	light->falloffImage = light->stagedFalloffImage;
-	if ( light->lightHasMoved ) {
-		light->parms.prelightModel = NULL;
-	}
 	light->needsReferences = !shapeUnchanged;
 	light->needsCommit = false;
 	light->needsPostCommit = true;

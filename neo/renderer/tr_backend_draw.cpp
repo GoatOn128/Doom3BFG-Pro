@@ -1410,7 +1410,7 @@ static void RB_RenderInteractions( const drawSurf_t *surfList, const viewLight_t
 	}
 
 	// perform setup here that will be constant for all interactions
-	GL_State( GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE | GLS_DEPTHMASK | depthFunc | GLS_STENCIL_FUNC_ALWAYS );
+	GL_State( GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE | GLS_DEPTHMASK | depthFunc );
 
 	// some rare lights have multiple animating stages, loop over them outside the surface list
 	const idMaterial * lightShader = vLight->lightShader;
@@ -1431,19 +1431,6 @@ static void RB_RenderInteractions( const drawSurf_t *surfList, const viewLight_t
 	idStaticList< const drawSurf_t *, MAX_INTERACTIONS_PER_LIGHT > allSurfaces;
 	idStaticList< const drawSurf_t *, MAX_COMPLEX_INTERACTIONS_PER_LIGHT > complexSurfaces;
 	for ( const drawSurf_t * walk = surfList; walk != NULL; walk = walk->nextOnLight ) {
-
-		// make sure the optional light-volume triangle culling is done
-		if ( walk->interactionCullState != SHADOWVOLUME_DONE ) {
-			assert( walk->interactionCullState == SHADOWVOLUME_UNFINISHED || walk->interactionCullState == SHADOWVOLUME_DONE );
-
-			uint64 start = Sys_Microseconds();
-			while ( walk->interactionCullState == SHADOWVOLUME_UNFINISHED ) {
-				Sys_Yield();
-			}
-			uint64 end = Sys_Microseconds();
-
-			backEnd.pc.shadowMicroSec += end - start;
-		}
 
 		const idMaterial * surfaceShader = walk->material;
 		if ( surfaceShader->GetFastPathBumpImage() ) {
@@ -1785,10 +1772,8 @@ static void RB_DrawInteractions() {
 			// The depth buffer wasn't filled in for translucent surfaces, so they
 			// can never be constrained to perforated surfaces with the depthfunc equal.
 
-			// Translucent surfaces do not receive shadows. This is a case where a
-			// shadow buffer solution would work but stencil shadows do not because
-			// stencil shadows only affect surfaces that contribute to the view depth
-			// buffer and translucent surfaces do not contribute to the view depth buffer.
+			// Translucent surfaces do not contribute to the view depth buffer and
+			// are shaded separately from the opaque shadow-receiving path.
 
 			RB_RenderInteractions( vLight->translucentInteractions, vLight, GLS_DEPTHFUNC_LESS, false, false );
 
@@ -2589,8 +2574,8 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	GL_State( GLS_DEFAULT );
 
 
-	// Clear the depth buffer and clear the stencil to 128 for stencil shadows as well as gui masking
-	GL_Clear( false, true, true, STENCIL_SHADOW_TEST_VALUE, 0.0f, 0.0f, 0.0f, 0.0f );
+	// SWF masks use 128 as their neutral stencil value.
+	GL_Clear( false, true, true, STENCIL_BASE_VALUE, 0.0f, 0.0f, 0.0f, 0.0f );
 
 	// normal face culling
 	GL_Cull( CT_FRONT_SIDED );
@@ -2945,7 +2930,7 @@ void RB_CopyRender( const void *data ) {
 	}
 
 	if ( cmd->clearColorAfterCopy ) {
-		GL_Clear( true, false, false, STENCIL_SHADOW_TEST_VALUE, 0, 0, 0, 0 );
+		GL_Clear( true, false, false, STENCIL_BASE_VALUE, 0, 0, 0, 0 );
 	}
 }
 

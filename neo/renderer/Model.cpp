@@ -41,8 +41,9 @@ idCVar idRenderModelStatic::r_slopVertex( "r_slopVertex", "0.01", CVAR_RENDERER,
 idCVar idRenderModelStatic::r_slopTexCoord( "r_slopTexCoord", "0.001", CVAR_RENDERER, "merge texture coordinates this far apart" );
 idCVar idRenderModelStatic::r_slopNormal( "r_slopNormal", "0.02", CVAR_RENDERER, "merge normals that dot less than this" );
 
-static const byte BRM_VERSION = 108;
+static const byte BRM_VERSION = 109;
 static const unsigned int BRM_MAGIC = ( 'B' << 24 ) | ( 'R' << 16 ) | ( 'M' << 8 ) | BRM_VERSION;
+static const unsigned int BRM_MAGIC_LEGACY_108 = ( 'B' << 24 ) | ( 'R' << 16 ) | ( 'M' << 8 ) | 108;
 
 /*
 ================
@@ -324,7 +325,8 @@ bool idRenderModelStatic::LoadBinaryModel( idFile * file, const ID_TIME_T source
 
 	unsigned int magic = 0;
 	file->ReadBig( magic );
-	if ( magic != BRM_MAGIC ) {
+	const bool legacy108 = ( magic == BRM_MAGIC_LEGACY_108 );
+	if ( magic != BRM_MAGIC && !legacy108 ) {
 		return false;
 	}
 	
@@ -387,15 +389,15 @@ bool idRenderModelStatic::LoadBinaryModel( idFile * file, const ID_TIME_T source
 				}
 			}
 
-			file->ReadBig( numInFile );
-			if ( numInFile == 0 ) {
-				tri.preLightShadowVertexes = NULL;
-			} else {
-				R_AllocStaticTriSurfPreLightShadowVerts( &tri, numInFile );
+			if ( legacy108 ) {
+				// BRM 108 stored an optional array of extruded prelight vertices
+				// here. Consume it without recreating stencil-shadow geometry.
+				file->ReadBig( numInFile );
+				idVec4 discardedShadowVertex;
 				for ( int j = 0; j < numInFile; j++ ) {
-					file->ReadVec4( tri.preLightShadowVertexes[ j ].xyzw );
+					file->ReadVec4( discardedShadowVertex );
 				}
-			} 
+			}
 
 			file->ReadBig( tri.numIndexes );
 			tri.indexes = NULL;
@@ -451,15 +453,18 @@ bool idRenderModelStatic::LoadBinaryModel( idFile * file, const ID_TIME_T source
 				}
 			}
 
-			file->ReadBig( tri.numShadowIndexesNoFrontCaps );
-			file->ReadBig( tri.numShadowIndexesNoCaps );
-			file->ReadBig( tri.shadowCapPlaneBits );
+			if ( legacy108 ) {
+				// Discard the old no-cap index counts and cap-plane mask.
+				int discardedShadowMetadata;
+				file->ReadBig( discardedShadowMetadata );
+				file->ReadBig( discardedShadowMetadata );
+				file->ReadBig( discardedShadowMetadata );
+			}
 
 			tri.ambientSurface = NULL;
 			tri.nextDeferredFree = NULL;
 			tri.indexCache = 0;
 			tri.ambientCache = 0;
-			tri.shadowCache = 0;
 		}
 	}
 
@@ -525,7 +530,6 @@ void idRenderModelStatic::WriteBinaryModel( idFile * file, ID_TIME_T *_timeStamp
 			file->WriteBig( tri.perfectHull );
 			file->WriteBig( tri.referencedIndexes );
 
-			// shadow models use numVerts but have no verts
 			file->WriteBig( tri.numVerts );
 			if ( tri.verts != NULL ) {
 				file->WriteBig( tri.numVerts );
@@ -542,15 +546,6 @@ void idRenderModelStatic::WriteBinaryModel( idFile * file, ID_TIME_T *_timeStamp
 					file->WriteBigArray( tri.verts[j].color, sizeof( tri.verts[j].color ) / sizeof( tri.verts[j].color[0] ) );
 					file->WriteBigArray( tri.verts[j].color2, sizeof( tri.verts[j].color2 ) / sizeof( tri.verts[j].color2[0] ) );
 				}
-			}
-
-			if ( tri.preLightShadowVertexes != NULL ) {
-				file->WriteBig( tri.numVerts * 2 );
-				for ( int j = 0; j < tri.numVerts * 2; j++ ) {
-					file->WriteVec4( tri.preLightShadowVertexes[ j ].xyzw );
-				}
-			} else {
-				file->WriteBig( ( int ) 0 );
 			}
 
 			file->WriteBig( tri.numIndexes );
@@ -600,9 +595,6 @@ void idRenderModelStatic::WriteBinaryModel( idFile * file, ID_TIME_T *_timeStamp
 				}
 			}
 
-			file->WriteBig( tri.numShadowIndexesNoFrontCaps );
-			file->WriteBig( tri.numShadowIndexesNoCaps );
-			file->WriteBig( tri.shadowCapPlaneBits );
 		}
 	}
 
