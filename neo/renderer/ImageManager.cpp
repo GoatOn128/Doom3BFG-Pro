@@ -715,6 +715,9 @@ void idImageManager::BeginLevelLoad() {
 
 	for ( int i = 0 ; i < images.Num() ; i++ ) {
 		idImage	*image = images[ i ];
+		// A VMTR fallback is map-local. Restore normal image loading before the
+		// next level decides which images are covered by its own page archive.
+		image->ClearVirtualTextureFallback();
 
 		// generator function images are always kept around
 		if ( image->generatorFunction ) {

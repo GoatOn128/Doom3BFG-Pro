@@ -27,10 +27,11 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "../../../idlib/precompiled.h"
 
-#include "tr_local.h"
-#include "Model_local.h"
+#include "../../tr_local.h"
+#include "../../Model_local.h"
+#include "rendergather.h"
 
 idCVar r_skipStaticShadows( "r_skipStaticShadows", "0", CVAR_RENDERER | CVAR_BOOL, "skip static shadows" );
 idCVar r_skipDynamicShadows( "r_skipDynamicShadows", "0", CVAR_RENDERER | CVAR_BOOL, "skip dynamic shadows" );
@@ -103,7 +104,7 @@ only need to do this on entity update, not the full
 R_FreeEntityDefDerivedData
 ==================
 */
-void R_ClearEntityDefDynamicModel( idRenderEntityLocal *def ) {
+void R_ClearEntityDefDynamicModel( idRenderEntityCommitted *def ) {
 	// clear the dynamic model if present
 	if ( def->dynamicModel ) {
 		// this is copied from cachedDynamicModel, so it doesn't need to be freed
@@ -117,7 +118,7 @@ void R_ClearEntityDefDynamicModel( idRenderEntityLocal *def ) {
 R_IssueEntityDefCallback
 ==================
 */
-bool R_IssueEntityDefCallback( idRenderEntityLocal *def ) {
+bool R_IssueEntityDefCallback( idRenderEntityCommitted *def ) {
 	idBounds oldBounds = def->localReferenceBounds;
 
 	def->archived = false;		// will need to be written to the demo file
@@ -159,7 +160,7 @@ If the model isn't dynamic, it returns the original.
 Returns the cached dynamic model if present, otherwise creates it.
 ===================
 */
-idRenderModel *R_EntityDefDynamicModel( idRenderEntityLocal *def ) {
+idRenderModel *R_EntityDefDynamicModel( idRenderEntityCommitted *def ) {
 	if ( def->dynamicModelFrameCount == tr.frameCount ) {
 		return def->dynamicModel;
 	}
@@ -320,7 +321,7 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 	// globals we really should pass in...
 	const viewDef_t * viewDef = tr.viewDef;
 
-	idRenderEntityLocal * entityDef = vEntity->entityDef;
+	idRenderEntityCommitted * entityDef = vEntity->entityDef;
 	const renderEntity_t * renderEntity = &entityDef->parms;
 	const idRenderWorldLocal * world = entityDef->world;
 
@@ -371,7 +372,7 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 				continue;
 			}
 
-			const idRenderLightLocal * lightDef = vLight->lightDef;
+			const idRenderLightCommitted * lightDef = vLight->lightDef;
 
 			if ( !lightDef->globalLightBounds.IntersectsBounds( entityDef->globalReferenceBounds ) ) {
 				continue;
@@ -639,7 +640,7 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 		//----------------------------------------
 		for ( int contactedLight = 0; contactedLight < numContactedLights; contactedLight++ ) {
 			viewLight_t * vLight = contactedLights[contactedLight];
-			const idRenderLightLocal * lightDef = vLight->lightDef;
+			const idRenderLightCommitted * lightDef = vLight->lightDef;
 			// idTech 5 style: evaluate the light/model pair for this view instead of
 			// consulting a persistent light/entity pair cache.
 			if ( R_CullModelBoundsToLight( lightDef, tri->bounds, entityDef->modelRenderMatrix ) ) {

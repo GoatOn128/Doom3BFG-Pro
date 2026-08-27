@@ -51,7 +51,7 @@ typedef struct doublePortal_s {
 	// A portal will be considered closed if it is past the
 	// fog-out point in a fog volume.  We only support a single
 	// fog volume over each portal.
-	idRenderLightLocal *		fogLight;
+	idRenderLightCommitted *		fogLight;
 	struct doublePortal_s *	nextFoggedPortal;
 } doublePortal_t;
 
@@ -122,6 +122,8 @@ public:
 
 	virtual void			SetRenderView( const renderView_t *renderView );
 	virtual	void			RenderScene( const renderView_t *renderView );
+	virtual void			Commit( bool isHeadless = false );
+	virtual idRenderWorldCommitted * GetCommittedWorld() const { return committedWorld; }
 
 	virtual	int				NumAreas() const;
 	virtual int				PointInArea( const idVec3 &point ) const;
@@ -170,8 +172,11 @@ public:
 
 	idList<idRenderModel *, TAG_MODEL>	localModels;
 
-	idList<idRenderEntityLocal*, TAG_ENTITY>	entityDefs;
-	idList<idRenderLightLocal*, TAG_LIGHT>		lightDefs;
+	idList<idRenderEntityCommitted*, TAG_ENTITY>	entityDefs;
+	idList<idRenderLightCommitted*, TAG_LIGHT>		lightDefs;
+	idList<idRenderEntity*, TAG_ENTITY>			entityProducers;
+	idList<idRenderLight*, TAG_LIGHT>			lightProducers;
+	idRenderWorldCommitted *					committedWorld;
 
 	idBlockAlloc<areaReference_t, 1024> areaReferenceAllocator;
 
@@ -205,9 +210,9 @@ public:
 	//--------------------------
 	// RenderWorld_portals.cpp
 
-	bool					CullEntityByPortals( const idRenderEntityLocal *entity, const portalStack_t *ps );
+	bool					CullEntityByPortals( const idRenderEntityCommitted *entity, const portalStack_t *ps );
 	void					AddAreaViewEntities( int areaNum, const portalStack_t *ps );
-	bool					CullLightByPortals( const idRenderLightLocal *light, const portalStack_t *ps );
+	bool					CullLightByPortals( const idRenderLightCommitted *light, const portalStack_t *ps );
 	void					AddAreaViewLights( int areaNum, const portalStack_t *ps );
 	void					AddAreaToView( int areaNum, const portalStack_t *ps );
 	idScreenRect			ScreenRectFromWinding( const idWinding *w, const viewEntity_t *space );
@@ -249,11 +254,9 @@ public:
 	// RenderWorld.cpp
 
 
-	void					AddEntityRefToArea( idRenderEntityLocal *def, portalArea_t *area );
-	void					AddLightRefToArea( idRenderLightLocal *light, portalArea_t *area );
+	void					AddEntityRefToArea( idRenderEntityCommitted *def, portalArea_t *area );
+	void					AddLightRefToArea( idRenderLightCommitted *light, portalArea_t *area );
 	void					CommitRenderEntities();
-	void					CommitLightDef( idRenderLightLocal *light );
-	void					PostCommitLightDef( idRenderLightLocal *light );
 	void					CommitLightDefs();
 
 	void					RecurseProcBSP_r( modelTrace_t *results, int parentNodeNum, int nodeNum, float p1f, float p2f, const idVec3 &p1, const idVec3 &p2 ) const;
@@ -262,8 +265,8 @@ public:
 	float					DrawTextLength( const char *text, float scale, int len = 0 );
 
 
-	void					PushFrustumIntoTree_r( idRenderEntityLocal *def, idRenderLightLocal *light, const frustumCorners_t & corners, int nodeNum );
-	void					PushFrustumIntoTree( idRenderEntityLocal *def, idRenderLightLocal *light, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds );
+	void					PushFrustumIntoTree_r( idRenderEntityCommitted *def, idRenderLightCommitted *light, const frustumCorners_t & corners, int nodeNum );
+	void					PushFrustumIntoTree( idRenderEntityCommitted *def, idRenderLightCommitted *light, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds );
 
 	idRenderModelDecal *	AllocDecal( qhandle_t newEntityHandle, int startTime );
 	idRenderModelOverlay *	AllocOverlay( qhandle_t newEntityHandle, int startTime );

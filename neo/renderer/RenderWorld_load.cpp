@@ -617,8 +617,9 @@ dump all the interactions
 void idRenderWorldLocal::FreeDefs() {
 	// free all lightDefs
 	for ( int i = 0; i < lightDefs.Num(); i++ ) {
-		idRenderLightLocal * light = lightDefs[i];
-		if ( light != NULL && light->world == this ) {
+		idRenderLightCommitted * light = lightDefs[i];
+		idRenderLight * producer = i < lightProducers.Num() ? lightProducers[i] : NULL;
+		if ( ( light != NULL && light->world == this ) || ( producer != NULL && producer->world == this ) ) {
 			FreeLightDef( i );
 			lightDefs[i] = NULL;
 		}
@@ -626,8 +627,9 @@ void idRenderWorldLocal::FreeDefs() {
 
 	// free all entityDefs
 	for ( int i = 0; i < entityDefs.Num(); i++ ) {
-		idRenderEntityLocal	* mod = entityDefs[i];
-		if ( mod != NULL && mod->world == this ) {
+		idRenderEntityCommitted	* mod = entityDefs[i];
+		idRenderEntity * producer = i < entityProducers.Num() ? entityProducers[i] : NULL;
+		if ( ( mod != NULL && mod->world == this ) || ( producer != NULL && producer->world == this ) ) {
 			FreeEntityDef( i );
 			entityDefs[i] = NULL;
 		}
@@ -888,14 +890,23 @@ void idRenderWorldLocal::AddWorldModelEntities() {
 		common->UpdateLevelLoadPacifier();
 
 
-		idRenderEntityLocal	* def = new (TAG_RENDER_ENTITY) idRenderEntityLocal;
+		idRenderEntityCommitted	* def = new (TAG_RENDER_ENTITY) idRenderEntityCommitted;
 
 		// try and reuse a free spot
-		int index = entityDefs.FindNull();
+		int index = -1;
+		for ( int slot = 0; slot < entityDefs.Num(); ++slot ) {
+			if ( entityDefs[slot] == NULL && ( slot >= entityProducers.Num() || entityProducers[slot] == NULL ) ) {
+				index = slot;
+				break;
+			}
+		}
 		if ( index == -1 ) {
 			index = entityDefs.Append(def);
 		} else {
 			entityDefs[index] = def;
+		}
+		while ( entityProducers.Num() <= index ) {
+			entityProducers.Append( NULL );
 		}
 
 		def->index = index;
@@ -934,6 +945,7 @@ void idRenderWorldLocal::AddWorldModelEntities() {
 		R_DeriveEntityData( def );
 
 		AddEntityRefToArea( def, &portalAreas[i] );
+		committedWorld->PublishEntity( index, def, false );
 	}
 }
 

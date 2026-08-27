@@ -27,10 +27,10 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "../../../idlib/precompiled.h"
 
-#include "tr_local.h"
-#include "Model_local.h"
+#include "../../tr_local.h"
+#include "../../Model_local.h"
 
 /*
 ==========================================================================================
@@ -307,7 +307,7 @@ static void R_RemoteRender( const drawSurf_t *surf, textureStage_t *stage ) {
 	parms->subviewSurface = surf;
 
 	// generate render commands for it
-	R_RenderView( parms );
+	render.RenderSingleView( static_cast< idRenderWorldLocal * >( parms->renderWorld )->GetCommittedWorld(), parms );
 
 	// copy this rendering to the image
 	stage->dynamicFrameCount = tr.frameCount;
@@ -352,7 +352,7 @@ void R_MirrorRender( const drawSurf_t *surf, textureStage_t *stage, idScreenRect
 	parms->isMirror = ( ( (int)parms->isMirror ^ (int)tr.viewDef->isMirror ) != 0 );
 
 	// generate render commands for it
-	R_RenderView( parms );
+	render.RenderSingleView( static_cast< idRenderWorldLocal * >( parms->renderWorld )->GetCommittedWorld(), parms );
 
 	// copy this rendering to the image
 	stage->dynamicFrameCount = tr.frameCount;
@@ -398,7 +398,7 @@ void R_XrayRender( const drawSurf_t *surf, textureStage_t *stage, idScreenRect s
 	parms->isMirror = ( ( (int)parms->isMirror ^ (int)tr.viewDef->isMirror ) != 0 );
 
 	// generate render commands for it
-	R_RenderView( parms );
+	render.RenderSingleView( static_cast< idRenderWorldLocal * >( parms->renderWorld )->GetCommittedWorld(), parms );
 
 	// copy this rendering to the image
 	stage->dynamicFrameCount = tr.frameCount;
@@ -492,7 +492,7 @@ bool R_GenerateSurfaceSubview( const drawSurf_t *drawSurf ) {
 	parms->isMirror = ( ( (int)parms->isMirror ^ (int)tr.viewDef->isMirror ) != 0 );
 
 	// generate render commands for it
-	R_RenderView( parms );
+	render.RenderSingleView( static_cast< idRenderWorldLocal * >( parms->renderWorld )->GetCommittedWorld(), parms );
 
 	return true;
 }

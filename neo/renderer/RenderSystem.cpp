@@ -34,6 +34,17 @@ If you have questions concerning this license or the applicable additional terms
 idRenderSystemLocal	tr;
 idRenderSystem * renderSystem = &tr;
 
+void idRenderSystemLocal::RenderScene( idRenderWorldLocal * world, const renderView_t * renderView ) {
+	if ( world == NULL || renderView == NULL ) {
+		return;
+	}
+
+	// This is the producer-to-renderer latch. Game-side entities and lights are
+	// flushed into their committed counterparts before renderer jobs can see them.
+	world->Commit();
+	render.RenderScene( world, world->GetCommittedWorld(), renderView );
+}
+
 /*
 =====================
 R_PerformanceCounters

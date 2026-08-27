@@ -27,10 +27,10 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "../../../idlib/precompiled.h"
 
-#include "tr_local.h"
-#include "Model_local.h"
+#include "../../tr_local.h"
+#include "../../Model_local.h"
 
 /*
 ==========================================================================================

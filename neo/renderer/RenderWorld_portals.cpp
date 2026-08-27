@@ -61,7 +61,7 @@ If the lightDef is not already on the viewLight list, create
 a viewLight and add it to the list with an empty scissor rect.
 =============
 */
-viewLight_t *R_SetLightDefViewLight( idRenderLightLocal *light ) {
+viewLight_t *R_SetLightDefViewLight( idRenderLightCommitted *light ) {
 	if ( light->viewCount == tr.viewCount ) {
 		// already set up for this frame
 		return light->viewLight;
@@ -93,7 +93,7 @@ If the entityDef is not already on the viewEntity list, create
 a viewEntity and add it to the list with an empty scissor rect.
 =============
 */
-viewEntity_t *R_SetEntityDefViewEntity( idRenderEntityLocal *def ) {
+viewEntity_t *R_SetEntityDefViewEntity( idRenderEntityCommitted *def ) {
 	if ( def->viewCount == tr.viewCount ) {
 		// already set up for this frame
 		return def->viewEntity;
@@ -122,7 +122,7 @@ CullEntityByPortals
 Return true if the entity reference bounds do not intersect the current portal chain.
 ================
 */
-bool idRenderWorldLocal::CullEntityByPortals( const idRenderEntityLocal *entity, const portalStack_t *ps ) {
+bool idRenderWorldLocal::CullEntityByPortals( const idRenderEntityCommitted *entity, const portalStack_t *ps ) {
 	if ( r_useEntityPortalCulling.GetInteger() == 1 ) {
 
 		ALIGNTYPE16 frustumCorners_t corners;
@@ -202,7 +202,7 @@ void idRenderWorldLocal::AddAreaViewEntities( int areaNum, const portalStack_t *
 	portalArea_t * area = &portalAreas[ areaNum ];
 
 	for ( areaReference_t * ref = area->entityRefs.areaNext; ref != &area->entityRefs; ref = ref->areaNext ) {
-		idRenderEntityLocal	* entity = ref->entity;
+		idRenderEntityCommitted	* entity = ref->entity;
 
 		// debug tool to allow viewing of only one entity at a time
 		if ( r_singleEntity.GetInteger() >= 0 && r_singleEntity.GetInteger() != entity->index ) {
@@ -245,7 +245,7 @@ CullLightByPortals
 Return true if the light frustum does not intersect the current portal chain.
 ================
 */
-bool idRenderWorldLocal::CullLightByPortals( const idRenderLightLocal *light, const portalStack_t *ps ) {
+bool idRenderWorldLocal::CullLightByPortals( const idRenderLightCommitted *light, const portalStack_t *ps ) {
 	if ( r_useLightPortalCulling.GetInteger() == 1 ) {
 
 		ALIGNTYPE16 frustumCorners_t corners;
@@ -322,7 +322,7 @@ void idRenderWorldLocal::AddAreaViewLights( int areaNum, const portalStack_t *ps
 	portalArea_t * area = &portalAreas[ areaNum ];
 
 	for ( areaReference_t * lref = area->lightRefs.areaNext; lref != &area->lightRefs; lref = lref->areaNext ) {
-		idRenderLightLocal * light = lref->light;
+		idRenderLightCommitted * light = lref->light;
 
 		// debug tool to allow viewing of only one light at a time
 		if ( r_singleLight.GetInteger() >= 0 && r_singleLight.GetInteger() != light->index ) {
@@ -401,7 +401,7 @@ idRenderWorldLocal::PortalIsFoggedOut
 ===================
 */
 bool idRenderWorldLocal::PortalIsFoggedOut( const portal_t *p ) {
-	idRenderLightLocal * ldef = p->doublePortal->fogLight;
+	idRenderLightCommitted * ldef = p->doublePortal->fogLight;
 	if ( ldef == NULL ) {
 		return false;
 	}

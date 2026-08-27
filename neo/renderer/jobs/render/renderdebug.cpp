@@ -27,10 +27,10 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "../../../idlib/precompiled.h"
 
-#include "tr_local.h"
-#include "simplex.h"	// line font definition
+#include "../../tr_local.h"
+#include "../../simplex.h"	// line font definition
 
 idCVar r_showCenterOfProjection( "r_showCenterOfProjection", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a cross to show the center of projection" );
 idCVar r_showLines( "r_showLines", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = draw alternate horizontal lines, 2 = draw alternate vertical lines" );
@@ -795,7 +795,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 
 		qglLoadMatrixf( vModel->modelViewMatrix );
 
-		const idRenderEntityLocal * edef = vModel->entityDef;
+		const idRenderEntityCommitted * edef = vModel->entityDef;
 		if ( !edef ) {
 			continue;
 		}

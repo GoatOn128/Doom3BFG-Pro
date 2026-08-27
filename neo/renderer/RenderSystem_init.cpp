@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "jobs/render/renderpasses.h"
 #include "virtualtexture.h"
 
 // Vista OpenGL wrapper check

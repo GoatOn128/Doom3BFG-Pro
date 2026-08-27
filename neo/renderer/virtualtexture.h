@@ -305,9 +305,14 @@ public:
 	int			runtimeDebugMode;
 	idVirtualTexturePageWorker * runtimePageWorker;
 	idVirtualTextureArchiveWorker * archiveWorker;
+	idList< idImage * > pendingFallbackImages;
+	idList< idImage * > demotedFallbackImages;
+	int64			runtimeSourceBytesReleased;
 
 private:
 	void			PollArchiveBuild();
+	void			QueueVirtualTextureFallbackImages();
+	void			ProcessVirtualTextureFallbackImages();
 	bool			BuildLeafPageIndex();
 	bool			MakePageResident( int pageX, int pageY );
 	void			QueueFeedbackPixels( const byte * pixels );

@@ -291,7 +291,7 @@ void	idRenderWorldLocal::WriteVisibleDefs( const viewDef_t *viewDef ) {
 
 	// make sure all necessary entities and lights are updated
 	for ( viewEntity_t *viewEnt = viewDef->viewEntitys ; viewEnt ; viewEnt = viewEnt->next ) {
-		idRenderEntityLocal *ent = viewEnt->entityDef;
+		idRenderEntityCommitted *ent = viewEnt->entityDef;
 
 		if ( ent->archived ) {
 			// still up to date
@@ -304,7 +304,7 @@ void	idRenderWorldLocal::WriteVisibleDefs( const viewDef_t *viewDef ) {
 	}
 
 	for ( viewLight_t *viewLight = viewDef->viewLights ; viewLight ; viewLight = viewLight->next ) {
-		idRenderLightLocal *light = viewLight->lightDef;
+		idRenderLightCommitted *light = viewLight->lightDef;
 
 		if ( light->archived ) {
 			// still up to date

@@ -44,7 +44,7 @@ ENTITY DEFS
 R_DeriveEntityData
 =================
 */
-void R_DeriveEntityData( idRenderEntityLocal * entity ) {
+void R_DeriveEntityData( idRenderEntityCommitted * entity ) {
 	R_AxisToModelMatrix( entity->parms.axis, entity->parms.origin, entity->modelMatrix );
 
 	idRenderMatrix::CreateFromOriginAxis( entity->parms.origin, entity->parms.axis, entity->modelRenderMatrix );
@@ -64,7 +64,7 @@ Used by both FreeEntityDef and UpdateEntityDef
 Does not actually free the entityDef.
 ===================
 */
-void R_FreeEntityDefDerivedData( idRenderEntityLocal *def, bool keepDecals, bool keepCachedDynamicModel ) {
+void R_FreeEntityDefDerivedData( idRenderEntityCommitted *def, bool keepDecals, bool keepCachedDynamicModel ) {
 	// demo playback needs to free the joints, while normal play
 	// leaves them in the control of the game
 	if ( common->ReadDemo() ) {
@@ -121,7 +121,7 @@ void R_FreeEntityDefDerivedData( idRenderEntityLocal *def, bool keepDecals, bool
 R_FreeEntityDefDecals
 ===================
 */
-void R_FreeEntityDefDecals( idRenderEntityLocal *def ) {
+void R_FreeEntityDefDecals( idRenderEntityCommitted *def ) {
 	def->decals = NULL;
 }
 
@@ -130,7 +130,7 @@ void R_FreeEntityDefDecals( idRenderEntityLocal *def ) {
 R_FreeEntityDefFadedDecals
 ===================
 */
-void R_FreeEntityDefFadedDecals( idRenderEntityLocal *def, int time ) {
+void R_FreeEntityDefFadedDecals( idRenderEntityCommitted *def, int time ) {
 	if ( def->decals != NULL ) {
 		def->decals->RemoveFadedDecals( time );
 	}
@@ -141,7 +141,7 @@ void R_FreeEntityDefFadedDecals( idRenderEntityLocal *def, int time ) {
 R_FreeEntityDefOverlay
 ===================
 */
-void R_FreeEntityDefOverlay( idRenderEntityLocal *def ) {
+void R_FreeEntityDefOverlay( idRenderEntityCommitted *def ) {
 	def->overlays = NULL;
 }
 
@@ -155,7 +155,7 @@ chaining them to both the area and the entityDef.
 Bumps tr.viewCount, which means viewCount can change many times each frame.
 ===============
 */
-void R_CreateEntityRefs( idRenderEntityLocal *entity ) {
+void R_CreateEntityRefs( idRenderEntityCommitted *entity ) {
 	if ( entity->parms.hModel == NULL ) {
 		entity->parms.hModel = renderModelManager->DefaultModel();
 	}
@@ -206,7 +206,7 @@ R_ComputePointLightProjectionMatrix
 Computes the light projection matrix for a point light.
 ========================
 */
-static float R_ComputePointLightProjectionMatrix( idRenderLightLocal * light, idRenderMatrix & localProject ) {
+static float R_ComputePointLightProjectionMatrix( idRenderLightCommitted * light, idRenderMatrix & localProject ) {
 	assert( light->parms.pointLight );
 
 	// A point light uses a box projection.
@@ -233,7 +233,7 @@ R_ComputeSpotLightProjectionMatrix
 Computes the light projection matrix for a spot light.
 ========================
 */
-static float R_ComputeSpotLightProjectionMatrix( idRenderLightLocal * light, idRenderMatrix & localProject ) {
+static float R_ComputeSpotLightProjectionMatrix( idRenderLightCommitted * light, idRenderMatrix & localProject ) {
 	const float targetDistSqr = light->parms.target.LengthSqr();
 	const float invTargetDist = idMath::InvSqrt( targetDistSqr );
 	const float targetDist = invTargetDist * targetDistSqr;
@@ -295,7 +295,7 @@ R_ComputeParallelLightProjectionMatrix
 Computes the light projection matrix for a parallel light.
 ========================
 */
-static float R_ComputeParallelLightProjectionMatrix( idRenderLightLocal * light, idRenderMatrix & localProject ) {
+static float R_ComputeParallelLightProjectionMatrix( idRenderLightCommitted * light, idRenderMatrix & localProject ) {
 	assert( light->parms.parallel );
 
 	// A parallel light uses a box projection.
@@ -337,7 +337,7 @@ void R_ResolveLightResources( const renderLight_t & parms, const idMaterial *& l
 	}
 }
 
-static void R_DeriveLightData( idRenderLightLocal * light ) {
+static void R_DeriveLightData( idRenderLightCommitted * light ) {
 	// Shader and image resources were resolved by UpdateLightDef. From this
 	// point onward derivation is renderer-only and must not load declarations.
 	assert( light->lightShader != NULL );
@@ -429,7 +429,7 @@ R_FreeLightDefDerivedData
 Frees all references and lit surfaces from the light
 ====================
 */
-void R_FreeLightDefDerivedData( idRenderLightLocal *ldef ) {
+void R_FreeLightDefDerivedData( idRenderLightCommitted *ldef ) {
 	// remove any portal fog references
 	for ( doublePortal_t *dp = ldef->foggedPortals; dp != NULL; dp = dp->nextFoggedPortal ) {
 		dp->fogLight = NULL;
@@ -455,7 +455,7 @@ void R_FreeLightDefDerivedData( idRenderLightLocal *ldef ) {
 WindingCompletelyInsideLight
 ===============
 */
-static bool WindingCompletelyInsideLight( const idWinding *w, const idRenderLightLocal *ldef ) {
+static bool WindingCompletelyInsideLight( const idWinding *w, const idRenderLightCommitted *ldef ) {
 	for ( int i = 0; i < w->GetNumPoints(); i++ ) {
 		if ( idRenderMatrix::CullPointToMVP( ldef->baseLightProject, (*w)[i].ToVec3(), true ) ) {
 			return false;
@@ -472,7 +472,7 @@ When a fog light is created or moved, see if it completely
 encloses any portals, which may allow them to be fogged closed.
 ======================
 */
-static void R_CreateLightDefFogPortals( idRenderLightLocal *ldef ) {
+static void R_CreateLightDefFogPortals( idRenderLightCommitted *ldef ) {
 	ldef->foggedPortals = NULL;
 
 	if ( !ldef->lightShader->IsFogLight() ) {
@@ -512,7 +512,7 @@ static void R_CreateLightDefFogPortals( idRenderLightLocal *ldef ) {
 R_CreateLightRefs
 =================
 */
-void R_CreateLightRefs( idRenderLightLocal * light ) {
+void R_CreateLightRefs( idRenderLightCommitted * light ) {
 	// derive light data
 	R_DeriveLightData( light );
 
@@ -556,7 +556,7 @@ void R_FreeDerivedData() {
 		idRenderWorldLocal * rw = tr.worlds[j];
 
 		for ( int i = 0; i < rw->entityDefs.Num(); i++ ) {
-			idRenderEntityLocal * def = rw->entityDefs[i];
+			idRenderEntityCommitted * def = rw->entityDefs[i];
 			if ( def == NULL ) {
 				continue;
 			}
@@ -564,7 +564,7 @@ void R_FreeDerivedData() {
 		}
 
 		for ( int i = 0; i < rw->lightDefs.Num(); i++ ) {
-			idRenderLightLocal * light = rw->lightDefs[i];
+			idRenderLightCommitted * light = rw->lightDefs[i];
 			if ( light == NULL ) {
 				continue;
 			}
@@ -583,7 +583,7 @@ void R_CheckForEntityDefsUsingModel( idRenderModel *model ) {
 		idRenderWorldLocal * rw = tr.worlds[j];
 
 		for ( int i = 0; i < rw->entityDefs.Num(); i++ ) {
-			idRenderEntityLocal	* def = rw->entityDefs[i];
+			idRenderEntityCommitted	* def = rw->entityDefs[i];
 			if ( !def ) {
 				continue;
 			}
@@ -612,7 +612,7 @@ void R_ReCreateWorldReferences() {
 		idRenderWorldLocal * rw = tr.worlds[j];
 
 		for ( int i = 0; i < rw->entityDefs.Num(); i++ ) {
-			idRenderEntityLocal * def = rw->entityDefs[i];
+			idRenderEntityCommitted * def = rw->entityDefs[i];
 			if ( def == NULL ) {
 				continue;
 			}
@@ -626,7 +626,7 @@ void R_ReCreateWorldReferences() {
 		}
 
 		for ( int i = 0; i < rw->lightDefs.Num(); i++ ) {
-			idRenderLightLocal * light = rw->lightDefs[i];
+			idRenderLightCommitted * light = rw->lightDefs[i];
 			if ( light == NULL ) {
 				continue;
 			}
@@ -665,17 +665,20 @@ void R_ModulateLights_f( const idCmdArgs &args ) {
 
 	int count = 0;
 	for ( int i = 0; i < tr.primaryWorld->lightDefs.Num(); i++ ) {
-		idRenderLightLocal * light = tr.primaryWorld->lightDefs[i];
+		idRenderLightCommitted * light = tr.primaryWorld->lightDefs[i];
 		if ( light != NULL ) {
 			count++;
-			renderLight_t * producer = light->owner != NULL
-				? static_cast< renderLight_t * >( light->owner )
-				: &light->gameParms;
+			idRenderLight * renderLight = i < tr.primaryWorld->lightProducers.Num()
+				? tr.primaryWorld->lightProducers[i]
+				: NULL;
+			renderLight_t * producer = renderLight != NULL
+				? static_cast< renderLight_t * >( renderLight )
+				: &light->parms;
 			for ( int j = 0; j < 3; j++ ) {
 				producer->shaderParms[j] *= modulate[j];
 			}
-			if ( light->owner != NULL ) {
-				light->owner->CommitThisFrame();
+			if ( renderLight != NULL ) {
+				renderLight->CommitThisFrame();
 			} else {
 				tr.primaryWorld->UpdateLightDef( i, producer );
 			}

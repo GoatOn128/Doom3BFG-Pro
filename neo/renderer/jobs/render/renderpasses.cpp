@@ -27,10 +27,11 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "../../../idlib/precompiled.h"
 
-#include "tr_local.h"
-#include "virtualtexture.h"
+#include "../../tr_local.h"
+#include "renderpasses.h"
+#include "../../virtualtexture.h"
 
 idCVar r_drawEyeColor( "r_drawEyeColor", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a colored box, red = left eye, blue = right eye, grey = non-stereo" );
 idCVar r_motionBlur( "r_motionBlur", "0", CVAR_RENDERER | CVAR_INTEGER | CVAR_ARCHIVE, "1 - 5, log2 of the number of motion blur samples" );
@@ -2276,11 +2277,9 @@ static void RB_DrawVirtualTextureFeedback( drawSurf_t ** drawSurfs, int numDrawS
 	}
 	const uint64 previousState = GL_GetCurrentState();
 	const int previousCullType = backEnd.glState.faceCulling;
-	// The feedback target receives a downscaled copy of the scene depth. This
-	// keeps walls and glass-separated rooms from flooding residency with hidden
-	// pages. Fall back to conservative coverage if the depth blit is unavailable.
-	GL_State( virtualTextureSystem.FeedbackUsesSceneDepth()
-		? GLS_DEPTHFUNC_LESS | GLS_DEPTHMASK : GLS_DEPTHFUNC_ALWAYS, true );
+	// Build visibility directly in the low-resolution feedback target. Depth
+	// writes are enabled so only the closest opaque VMTR surface owns each pixel.
+	GL_State( GLS_DEPTHFUNC_LESS, true );
 	GL_Cull( CT_TWO_SIDED );
 	backEnd.currentSpace = NULL;
 	int feedbackDraws = 0;

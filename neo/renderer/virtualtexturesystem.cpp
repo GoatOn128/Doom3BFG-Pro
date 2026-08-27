@@ -52,6 +52,16 @@ bool MaterialIsEligibleForVT( const idMaterial * material ) {
 		material->GetSort() < SS_POST_PROCESS;
 }
 
+void AppendUniqueImage( idList< idImage * > & images, const idImage * image ) {
+	if ( image == NULL ) {
+		return;
+	}
+	idImage * mutableImage = const_cast< idImage * >( image );
+	if ( images.FindIndex( mutableImage ) < 0 ) {
+		images.Append( mutableImage );
+	}
+}
+
 }
 
 struct vtRuntimePageJob_t {
@@ -303,6 +313,15 @@ public:
 		pagesPath = pages;
 		metadataPath = metadata;
 		sources = sourceList;
+		// The encoder runs after EndLevelLoad returns.  The source pointers came
+		// from material declarations and are not an ownership boundary; keeping
+		// them directly lets the debug heap poison the names before the worker
+		// writes the .vmtr file.  Own a stable copy for the complete archive job.
+		materialNames.SetNum( sourceList.Num() );
+		for ( int i = 0; i < sourceList.Num(); ++i ) {
+			materialNames[i] = sourceList[i].materialName;
+			sources[i].materialName = materialNames[i].c_str();
+		}
 		materialCount = sources.Num();
 		if ( !StartThread( "VirtualTextureArchive", CORE_ANY,
 				THREAD_BELOW_NORMAL, 1024 * 1024 ) ) {
@@ -317,6 +336,7 @@ public:
 		// Image pointers are only needed while encoding; release the list before
 		// the completed worker waits to be collected by the render thread.
 		sources.Clear();
+		materialNames.Clear();
 		return 0;
 	}
 
@@ -329,6 +349,7 @@ public:
 
 private:
 	idList< vtHDPPageSource_t > sources;
+	idList< idStr > materialNames;
 };
 
 idVirtualTextureSystem::idVirtualTextureSystem()
@@ -339,7 +360,7 @@ idVirtualTextureSystem::idVirtualTextureSystem()
 	  runtimeRequests( 0 ), runtimeUploads( 0 ), runtimeEvictions( 0 ),
 	  runtimeFeedbackAnalyses( 0 ), runtimeFeedbackPages( 0 ),
 	  runtimeFeedbackPending( false ), runtimeDebugMode( 0 ),
-	  runtimePageWorker( NULL ), archiveWorker( NULL ) {
+	  runtimePageWorker( NULL ), archiveWorker( NULL ), runtimeSourceBytesReleased( 0 ) {
 	feedbackPBOIssued[0] = feedbackPBOIssued[1] = false;
 	memset( feedbackPreviousViewport, 0, sizeof( feedbackPreviousViewport ) );
 	memset( feedbackPreviousScissor, 0, sizeof( feedbackPreviousScissor ) );
@@ -413,10 +434,88 @@ void idVirtualTextureSystem::SetContainerPath( const char * path ) {
 }
 
 void idVirtualTextureSystem::SetMapName( const char * name ) {
-	currentMapName = name != NULL ? name : "";
-	currentMapName.BackSlashesToSlashes();
-	currentMapName.StripPath();
-	currentMapName.StripFileExtension();
+	idStrStatic< 128 > newMapName = name != NULL ? name : "";
+	newMapName.BackSlashesToSlashes();
+	newMapName.StripPath();
+	newMapName.StripFileExtension();
+	if ( currentMapName.Icmp( newMapName ) != 0 ) {
+		pendingFallbackImages.Clear();
+		demotedFallbackImages.Clear();
+		runtimeSourceBytesReleased = 0;
+	}
+	currentMapName = newMapName;
+}
+
+void idVirtualTextureSystem::QueueVirtualTextureFallbackImages() {
+	pendingFallbackImages.Clear();
+	idList< idImage * > candidates;
+	idList< idImage * > protectedImages;
+	const int materialCount = declManager->GetNumDecls( DECL_MATERIAL );
+	for ( int materialIndex = 0; materialIndex < materialCount; ++materialIndex ) {
+		const idMaterial * material = static_cast< const idMaterial * >(
+			declManager->DeclByIndex( DECL_MATERIAL, materialIndex, false ) );
+		if ( material == NULL || material->GetState() != DS_PARSED || !material->EverReferenced() ) {
+			continue;
+		}
+		const bool mapped = MaterialIsEligibleForVT( material ) &&
+			VirtualMaterialForMaterial( material ) != NULL;
+		for ( int stageIndex = 0; stageIndex < material->GetNumStages(); ++stageIndex ) {
+			const shaderStage_t * stage = material->GetStage( stageIndex );
+			if ( stage == NULL || stage->texture.image == NULL ) {
+				continue;
+			}
+			const bool interactionStage = stage->lighting == SL_BUMP ||
+				stage->lighting == SL_DIFFUSE || stage->lighting == SL_SPECULAR;
+			AppendUniqueImage( mapped && interactionStage ? candidates : protectedImages,
+				stage->texture.image );
+		}
+	}
+
+	for ( int i = 0; i < candidates.Num(); ++i ) {
+		idImage * image = candidates[i];
+		if ( protectedImages.FindIndex( image ) < 0 && image->CanUseVirtualTextureFallback() ) {
+			pendingFallbackImages.Append( image );
+		}
+	}
+	if ( pendingFallbackImages.Num() > 0 ) {
+		idLib::Printf( "VT runtime: queued %i source images for lowest-mip fallback\n",
+			pendingFallbackImages.Num() );
+	}
+}
+
+void idVirtualTextureSystem::ProcessVirtualTextureFallbackImages() {
+	if ( !runtimeReady || !r_virtualTexture.GetBool() ) {
+		return;
+	}
+	static const int DEMOTIONS_PER_FRAME = 16;
+	int demotedThisFrame = 0;
+	while ( pendingFallbackImages.Num() > 0 && demotedThisFrame < DEMOTIONS_PER_FRAME ) {
+		const int index = pendingFallbackImages.Num() - 1;
+		idImage * image = pendingFallbackImages[index];
+		pendingFallbackImages.RemoveIndexFast( index );
+		if ( image == NULL || !image->CanUseVirtualTextureFallback() ) {
+			continue;
+		}
+		const int originalWidth = image->GetUploadWidth();
+		const int originalHeight = image->GetUploadHeight();
+		const int originalBytes = image->IsLoaded() ? image->StorageSize() : 0;
+		image->DemoteToVirtualTextureFallback();
+		if ( image->IsVirtualTextureFallback() ) {
+			const int fallbackBytes = image->IsLoaded() ? image->StorageSize() : 0;
+			runtimeSourceBytesReleased += Max( 0, originalBytes - fallbackBytes );
+			demotedFallbackImages.Append( image );
+			++demotedThisFrame;
+			if ( demotedFallbackImages.Num() == 1 ) {
+				idLib::Printf( "VT runtime: source-image eviction active; '%s' reduced %ix%i -> %ix%i\n",
+					image->GetName(), originalWidth, originalHeight,
+					image->GetUploadWidth(), image->GetUploadHeight() );
+			}
+		}
+	}
+	if ( pendingFallbackImages.Num() == 0 && demotedThisFrame > 0 ) {
+		idLib::Printf( "VT runtime: %i source images lowest-mip-only, %.1f MiB released\n",
+			demotedFallbackImages.Num(), runtimeSourceBytesReleased / ( 1024.0f * 1024.0f ) );
+	}
 }
 
 void idVirtualTextureSystem::PollArchiveBuild() {
@@ -458,6 +557,7 @@ void idVirtualTextureSystem::PollArchiveBuild() {
 	}
 	idLib::Printf( "VMTR background builder: attached %i materials, %i HDP pages, %lld bytes\n",
 		materialCount, validation.hdpPages, validation.fileBytes );
+	QueueVirtualTextureFallbackImages();
 }
 
 bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
@@ -494,6 +594,7 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 				vts[PAGESOURCE_VMTR].vmtrData != NULL &&
 				vts[PAGESOURCE_VMTR].vmtrData->vmtrs.Num() > 0 ) {
 			idLib::Printf( "VMTR cache: using existing per-map archive '%s'\n", pagesPath.c_str() );
+			QueueVirtualTextureFallbackImages();
 			return true;
 		}
 		vts[PAGESOURCE_VMTR].ReleaseSource();
@@ -778,6 +879,7 @@ bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
 void idVirtualTextureSystem::UpdateRuntime() {
 	PollArchiveBuild();
 	if ( !runtimeReady || runtimePageWorker == NULL ) { return; }
+	ProcessVirtualTextureFallbackImages();
 	if ( runtimeDebugMode != vt_showFeedback.GetInteger() ) {
 		// Debug markings are applied during page transcode/upload, matching the
 		// Tech 5 page visualization. Recreate residency when the mode changes so
@@ -925,23 +1027,23 @@ bool idVirtualTextureSystem::BeginFeedbackPass() {
 	qglGetIntegerv( GL_SCISSOR_BOX, feedbackPreviousScissor );
 	feedbackPreviousScissorEnabled = qglIsEnabled( GL_SCISSOR_TEST ) != 0;
 	feedbackUsesSceneDepth = false;
-	if ( qglBlitFramebuffer != NULL ) {
-		qglBindFramebuffer( GL_READ_FRAMEBUFFER, feedbackPreviousFBO );
-		qglBindFramebuffer( GL_DRAW_FRAMEBUFFER, feedbackDestination->FBOhandle );
-		qglBlitFramebuffer( feedbackPreviousViewport[0], feedbackPreviousViewport[1],
-			feedbackPreviousViewport[0] + feedbackPreviousViewport[2],
-			feedbackPreviousViewport[1] + feedbackPreviousViewport[3],
-			0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT,
-			GL_DEPTH_BUFFER_BIT, GL_NEAREST );
-		feedbackUsesSceneDepth = qglGetError() == GL_NO_ERROR;
-	}
 	qglBindFramebuffer( GL_FRAMEBUFFER, feedbackDestination->FBOhandle );
 	qglDrawBuffer( GL_COLOR_ATTACHMENT0 );
 	qglReadBuffer( GL_COLOR_ATTACHMENT0 );
 	GL_Viewport( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	GL_Scissor( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	qglEnable( GL_SCISSOR_TEST );
-	GL_Clear( true, !feedbackUsesSceneDepth, false, 0, 0.0f, 0.0f, 0.0f, 0.0f );
+	// Rasterize visibility at feedback resolution.  Blitting the full-resolution
+	// scene depth and then testing newly rasterized low-resolution fragments
+	// against those nearest-sampled values rejects the entire pass on common
+	// view sizes.  A local depth prepass gives stable closest-surface IDs and
+	// keeps the feedback target completely independent of the scene FBO.
+	// glClear obeys both write masks; post-process passes commonly leave depth
+	// writes disabled, so make the auxiliary target writable before clearing.
+	// RB_DrawVirtualTextureFeedback force-restores the cached scene state.
+	qglColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
+	qglDepthMask( GL_TRUE );
+	GL_Clear( true, true, false, 0, 0.0f, 0.0f, 0.0f, 0.0f );
 	return true;
 }
 
@@ -1070,6 +1172,9 @@ void idVirtualTextureSystem::PrintRuntimeStats() const {
 	idLib::Printf( "VT runtime: %s, frame %i, requests %i, uploads %i, evictions %i, feedback %i analyses / %i nodes\n",
 		runtimeReady ? "active" : "inactive", runtimeFrame, runtimeRequests,
 		runtimeUploads, runtimeEvictions, runtimeFeedbackAnalyses, runtimeFeedbackPages );
+	idLib::Printf( "VT source images: %i lowest-mip-only, %i pending, %.1f MiB released\n",
+		demotedFallbackImages.Num(), pendingFallbackImages.Num(),
+		runtimeSourceBytesReleased / ( 1024.0f * 1024.0f ) );
 }
 
 idFile * idVirtualTextureSystem::OpenCachedPagesFile( const char * path ) {

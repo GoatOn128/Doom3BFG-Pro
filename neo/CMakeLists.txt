@@ -159,6 +159,7 @@ file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageminlod/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pagesort/*.cpp"

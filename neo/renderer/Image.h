@@ -152,6 +152,13 @@ public:
 	void		SetTexParameters();	// update aniso and trilinear
 
 	bool		IsLoaded() const { return texnum != TEXTURE_NOT_LOADED; }
+	bool		CanUseVirtualTextureFallback() const {
+		return generatorFunction == NULL && cubeFiles == CF_2D &&
+			!referencedOutsideLevelLoad && imgName[0] != '_';
+	}
+	bool		IsVirtualTextureFallback() const { return virtualTextureFallback; }
+	void		DemoteToVirtualTextureFallback();
+	void		ClearVirtualTextureFallback() { virtualTextureFallback = false; }
 	// Reload the top mip from BFG's generated image container and convert it
 	// back to RGBA. Used by the runtime VMTR cache writer after source TGAs
 	// have been stripped from a production install.
@@ -179,6 +186,7 @@ private:
 	bool				referencedOutsideLevelLoad;
 	bool				levelLoadReferenced;	// for determining if it needs to be purged
 	bool				defaulted;				// true if the default image was generated because a file couldn't be loaded
+	bool				virtualTextureFallback;		// only the smallest generated mip is resident; VT supplies detail
 	ID_TIME_T			sourceFileTime;			// the most recent of all images used in creation, for reloadImages command
 	ID_TIME_T			binaryFileTime;			// the time stamp of the binary file
 
@@ -210,6 +218,7 @@ ID_INLINE idImage::idImage( const char * name ) : imgName( name ) {
 	referencedOutsideLevelLoad = false;
 	levelLoadReferenced = false;
 	defaulted = false;
+	virtualTextureFallback = false;
 	sourceFileTime = FILE_NOT_FOUND_TIMESTAMP;
 	binaryFileTime = FILE_NOT_FOUND_TIMESTAMP;
 	refCount = 0;

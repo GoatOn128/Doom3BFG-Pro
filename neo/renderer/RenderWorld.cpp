@@ -31,6 +31,24 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 
+static int R_FindFreeEntitySlot( const idList< idRenderEntityCommitted * > & committed, const idList< idRenderEntity * > & producers ) {
+	for ( int i = 0; i < committed.Num(); ++i ) {
+		if ( committed[i] == NULL && ( i >= producers.Num() || producers[i] == NULL ) ) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int R_FindFreeLightSlot( const idList< idRenderLightCommitted * > & committed, const idList< idRenderLight * > & producers ) {
+	for ( int i = 0; i < committed.Num(); ++i ) {
+		if ( committed[i] == NULL && ( i >= producers.Num() || producers[i] == NULL ) ) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 /*
 ===================
 R_ListRenderLightDefs_f
@@ -38,13 +56,13 @@ R_ListRenderLightDefs_f
 */
 void R_ListRenderLightDefs_f( const idCmdArgs &args ) {
 	int			i;
-	idRenderLightLocal	*ldef;
+	idRenderLightCommitted	*ldef;
 
 	if ( !tr.primaryWorld ) {
 		return;
 	}
-	tr.primaryWorld->CommitRenderEntities();
-	tr.primaryWorld->CommitLightDefs();
+	tr.primaryWorld->Commit();
+	tr.primaryWorld->GetCommittedWorld()->PostCommitData();
 	int active = 0;
 	int	totalRef = 0;
 
@@ -76,12 +94,13 @@ R_ListRenderEntityDefs_f
 */
 void R_ListRenderEntityDefs_f( const idCmdArgs &args ) {
 	int			i;
-	idRenderEntityLocal	*mdef;
+	idRenderEntityCommitted	*mdef;
 
 	if ( !tr.primaryWorld ) {
 		return;
 	}
-	tr.primaryWorld->CommitRenderEntities();
+	tr.primaryWorld->Commit();
+	tr.primaryWorld->GetCommittedWorld()->PostCommitData();
 	int active = 0;
 	int	totalRef = 0;
 
@@ -112,6 +131,7 @@ idRenderWorldLocal::idRenderWorldLocal
 ===================
 */
 idRenderWorldLocal::idRenderWorldLocal() {
+	committedWorld = new (TAG_RENDER) idRenderWorldCommitted( this );
 	mapName.Clear();
 	mapTimeStamp = FILE_NOT_FOUND_TIMESTAMP;
 
@@ -145,6 +165,8 @@ idRenderWorldLocal::~idRenderWorldLocal
 idRenderWorldLocal::~idRenderWorldLocal() {
 	// free all the entityDefs, lightDefs, portals, etc
 	FreeWorld();
+	delete committedWorld;
+	committedWorld = NULL;
 
 	for ( int i = 0; i < decals.Num(); i++ ) {
 		delete decals[i].decals;
@@ -168,11 +190,18 @@ AddEntityDef
 */
 qhandle_t idRenderWorldLocal::AddEntityDef( const renderEntity_t *re ){
 	// try and reuse a free spot
-	int entityHandle = entityDefs.FindNull();
+	int entityHandle = R_FindFreeEntitySlot( entityDefs, entityProducers );
 	if ( entityHandle == -1 ) {
 		entityHandle = entityDefs.Append( NULL );
 	}
-
+	while ( entityProducers.Num() <= entityHandle ) {
+		entityProducers.Append( NULL );
+	}
+	idRenderEntity * producer = new (TAG_RENDER_ENTITY) idRenderEntity;
+	producer->worldOwned = true;
+	producer->world = this;
+	producer->index = entityHandle;
+	entityProducers[entityHandle] = producer;
 	UpdateEntityDef( entityHandle, re );
 	
 	return entityHandle;
@@ -190,13 +219,19 @@ qhandle_t idRenderWorldLocal::AddRenderEntity( idRenderEntity * entity ) {
 		return entity->index;
 	}
 
-	const qhandle_t handle = AddEntityDef( entity );
-	idRenderEntityLocal * committed = entityDefs[handle];
-	committed->owner = entity;
+	int handle = R_FindFreeEntitySlot( entityDefs, entityProducers );
+	if ( handle == -1 ) {
+		handle = entityDefs.Append( NULL );
+	}
+	while ( entityProducers.Num() <= handle ) {
+		entityProducers.Append( NULL );
+	}
+	entityProducers[handle] = entity;
 	entity->world = this;
 	entity->index = handle;
-	entity->committed = committed;
-	entity->needsCommit = false;
+	entity->worldOwned = false;
+	entity->needsCommit = true;
+	QueueRenderEntity( entity );
 	return handle;
 }
 
@@ -216,13 +251,11 @@ void idRenderWorldLocal::CommitRenderEntities() {
 	}
 
 	for ( int i = 0; i < entityDefs.Num(); ++i ) {
-		idRenderEntityLocal * committed = entityDefs[i];
-		if ( committed == NULL || committed->owner == NULL || !committed->owner->needsCommit ) {
+		idRenderEntity * producer = i < entityProducers.Num() ? entityProducers[i] : NULL;
+		if ( producer == NULL || !producer->needsCommit ) {
 			continue;
 		}
-		UpdateEntityDef( i, committed->owner );
-		committed->owner->needsCommit = false;
-		tr.pc.c_entityCommits++;
+		producer->Commit();
 	}
 }
 
@@ -234,8 +267,6 @@ Does not write to the demo file, which will only be updated for
 visible entities
 ==============
 */
-int c_callbackUpdate;
-
 void idRenderWorldLocal::UpdateEntityDef( qhandle_t entityHandle, const renderEntity_t *re ) {
 	if ( r_skipUpdates.GetBool() ) {
 		return;
@@ -253,77 +284,18 @@ void idRenderWorldLocal::UpdateEntityDef( qhandle_t entityHandle, const renderEn
 	}
 	while ( entityHandle >= entityDefs.Num() ) {
 		entityDefs.Append( NULL );
+		entityProducers.Append( NULL );
 	}
-
-	idRenderEntityLocal	*def = entityDefs[entityHandle];
-	if ( def != NULL ) {
-
-		if ( !re->forceUpdate ) {
-
-			// check for exact match (OPTIMIZE: check through pointers more)
-			if ( !re->joints && !re->callbackData && !def->dynamicModel && !memcmp( re, &def->parms, sizeof( *re ) ) ) {
-				return;
-			}
-
-			// if the only thing that changed was shaderparms, we can just leave things as they are
-			// after updating parms
-
-			// if we have a callback function and the bounds, origin, axis and model match,
-			// then we can leave the references as they are
-			if ( re->callback ) {
-
-				bool axisMatch = ( re->axis == def->parms.axis );
-				bool originMatch = ( re->origin == def->parms.origin );
-				bool boundsMatch = ( re->bounds == def->localReferenceBounds );
-				bool modelMatch = ( re->hModel == def->parms.hModel );
-
-				if ( boundsMatch && originMatch && axisMatch && modelMatch ) {
-					// only clear the dynamic model and interaction surfaces if they exist
-					c_callbackUpdate++;
-					R_ClearEntityDefDynamicModel( def );
-					def->parms = *re;
-					return;
-				}
-			}
-		}
-
-		// save any decals if the model is the same, allowing marks to move with entities
-		if ( def->parms.hModel == re->hModel ) {
-			R_FreeEntityDefDerivedData( def, true, true );
-		} else {
-			R_FreeEntityDefDerivedData( def, false, false );
-		}
-	} else {
-		// creating a new one
-		def = new (TAG_RENDER_ENTITY) idRenderEntityLocal;
-		entityDefs[entityHandle] = def;
-
-		def->world = this;
-		def->index = entityHandle;
+	idRenderEntity * producer = entityProducers[entityHandle];
+	if ( producer == NULL ) {
+		producer = new (TAG_RENDER_ENTITY) idRenderEntity;
+		producer->worldOwned = true;
+		producer->world = this;
+		producer->index = entityHandle;
+		entityProducers[entityHandle] = producer;
 	}
-
-	def->parms = *re;
-
-	def->lastModifiedFrameNum = tr.frameCount;
-	if ( common->WriteDemo() && def->archived ) {
-		WriteFreeEntity( entityHandle );
-		def->archived = false;
-	}
-
-	// optionally immediately issue any callbacks
-	if ( !r_useEntityCallbacks.GetBool() && def->parms.callback != NULL ) {
-		R_IssueEntityDefCallback( def );
-	}
-
-	// trigger entities don't need to get linked in and processed,
-	// they only exist for editor use
-	if ( def->parms.hModel != NULL && !def->parms.hModel->ModelHasDrawingSurfaces() ) {
-		return;
-	}
-
-	// based on the model bounds, add references in each area
-	// that may contain the updated surface
-	R_CreateEntityRefs( def );
+	*static_cast< renderEntity_t * >( producer ) = *re;
+	producer->needsCommit = true;
 }
 
 /*
@@ -335,7 +307,7 @@ NULL's out it's entry in the world list
 ===================
 */
 void idRenderWorldLocal::FreeEntityDef( qhandle_t entityHandle ) {
-	idRenderEntityLocal	*def;
+	idRenderEntityCommitted	*def;
 
 	if ( entityHandle < 0 || entityHandle >= entityDefs.Num() ) {
 		common->Printf( "idRenderWorld::FreeEntityDef: handle %i > %i\n", entityHandle, entityDefs.Num() );
@@ -343,21 +315,29 @@ void idRenderWorldLocal::FreeEntityDef( qhandle_t entityHandle ) {
 	}
 
 	def = entityDefs[entityHandle];
-	if ( !def ) {
+	idRenderEntity * producer = entityHandle < entityProducers.Num() ? entityProducers[entityHandle] : NULL;
+	if ( def == NULL && producer == NULL ) {
 		common->Printf( "idRenderWorld::FreeEntityDef: handle %i is NULL\n", entityHandle );
 		return;
 	}
 
-	R_FreeEntityDefDerivedData( def, false, false );
-	if ( def->owner != NULL ) {
-		def->owner->world = NULL;
-		def->owner->index = -1;
-		def->owner->committed = NULL;
-		def->owner->needsCommit = false;
-		def->owner = NULL;
+	if ( def != NULL ) {
+		R_FreeEntityDefDerivedData( def, false, false );
+	}
+	if ( producer != NULL ) {
+		const bool deleteProducer = producer->worldOwned;
+		producer->world = NULL;
+		producer->index = -1;
+		producer->committed = NULL;
+		producer->needsCommit = false;
+		producer->worldOwned = false;
+		entityProducers[entityHandle] = NULL;
+		if ( deleteProducer ) {
+			delete producer;
+		}
 	}
 
-	if ( common->WriteDemo() && def->archived ) {
+	if ( def != NULL && common->WriteDemo() && def->archived ) {
 		WriteFreeEntity( entityHandle );
 	}
 
@@ -365,12 +345,15 @@ void idRenderWorldLocal::FreeEntityDef( qhandle_t entityHandle ) {
 	// in R_FreeEntityDefDerivedData(), otherwise the gui
 	// object still exists in the game
 
-	def->parms.gui[ 0 ] = NULL;
-	def->parms.gui[ 1 ] = NULL;
-	def->parms.gui[ 2 ] = NULL;
+	if ( def != NULL ) {
+		def->parms.gui[ 0 ] = NULL;
+		def->parms.gui[ 1 ] = NULL;
+		def->parms.gui[ 2 ] = NULL;
+	}
 
 	delete def;
 	entityDefs[ entityHandle ] = NULL;
+	committedWorld->ForgetEntity( entityHandle );
 }
 
 /*
@@ -379,7 +362,7 @@ GetRenderEntity
 ==================
 */
 const renderEntity_t *idRenderWorldLocal::GetRenderEntity( qhandle_t entityHandle ) const {
-	idRenderEntityLocal	*def;
+	idRenderEntityCommitted	*def;
 
 	if ( entityHandle < 0 || entityHandle >= entityDefs.Num() ) {
 		common->Printf( "idRenderWorld::GetRenderEntity: invalid handle %i [0, %i]\n", entityHandle, entityDefs.Num() );
@@ -387,7 +370,8 @@ const renderEntity_t *idRenderWorldLocal::GetRenderEntity( qhandle_t entityHandl
 	}
 
 	def = entityDefs[entityHandle];
-	if ( !def ) {
+	idRenderEntity * producer = entityHandle < entityProducers.Num() ? entityProducers[entityHandle] : NULL;
+	if ( def == NULL && producer == NULL ) {
 		common->Printf( "idRenderWorld::GetRenderEntity: handle %i is NULL\n", entityHandle );
 		return NULL;
 	}
@@ -395,7 +379,7 @@ const renderEntity_t *idRenderWorldLocal::GetRenderEntity( qhandle_t entityHandl
 	// Object-backed definitions expose producer state to game-side callers even
 	// before the renderer consumes the queued commit. Legacy definitions have no
 	// producer object and continue to expose their immediate state.
-	return def->owner != NULL ? static_cast< const renderEntity_t * >( def->owner ) : &def->parms;
+	return producer != NULL ? static_cast< const renderEntity_t * >( producer ) : &def->parms;
 }
 
 /*
@@ -405,11 +389,19 @@ AddLightDef
 */
 qhandle_t idRenderWorldLocal::AddLightDef( const renderLight_t *rlight ) {
 	// try and reuse a free spot
-	int lightHandle = lightDefs.FindNull();
+	int lightHandle = R_FindFreeLightSlot( lightDefs, lightProducers );
 
 	if ( lightHandle == -1 ) {
 		lightHandle = lightDefs.Append( NULL );
 	}
+	while ( lightProducers.Num() <= lightHandle ) {
+		lightProducers.Append( NULL );
+	}
+	idRenderLight * producer = new (TAG_RENDER_LIGHT) idRenderLight;
+	producer->worldOwned = true;
+	producer->world = this;
+	producer->index = lightHandle;
+	lightProducers[lightHandle] = producer;
 	UpdateLightDef( lightHandle, rlight );
 
 	return lightHandle;
@@ -427,13 +419,19 @@ qhandle_t idRenderWorldLocal::AddRenderLight( idRenderLight * light ) {
 		return light->index;
 	}
 
-	const qhandle_t handle = AddLightDef( light );
-	idRenderLightLocal * committed = lightDefs[handle];
-	committed->owner = light;
+	int handle = R_FindFreeLightSlot( lightDefs, lightProducers );
+	if ( handle == -1 ) {
+		handle = lightDefs.Append( NULL );
+	}
+	while ( lightProducers.Num() <= handle ) {
+		lightProducers.Append( NULL );
+	}
+	lightProducers[handle] = light;
 	light->world = this;
 	light->index = handle;
-	light->committed = static_cast< idRenderLightCommitted * >( committed );
-	light->needsCommit = false;
+	light->worldOwned = false;
+	light->needsCommit = true;
+	light->CommitThisFrame();
 	return handle;
 }
 
@@ -459,98 +457,47 @@ void idRenderWorldLocal::UpdateLightDef( qhandle_t lightHandle, const renderLigh
 	}
 	while ( lightHandle >= lightDefs.Num() ) {
 		lightDefs.Append( NULL );
+		lightProducers.Append( NULL );
 	}
-
-	idRenderLightLocal * light = lightDefs[lightHandle];
-	if ( light == NULL ) {
-		light = new (TAG_RENDER_LIGHT) idRenderLightLocal;
-		lightDefs[lightHandle] = light;
-		light->world = this;
-		light->index = lightHandle;
+	idRenderLight * producer = lightProducers[lightHandle];
+	if ( producer == NULL ) {
+		producer = new (TAG_RENDER_LIGHT) idRenderLight;
+		producer->worldOwned = true;
+		producer->world = this;
+		producer->index = lightHandle;
+		lightProducers[lightHandle] = producer;
 	}
 
 	// Stage producer-side state. Renderer-visible data is updated only by
 	// CommitLightDefs(), immediately before the world is rendered.
-	light->gameParms = *rlight;
+	*static_cast< renderLight_t * >( producer ) = *rlight;
 	// Material declarations and their images must be resolved on the update side.
 	// The commit phase can run after game-thread declaration loading is disabled.
-	R_ResolveLightResources( light->gameParms, light->stagedLightShader, light->stagedFalloffImage );
-	if ( light->gameParms.shader != NULL && light->gameParms.shader->Spectrum() ) {
-		light->gameParms.noShadows = true;
+	R_ResolveLightResources( *producer, producer->stagedLightShader, producer->stagedFalloffImage );
+	if ( producer->shader != NULL && producer->shader->Spectrum() ) {
+		producer->noShadows = true;
 	}
-	light->needsCommit = true;
-	light->lastModifiedFrameNum = tr.frameCount;
-
-	if ( common->WriteDemo() && light->archived ) {
-		WriteFreeLight( lightHandle );
-		light->archived = false;
-	}
-}
-
-void idRenderWorldLocal::CommitLightDef( idRenderLightLocal * light ) {
-	if ( light == NULL || !light->needsCommit ) {
-		return;
-	}
-
-	renderLight_t staged = light->gameParms;
-	const bool hasCommittedState = light->lightShader != NULL;
-	bool shapeUnchanged = false;
-	if ( hasCommittedState ) {
-		shapeUnchanged = staged.axis == light->parms.axis && staged.end == light->parms.end &&
-			staged.lightCenter == light->parms.lightCenter && staged.lightRadius == light->parms.lightRadius &&
-			staged.noShadows == light->parms.noShadows && staged.origin == light->parms.origin &&
-			staged.parallel == light->parms.parallel && staged.pointLight == light->parms.pointLight &&
-			staged.right == light->parms.right && staged.start == light->parms.start &&
-			staged.target == light->parms.target && staged.up == light->parms.up &&
-			light->stagedLightShader == light->lightShader;
-	}
-
-	light->parms = staged;
-	light->lightShader = light->stagedLightShader;
-	light->falloffImage = light->stagedFalloffImage;
-	light->needsReferences = !shapeUnchanged;
-	light->needsCommit = false;
-	light->needsPostCommit = true;
-}
-
-void idRenderWorldLocal::PostCommitLightDef( idRenderLightLocal * light ) {
-	if ( light == NULL || !light->needsPostCommit ) {
-		return;
-	}
-
-	if ( light->needsReferences ) {
-		R_FreeLightDefDerivedData( light );
-		R_CreateLightRefs( light );
-		light->needsReferences = false;
-		tr.pc.c_lightReferenceCommits++;
-	}
-
-	light->needsPostCommit = false;
-	tr.pc.c_lightCommits++;
+	producer->needsCommit = true;
 }
 
 void idRenderWorldLocal::CommitLightDefs() {
 	// Transfer queued game-facing light state into the staging slots. Leave it
 	// pending while updates are frozen so it can be consumed on a later frame.
 	if ( !r_skipUpdates.GetBool() ) {
-		for ( int i = 0; i < lightDefs.Num(); ++i ) {
-			idRenderLightLocal * light = lightDefs[i];
-			if ( light == NULL || light->owner == NULL || !light->owner->needsCommit ) {
+		for ( int i = 0; i < lightProducers.Num(); ++i ) {
+			idRenderLight * light = lightProducers[i];
+			if ( light == NULL || !light->needsCommit ) {
 				continue;
 			}
-			UpdateLightDef( i, light->owner );
-			light->owner->needsCommit = false;
+			light->Commit();
 		}
 	}
+}
 
-	// Match the idTech 5 flow: publish all producer state first, then let the
-	// committed-world pass rebuild derived data and spatial references.
-	for ( int i = 0; i < lightDefs.Num(); ++i ) {
-		CommitLightDef( lightDefs[i] );
-	}
-	for ( int i = 0; i < lightDefs.Num(); ++i ) {
-		PostCommitLightDef( lightDefs[i] );
-	}
+void idRenderWorldLocal::Commit( bool isHeadless ) {
+	(void)isHeadless;
+	CommitRenderEntities();
+	CommitLightDefs();
 }
 
 /*
@@ -562,7 +509,7 @@ NULL's out it's entry in the world list
 ====================
 */
 void idRenderWorldLocal::FreeLightDef( qhandle_t lightHandle ) {
-	idRenderLightLocal	*light;
+	idRenderLightCommitted	*light;
 
 	if ( lightHandle < 0 || lightHandle >= lightDefs.Num() ) {
 		common->Printf( "idRenderWorld::FreeLightDef: invalid handle %i [0, %i]\n", lightHandle, lightDefs.Num() );
@@ -570,26 +517,35 @@ void idRenderWorldLocal::FreeLightDef( qhandle_t lightHandle ) {
 	}
 
 	light = lightDefs[lightHandle];
-	if ( !light ) {
+	idRenderLight * producer = lightHandle < lightProducers.Num() ? lightProducers[lightHandle] : NULL;
+	if ( light == NULL && producer == NULL ) {
 		common->Printf( "idRenderWorld::FreeLightDef: handle %i is NULL\n", lightHandle );
 		return;
 	}
 
-	R_FreeLightDefDerivedData( light );
-	if ( light->owner != NULL ) {
-		light->owner->world = NULL;
-		light->owner->index = -1;
-		light->owner->committed = NULL;
-		light->owner->needsCommit = false;
-		light->owner = NULL;
+	if ( light != NULL ) {
+		R_FreeLightDefDerivedData( light );
+	}
+	if ( producer != NULL ) {
+		const bool deleteProducer = producer->worldOwned;
+		producer->world = NULL;
+		producer->index = -1;
+		producer->committed = NULL;
+		producer->needsCommit = false;
+		producer->worldOwned = false;
+		lightProducers[lightHandle] = NULL;
+		if ( deleteProducer ) {
+			delete producer;
+		}
 	}
 
-	if ( common->WriteDemo() && light->archived ) {
+	if ( light != NULL && common->WriteDemo() && light->archived ) {
 		WriteFreeLight( lightHandle );
 	}
 
 	delete light;
 	lightDefs[lightHandle] = NULL;
+	committedWorld->ForgetLight( lightHandle );
 }
 
 /*
@@ -598,7 +554,7 @@ GetRenderLight
 ==================
 */
 const renderLight_t *idRenderWorldLocal::GetRenderLight( qhandle_t lightHandle ) const {
-	idRenderLightLocal *def;
+	idRenderLightCommitted *def;
 
 	if ( lightHandle < 0 || lightHandle >= lightDefs.Num() ) {
 		common->Printf( "idRenderWorld::GetRenderLight: handle %i > %i\n", lightHandle, lightDefs.Num() );
@@ -606,12 +562,13 @@ const renderLight_t *idRenderWorldLocal::GetRenderLight( qhandle_t lightHandle )
 	}
 
 	def = lightDefs[lightHandle];
-	if ( !def ) {
+	idRenderLight * producer = lightHandle < lightProducers.Num() ? lightProducers[lightHandle] : NULL;
+	if ( def == NULL && producer == NULL ) {
 		common->Printf( "idRenderWorld::GetRenderLight: handle %i is NULL\n", lightHandle );
 		return NULL;
 	}
 
-	return def->owner != NULL ? static_cast< const renderLight_t * >( def->owner ) : &def->gameParms;
+	return producer != NULL ? static_cast< const renderLight_t * >( producer ) : &def->parms;
 }
 
 /*
@@ -637,7 +594,7 @@ void idRenderWorldLocal::ProjectDecalOntoWorld( const idFixedWinding &winding, c
 
 		// check all models in this area
 		for ( const areaReference_t * ref = area->entityRefs.areaNext; ref != &area->entityRefs; ref = ref->areaNext ) {
-			idRenderEntityLocal * def = ref->entity;
+			idRenderEntityCommitted * def = ref->entity;
 
 			if ( def->parms.noOverlays ) {
 				continue;
@@ -685,7 +642,7 @@ void idRenderWorldLocal::ProjectDecal( qhandle_t entityHandle, const idFixedWind
 		return;
 	}
 
-	idRenderEntityLocal	*def = entityDefs[ entityHandle ];
+	idRenderEntityCommitted	*def = entityDefs[ entityHandle ];
 	if ( def == NULL ) {
 		return;
 	}
@@ -731,7 +688,7 @@ void idRenderWorldLocal::ProjectOverlay( qhandle_t entityHandle, const idPlane l
 		return;
 	}
 
-	idRenderEntityLocal	*def = entityDefs[ entityHandle ];
+	idRenderEntityCommitted	*def = entityDefs[ entityHandle ];
 	if ( def == NULL ) {
 		return;
 	}
@@ -770,7 +727,7 @@ idRenderModelDecal * idRenderWorldLocal::AllocDecal( qhandle_t newEntityHandle, 
 
 	// remove any reference another model may still have to this decal
 	if ( decals[oldest].entityHandle >= 0 && decals[oldest].entityHandle < entityDefs.Num() ) {
-		idRenderEntityLocal	*def = entityDefs[decals[oldest].entityHandle];
+		idRenderEntityCommitted	*def = entityDefs[decals[oldest].entityHandle];
 		if ( def != NULL && def->decals == decals[oldest].decals ) {
 			def->decals = NULL;
 		}
@@ -800,7 +757,7 @@ idRenderModelOverlay * idRenderWorldLocal::AllocOverlay( qhandle_t newEntityHand
 
 	// remove any reference another model may still have to this overlay
 	if ( overlays[oldest].entityHandle >= 0 && overlays[oldest].entityHandle < entityDefs.Num() ) {
-		idRenderEntityLocal	*def = entityDefs[overlays[oldest].entityHandle];
+		idRenderEntityCommitted	*def = entityDefs[overlays[oldest].entityHandle];
 		if ( def != NULL && def->overlays == overlays[oldest].overlays ) {
 			def->overlays = NULL;
 		}
@@ -824,7 +781,7 @@ void idRenderWorldLocal::RemoveDecals( qhandle_t entityHandle ) {
 		return;
 	}
 
-	idRenderEntityLocal	*def = entityDefs[ entityHandle ];
+	idRenderEntityCommitted	*def = entityDefs[ entityHandle ];
 	if ( !def ) {
 		return;
 	}
@@ -859,114 +816,7 @@ void idRenderWorldLocal::RenderScene( const renderView_t *renderView ) {
 	if ( !R_IsInitialized() ) {
 		return;
 	}
-
-	CommitRenderEntities();
-	CommitLightDefs();
-
-	renderView_t copy = *renderView;
-
-	// skip front end rendering work, which will result
-	// in only gui drawing
-	if ( r_skipFrontEnd.GetBool() ) {
-		return;
-	}
-
-	SCOPED_PROFILE_EVENT( "RenderWorld::RenderScene" );
-
-	if ( renderView->fov_x <= 0 || renderView->fov_y <= 0 ) {
-		common->Error( "idRenderWorld::RenderScene: bad FOVs: %f, %f", renderView->fov_x, renderView->fov_y );
-	}
-
-	// close any gui drawing
-	tr.guiModel->EmitFullScreen();
-	tr.guiModel->Clear();
-
-	int startTime = Sys_Microseconds();
-
-	// setup view parms for the initial view
-	viewDef_t * parms = (viewDef_t *)R_ClearedFrameAlloc( sizeof( *parms ), FRAME_ALLOC_VIEW_DEF );
-	parms->renderView = *renderView;
-
-	if ( tr.takingScreenshot ) {
-		parms->renderView.forceUpdate = true;
-	}
-
-	int windowWidth = tr.GetWidth();
-	int windowHeight = tr.GetHeight();
-	tr.PerformResolutionScaling( windowWidth, windowHeight );
-
-	// screenFraction is just for quickly testing fill rate limitations
-	if ( r_screenFraction.GetInteger() != 100 ) {
-		windowWidth = ( windowWidth * r_screenFraction.GetInteger() ) / 100;
-		windowHeight = ( windowHeight * r_screenFraction.GetInteger() ) / 100;
-	}
-	tr.CropRenderSize( windowWidth, windowHeight );
-	tr.GetCroppedViewport( &parms->viewport );
-
-	// the scissor bounds may be shrunk in subviews even if
-	// the viewport stays the same
-	// this scissor range is local inside the viewport
-	parms->scissor.x1 = 0;
-	parms->scissor.y1 = 0;
-	parms->scissor.x2 = parms->viewport.x2 - parms->viewport.x1;
-	parms->scissor.y2 = parms->viewport.y2 - parms->viewport.y1;
-
-	parms->isSubview = false;
-	parms->initialViewAreaOrigin = renderView->vieworg;
-	parms->renderWorld = this;
-
-	// see if the view needs to reverse the culling sense in mirrors
-	// or environment cube sides
-	idVec3	cross;
-	cross = parms->renderView.viewaxis[1].Cross( parms->renderView.viewaxis[2] );
-	if ( cross * parms->renderView.viewaxis[0] > 0 ) {
-		parms->isMirror = false;
-	} else {
-		parms->isMirror = true;
-	}
-
-	// save this world for use by some console commands
-	tr.primaryWorld = this;
-	tr.primaryRenderView = *renderView;
-	tr.primaryView = parms;
-
-	// rendering this view may cause other views to be rendered
-	// for mirrors / portals / shadows / environment maps
-	// this will also cause any necessary entities and lights to be
-	// updated to the demo file
-	R_RenderView( parms );
-
-	// render any post processing after the view and all its subviews has been draw
-	R_RenderPostProcess( parms );
-
-	// now write delete commands for any modified-but-not-visible entities, and
-	// add the renderView command to the demo
-	if ( common->WriteDemo() ) {
-		WriteRenderView( renderView );
-	}
-
-#if 0
-	for ( int i = 0; i < entityDefs.Num(); i++ ) {
-		idRenderEntityLocal	*def = entityDefs[i];
-		if ( !def ) {
-			continue;
-		}
-		if ( def->parms.callback ) {
-			continue;
-		}
-		if ( def->parms.hModel->IsDynamicModel() == DM_CONTINUOUS ) {
-		}
-	}
-#endif
-
-	tr.UnCrop();
-
-	int endTime = Sys_Microseconds();
-
-	tr.pc.frontEndMicroSec += endTime - startTime;
-
-	// prepare for any 2D drawing after this
-	tr.guiModel->Clear();
+	tr.RenderScene( this, renderView );
 }
 
 /*
@@ -1164,7 +1014,7 @@ guiPoint_t idRenderWorldLocal::GuiTrace( qhandle_t entityHandle, const idVec3 st
 		return pt;
 	}
 
-	idRenderEntityLocal * def = entityDefs[entityHandle];	
+	idRenderEntityCommitted * def = entityDefs[entityHandle];
 	if ( def == NULL ) {
 		common->Printf( "idRenderWorld::GuiTrace: handle %i is NULL\n", entityHandle );
 		return pt;
@@ -1234,7 +1084,7 @@ bool idRenderWorldLocal::ModelTrace( modelTrace_t &trace, qhandle_t entityHandle
 		return false;
 	}
 
-	idRenderEntityLocal	*def = entityDefs[entityHandle];
+	idRenderEntityCommitted	*def = entityDefs[entityHandle];
 	if ( def == NULL ) {
 		return false;
 	}
@@ -1346,7 +1196,7 @@ bool idRenderWorldLocal::Trace( modelTrace_t &trace, const idVec3 &start, const 
 
 		// check all models in this area
 		for ( areaReference_t * ref = area->entityRefs.areaNext; ref != &area->entityRefs; ref = ref->areaNext ) {
-			idRenderEntityLocal * def = ref->entity;
+			idRenderEntityCommitted * def = ref->entity;
 
 			idRenderModel * model = def->parms.hModel;
 			if ( model == NULL ) {
@@ -1537,7 +1387,7 @@ This is called by R_PushVolumeIntoTree and also directly
 for the world model references that are precalculated.
 =================
 */
-void idRenderWorldLocal::AddEntityRefToArea( idRenderEntityLocal *def, portalArea_t *area ) {
+void idRenderWorldLocal::AddEntityRefToArea( idRenderEntityCommitted *def, portalArea_t *area ) {
 	areaReference_t	*ref;
 
 	if ( def == NULL ) {
@@ -1574,7 +1424,7 @@ void idRenderWorldLocal::AddEntityRefToArea( idRenderEntityLocal *def, portalAre
 idRenderWorldLocal::AddLightRefToArea
 ===================
 */
-void idRenderWorldLocal::AddLightRefToArea( idRenderLightLocal *light, portalArea_t *area ) {
+void idRenderWorldLocal::AddLightRefToArea( idRenderLightCommitted *light, portalArea_t *area ) {
 	areaReference_t	*lref;
 
 	for ( lref = light->references; lref != NULL; lref = lref->ownerNext ) {
@@ -1614,7 +1464,7 @@ to prevent double checking areas.
 We might alternatively choose to do this with an area flow.
 ==================
 */
-void idRenderWorldLocal::PushFrustumIntoTree_r( idRenderEntityLocal *def, idRenderLightLocal *light,
+void idRenderWorldLocal::PushFrustumIntoTree_r( idRenderEntityCommitted *def, idRenderLightCommitted *light,
 												const frustumCorners_t & corners, int nodeNum ) {
 	if ( nodeNum < 0 ) {
 		int areaNum = -1 - nodeNum;
@@ -1671,7 +1521,7 @@ void idRenderWorldLocal::PushFrustumIntoTree_r( idRenderEntityLocal *def, idRend
 idRenderWorldLocal::PushFrustumIntoTree
 ==============
 */
-void idRenderWorldLocal::PushFrustumIntoTree( idRenderEntityLocal *def, idRenderLightLocal *light, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds ) {
+void idRenderWorldLocal::PushFrustumIntoTree( idRenderEntityCommitted *def, idRenderLightCommitted *light, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds ) {
 	if ( areaNodes == NULL ) {
 		return;
 	}
@@ -2024,8 +1874,8 @@ idRenderWorldLocal::RegenerateWorld
 ===============
 */
 void idRenderWorldLocal::RegenerateWorld() {
-	CommitRenderEntities();
-	CommitLightDefs();
+	Commit();
+	committedWorld->PostCommitData();
 	R_FreeDerivedData();
 	R_ReCreateWorldReferences();
 }

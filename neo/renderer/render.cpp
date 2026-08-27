@@ -30,6 +30,10 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "jobs/render/rendergather.h"
+#include "jobs/render/renderlights.h"
+
+idRender render;
 
 /*
 ==========================================================================================
@@ -343,7 +347,7 @@ static void R_SortDrawSurfs( drawSurf_t ** drawSurfs, const int numDrawSurfs ) {
 
 /*
 ================
-R_RenderView
+idRender::RenderSingleView
 
 A view may be either the actual camera view,
 a mirror / remote location, or a 3D view on a gui surface.
@@ -351,7 +355,63 @@ a mirror / remote location, or a 3D view on a gui surface.
 Parms will typically be allocated with R_FrameAlloc
 ================
 */
-void R_RenderView( viewDef_t *parms ) {
+void idRender::RenderScene( idRenderWorldLocal * renderWorld, idRenderWorldCommitted * committedWorld, const renderView_t * renderView ) {
+	if ( renderWorld == NULL || committedWorld == NULL || renderView == NULL || r_skipFrontEnd.GetBool() ) {
+		return;
+	}
+	SCOPED_PROFILE_EVENT( "Render::RenderScene" );
+	if ( renderView->fov_x <= 0 || renderView->fov_y <= 0 ) {
+		common->Error( "idRender::RenderScene: bad FOVs: %f, %f", renderView->fov_x, renderView->fov_y );
+	}
+
+	tr.guiModel->EmitFullScreen();
+	tr.guiModel->Clear();
+	const int startTime = Sys_Microseconds();
+
+	viewDef_t * parms = (viewDef_t *)R_ClearedFrameAlloc( sizeof( *parms ), FRAME_ALLOC_VIEW_DEF );
+	parms->renderView = *renderView;
+	if ( tr.takingScreenshot ) {
+		parms->renderView.forceUpdate = true;
+	}
+
+	int windowWidth = tr.GetWidth();
+	int windowHeight = tr.GetHeight();
+	tr.PerformResolutionScaling( windowWidth, windowHeight );
+	if ( r_screenFraction.GetInteger() != 100 ) {
+		windowWidth = ( windowWidth * r_screenFraction.GetInteger() ) / 100;
+		windowHeight = ( windowHeight * r_screenFraction.GetInteger() ) / 100;
+	}
+	tr.CropRenderSize( windowWidth, windowHeight );
+	tr.GetCroppedViewport( &parms->viewport );
+	parms->scissor.x1 = 0;
+	parms->scissor.y1 = 0;
+	parms->scissor.x2 = parms->viewport.x2 - parms->viewport.x1;
+	parms->scissor.y2 = parms->viewport.y2 - parms->viewport.y1;
+	parms->isSubview = false;
+	parms->initialViewAreaOrigin = renderView->vieworg;
+	parms->renderWorld = renderWorld;
+
+	const idVec3 cross = parms->renderView.viewaxis[1].Cross( parms->renderView.viewaxis[2] );
+	parms->isMirror = cross * parms->renderView.viewaxis[0] <= 0.0f;
+	tr.primaryWorld = renderWorld;
+	tr.primaryRenderView = *renderView;
+	tr.primaryView = parms;
+
+	RenderSingleView( committedWorld, parms );
+	RenderPostProcess( parms );
+	if ( common->WriteDemo() ) {
+		renderWorld->WriteRenderView( renderView );
+	}
+	tr.UnCrop();
+	tr.pc.frontEndMicroSec += Sys_Microseconds() - startTime;
+	tr.guiModel->Clear();
+}
+
+void idRender::RenderSingleView( idRenderWorldCommitted * renderWorld, viewDef_t *parms ) {
+	if ( renderWorld == NULL || parms == NULL ) {
+		return;
+	}
+	renderWorld->PostCommitData();
 	// save view in case we are a subview
 	viewDef_t * oldView = tr.viewDef;
 
@@ -425,13 +485,13 @@ void R_RenderView( viewDef_t *parms ) {
 
 /*
 ================
-R_RenderPostProcess
+idRender::RenderPostProcess
 
-Because R_RenderView may be called by subviews we have to make sure the post process
+Because RenderSingleView may be called by subviews we have to make sure the post process
 pass happens after the active view and its subviews is done rendering.
 ================
 */
-void R_RenderPostProcess( viewDef_t *parms ) {
+void idRender::RenderPostProcess( viewDef_t *parms ) {
 	viewDef_t * oldView = tr.viewDef;
 
 	R_AddDrawPostProcess( parms );

@@ -37,7 +37,7 @@ idRenderEntity::idRenderEntity() {
 	index = -1;
 	committed = NULL;
 	needsCommit = false;
-	needsCommit = false;
+	worldOwned = false;
 }
 
 idRenderEntity::~idRenderEntity() {
@@ -51,6 +51,38 @@ void idRenderEntity::CommitThisFrame( bool forceUpdate ) {
 		}
 		world->QueueRenderEntity( this );
 	}
+}
+
+void idRenderEntity::Commit() {
+	if ( world == NULL || index < 0 || !needsCommit ) {
+		return;
+	}
+	idRenderWorldLocal * renderWorld = static_cast< idRenderWorldLocal * >( world );
+	idRenderEntityCommitted * def = renderWorld->entityDefs[index];
+	if ( def == NULL ) {
+		def = new (TAG_RENDER_ENTITY) idRenderEntityCommitted;
+		def->world = renderWorld;
+		def->index = index;
+		renderWorld->entityDefs[index] = def;
+		def->postCommitMode = 3;
+	} else if ( !forceUpdate && !joints && !callbackData && !def->dynamicModel &&
+			!memcmp( static_cast< renderEntity_t * >( this ), &def->parms, sizeof( renderEntity_t ) ) ) {
+		committed = def;
+		needsCommit = false;
+		renderWorld->committedWorld->PublishEntity( index, def, false );
+		return;
+	} else if ( !forceUpdate && callback != NULL && axis == def->parms.axis && origin == def->parms.origin &&
+			bounds == def->localReferenceBounds && hModel == def->parms.hModel ) {
+		def->postCommitMode = 1;
+	} else {
+		def->postCommitMode = ( def->parms.hModel == hModel ) ? 2 : 3;
+	}
+	def->parms = *this;
+	def->lastModifiedFrameNum = tr.frameCount;
+	committed = def;
+	needsCommit = false;
+	renderWorld->committedWorld->PublishEntity( index, def, true );
+	tr.pc.c_entityCommits++;
 }
 
 void idRenderEntity::FreeRenderEntity() {
@@ -73,87 +105,4 @@ void idRenderEntity::RemoveDecals() {
 	if ( world != NULL && index >= 0 ) {
 		world->RemoveDecals( index );
 	}
-}
-
-idRenderLight::idRenderLight() {
-	memset( static_cast< renderLight_t * >( this ), 0, sizeof( renderLight_t ) );
-	world = NULL;
-	index = -1;
-	committed = NULL;
-}
-
-idRenderLight::~idRenderLight() {
-	FreeRenderLight();
-}
-
-void idRenderLight::CommitThisFrame( bool forceUpdate ) {
-	if ( world != NULL && index >= 0 ) {
-		tr.pc.c_lightCommitRequests++;
-		needsCommit = true;
-	}
-}
-
-void idRenderLight::FreeRenderLight() {
-	if ( world != NULL && index >= 0 ) {
-		world->FreeLightDef( index );
-	}
-}
-
-void idRenderLight::ForceUpdate() {
-	CommitThisFrame( true );
-}
-
-idRenderEntityCommitted::idRenderEntityCommitted() {
-	memset( &parms, 0, sizeof( parms ) );
-	memset( modelMatrix, 0, sizeof( modelMatrix ) );
-	owner					= NULL;
-
-	world					= NULL;
-	index					= 0;
-	lastModifiedFrameNum	= 0;
-	archived				= false;
-	dynamicModel			= NULL;
-	dynamicModelFrameCount	= 0;
-	cachedDynamicModel		= NULL;
-	localReferenceBounds	= bounds_zero;
-	globalReferenceBounds	= bounds_zero;
-	viewCount				= 0;
-	viewEntity				= NULL;
-	decals					= NULL;
-	overlays				= NULL;
-	entityRefs				= NULL;
-	needsPortalSky			= false;
-}
-
-//======================================================================
-
-idRenderLightCommitted::idRenderLightCommitted() {
-	memset( &parms, 0, sizeof( parms ) );
-	memset( lightProject, 0, sizeof( lightProject ) );
-
-	world					= NULL;
-	index					= 0;
-	areaNum					= 0;
-	lastModifiedFrameNum	= 0;
-	archived				= false;
-	lightShader				= NULL;
-	falloffImage			= NULL;
-	globalLightOrigin		= vec3_zero;
-	viewCount				= 0;
-	viewLight				= NULL;
-	references				= NULL;
-	needsReferences			= false;
-	foggedPortals			= NULL;
-
-	baseLightProject.Zero();
-	inverseBaseLightProject.Zero();
-}
-
-idRenderLightLocal::idRenderLightLocal() : idRenderLightCommitted() {
-	memset( &gameParms, 0, sizeof( gameParms ) );
-	owner = NULL;
-	stagedLightShader = NULL;
-	stagedFalloffImage = NULL;
-	needsCommit = false;
-	needsPostCommit = false;
 }

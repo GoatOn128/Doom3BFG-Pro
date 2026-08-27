@@ -530,6 +530,28 @@ void idImage::ActuallyLoadImage( bool fromBackEnd ) {
 		binaryFileTime = im.WriteGeneratedFile( sourceFileTime );
 	}
 
+	if ( virtualTextureFallback && opts.textureType == TT_2D && im.NumImages() > 0 ) {
+		int fallbackImage = -1;
+		for ( int i = 0; i < im.NumImages(); ++i ) {
+			const bimageImage_t & image = im.GetImageHeader( i );
+			if ( image.destZ == 0 && ( fallbackImage < 0 ||
+					image.width * image.height < im.GetImageHeader( fallbackImage ).width *
+					im.GetImageHeader( fallbackImage ).height ) ) {
+				fallbackImage = i;
+			}
+		}
+		if ( fallbackImage >= 0 ) {
+			const bimageImage_t & image = im.GetImageHeader( fallbackImage );
+			opts.width = image.width;
+			opts.height = image.height;
+			opts.numLevels = 1;
+			AllocImage();
+			SubImageUpload( 0, 0, 0, 0, image.width, image.height,
+				im.GetImageData( fallbackImage ) );
+			return;
+		}
+	}
+
 	AllocImage();
 
 
@@ -537,6 +559,25 @@ void idImage::ActuallyLoadImage( bool fromBackEnd ) {
 		const bimageImage_t & img = im.GetImageHeader( i );
 		const byte * data = im.GetImageData( i );
 		SubImageUpload( img.level, 0, 0, img.destZ, img.width, img.height, data );
+	}
+}
+
+/*
+========================
+idImage::DemoteToVirtualTextureFallback
+
+Keep a real hardware image for interaction fallback, but retain only the
+smallest generated mip once the owning VMTR archive is available.
+========================
+*/
+void idImage::DemoteToVirtualTextureFallback() {
+	if ( virtualTextureFallback || !CanUseVirtualTextureFallback() ) {
+		return;
+	}
+	virtualTextureFallback = true;
+	if ( IsLoaded() ) {
+		PurgeImage();
+		ActuallyLoadImage( true );
 	}
 }
 
