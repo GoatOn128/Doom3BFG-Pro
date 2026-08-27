@@ -1057,6 +1057,9 @@ void idCommonLocal::Init( int argc, const char * const * argv, const char *cmdli
 
 		// initialize the renderSystem data structures
 		renderSystem->Init();
+		// Font registration resolves material declarations and must happen here,
+		// before the game/draw worker thread is started.
+		console->LoadGraphics();
 
 		whiteMaterial = declManager->FindMaterial( "_white" );
 
