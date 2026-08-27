@@ -32,7 +32,6 @@ If you have questions concerning this license or the applicable additional terms
 #include "tr_local.h"
 
 extern idCVar r_useAreasConnectedForShadowCulling;
-extern idCVar r_useParallelAddShadows;
 extern idCVar r_forceShadowCaps;
 extern idCVar r_useShadowPreciseInsideTest;
 
@@ -65,7 +64,7 @@ void R_ShadowBounds( const idBounds & modelBounds, const idBounds & lightBounds,
 idRenderEntityLocal::IsDirectlyVisible()
 ============================
 */
-bool idRenderEntityLocal::IsDirectlyVisible() const {
+bool idRenderEntityCommitted::IsDirectlyVisible() const {
 	if ( viewCount != tr.viewCount ) {
 		return false;
 	}
@@ -97,7 +96,6 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 	// until proven otherwise
 	vLight->removeFromList = true;
 	vLight->shadowOnlyViewEntities = NULL;
-	vLight->preLightShadowVolumes = NULL;
 
 	// globals we really should pass in...
 	const viewDef_t * viewDef = tr.viewDef;
@@ -170,6 +168,17 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 	// copy data used by backend
 	//--------------------------------------------
 	vLight->globalLightOrigin = light->globalLightOrigin;
+	vLight->shadowLightAxis = light->parms.axis;
+	vLight->shadowLightOrigin = light->parms.origin;
+	vLight->shadowLightCenter = light->parms.lightCenter;
+	vLight->shadowLightTarget = light->parms.target;
+	vLight->shadowLightRight = light->parms.right;
+	vLight->shadowLightUp = light->parms.up;
+	vLight->shadowLightStart = light->parms.start;
+	vLight->shadowLightBounds = light->globalLightBounds;
+	vLight->shadowViewOrigin = viewDef->renderView.vieworg;
+	vLight->shadowPointLight = light->parms.pointLight;
+	vLight->shadowParallel = light->parms.parallel;
 	vLight->lightProject[0] = light->lightProject[0];
 	vLight->lightProject[1] = light->lightProject[1];
 	vLight->lightProject[2] = light->lightProject[2];
@@ -243,7 +252,6 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 	vLight->entityInteractionState = (byte *)R_ClearedFrameAlloc( light->world->entityDefs.Num() * sizeof( vLight->entityInteractionState[0] ), FRAME_ALLOC_INTERACTION_STATE );
 
 	const bool lightCastsShadows = light->LightCastsShadows();
-	idInteraction * * const interactionTableRow = light->world->interactionTable + light->index * light->world->interactionTableWidth;
 
 	for ( areaReference_t * lref = light->references; lref != NULL; lref = lref->ownerNext ) {
 		portalArea_t *area = lref->area;
@@ -267,20 +275,8 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 			// until proven otherwise
 			vLight->entityInteractionState[ edef->index ] = viewLight_t::INTERACTION_NO;
 
-			// The table is updated at interaction::AllocAndLink() and interaction::UnlinkAndFree()
-			const idInteraction * inter = interactionTableRow[ edef->index ];
-
 			const renderEntity_t & eParms = edef->parms;
 			const idRenderModel * eModel = eParms.hModel;
-
-			// a large fraction of static entity / light pairs will still have no interactions even though
-			// they are both present in the same area(s)
-			if ( eModel != NULL && !eModel->IsDynamicModel() && inter == INTERACTION_EMPTY ) {
-				// the interaction was statically checked, and it didn't generate any surfaces,
-				// so there is no need to force the entity onto the view list if it isn't
-				// already there
-				continue;
-			}
 
 			// We don't want the lights on weapons to illuminate anything else.
 			// There are two assumptions here -- that allowLightInViewID is only
@@ -303,20 +299,11 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 				continue;
 			}
 
-			// no interaction present, so either the light or entity has moved
-			// assert( lightHasMoved || edef->entityHasMoved );
-			if ( inter == NULL ) {
-				// some big outdoor meshes are flagged to not create any dynamic interactions
-				// when the level designer knows that nearby moving lights shouldn't actually hit them
-				if ( eParms.noDynamicInteractions ) {
-					continue;
-				}
-
-				// do a check of the entity reference bounds against the light frustum to see if they can't
-				// possibly interact, despite sharing one or more world areas
-				if ( R_CullModelBoundsToLight( light, edef->localReferenceBounds, edef->modelRenderMatrix ) ) {
-					continue;
-				}
+			// Evaluate overlap from committed spatial state for this view. The old
+			// noDynamicInteractions depended on the removed prebuilt pair cache, so
+			// it cannot suppress this path without dropping static-world lighting.
+			if ( R_CullModelBoundsToLight( light, edef->localReferenceBounds, edef->modelRenderMatrix ) ) {
+				continue;
 			}
 
 			// we now know that the entity and light do overlap
@@ -373,75 +360,9 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 		}
 	}
 
-	//--------------------------------------------
-	// add the prelight shadows for the static world geometry
-	//--------------------------------------------
-	if ( light->parms.prelightModel != NULL ) {
-		srfTriangles_t * tri = light->parms.prelightModel->Surface( 0 )->geometry;
-
-		// these shadows will have valid bounds, and can be culled normally,
-		// but they will typically cover most of the light's bounds
-		if ( idRenderMatrix::CullBoundsToMVP( viewDef->worldSpace.mvp, tri->bounds ) ) {
-			return;
-		}
-
-		// prelight models should always have static data that never gets purged
-		assert( vertexCache.CacheIsCurrent( tri->shadowCache ) );
-		assert( vertexCache.CacheIsCurrent( tri->indexCache ) );
-
-		drawSurf_t * shadowDrawSurf = (drawSurf_t *)R_FrameAlloc( sizeof( *shadowDrawSurf ), FRAME_ALLOC_DRAW_SURFACE );
-
-		shadowDrawSurf->frontEndGeo = tri;
-		shadowDrawSurf->ambientCache = 0;
-		shadowDrawSurf->indexCache = tri->indexCache;
-		shadowDrawSurf->shadowCache = tri->shadowCache;
-		shadowDrawSurf->jointCache = 0;
-		shadowDrawSurf->numIndexes = 0;
-		shadowDrawSurf->space = &viewDef->worldSpace;
-		shadowDrawSurf->material = NULL;
-		shadowDrawSurf->extraGLState = 0;
-		shadowDrawSurf->shaderRegisters = NULL;
-		shadowDrawSurf->scissorRect = vLight->scissorRect;		// default to the light scissor and light depth bounds
-		shadowDrawSurf->shadowVolumeState = SHADOWVOLUME_DONE;	// assume the shadow volume is done in case r_skipPrelightShadows is set
-
-		if ( !r_skipPrelightShadows.GetBool() ) {
-			preLightShadowVolumeParms_t * shadowParms = (preLightShadowVolumeParms_t *)R_FrameAlloc( sizeof( shadowParms[0] ), FRAME_ALLOC_SHADOW_VOLUME_PARMS );
-
-			shadowParms->verts = tri->preLightShadowVertexes;
-			shadowParms->numVerts = tri->numVerts * 2;
-			shadowParms->indexes = tri->indexes;
-			shadowParms->numIndexes = tri->numIndexes;
-			shadowParms->triangleBounds = tri->bounds;
-			shadowParms->triangleMVP = viewDef->worldSpace.mvp;
-			shadowParms->localLightOrigin = vLight->globalLightOrigin;
-			shadowParms->localViewOrigin = viewDef->renderView.vieworg;
-			shadowParms->zNear = r_znear.GetFloat();
-			shadowParms->lightZMin = vLight->scissorRect.zmin;
-			shadowParms->lightZMax = vLight->scissorRect.zmax;
-			shadowParms->forceShadowCaps = r_forceShadowCaps.GetBool();
-			shadowParms->useShadowPreciseInsideTest = r_useShadowPreciseInsideTest.GetBool();
-			shadowParms->useShadowDepthBounds = r_useShadowDepthBounds.GetBool();
-			shadowParms->numShadowIndices = & shadowDrawSurf->numIndexes;
-			shadowParms->renderZFail = & shadowDrawSurf->renderZFail;
-			shadowParms->shadowZMin = & shadowDrawSurf->scissorRect.zmin;
-			shadowParms->shadowZMax = & shadowDrawSurf->scissorRect.zmax;
-			shadowParms->shadowVolumeState = & shadowDrawSurf->shadowVolumeState;
-
-			// the pre-light shadow volume "_prelight_light_3297" in "d3xpdm2" is malformed in that it contains the light origin so the precise inside test always fails
-			if ( tr.primaryWorld->mapName.IcmpPath( "maps/game/mp/d3xpdm2.map" ) == 0 && idStr::Icmp( light->parms.prelightModel->Name(), "_prelight_light_3297" ) == 0 ) {
-				shadowParms->useShadowPreciseInsideTest = false;
-			}
-
-			shadowDrawSurf->shadowVolumeState = SHADOWVOLUME_UNFINISHED;
-
-			shadowParms->next = vLight->preLightShadowVolumes;
-			vLight->preLightShadowVolumes = shadowParms;
-		}
-
-		// actually link it in
-		shadowDrawSurf->nextOnLight = vLight->globalShadows;
-		vLight->globalShadows = shadowDrawSurf;
-	}
+	// Static-world casters now arrive as ordinary model surfaces.  The old
+	// prelight model contains extruded stencil geometry and is intentionally
+	// not submitted to the shadow-buffer path.
 }
 
 REGISTER_PARALLEL_JOB( R_AddSingleLight, "R_AddSingleLight" );
@@ -500,30 +421,6 @@ void R_AddLights() {
 		}
 	}
 
-	//-------------------------------------------------
-	// Add jobs to setup pre-light shadow volumes.
-	//-------------------------------------------------
-
-	if ( r_useParallelAddShadows.GetInteger() == 1 ) {
-		for ( viewLight_t * vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
-			for ( preLightShadowVolumeParms_t * shadowParms = vLight->preLightShadowVolumes; shadowParms != NULL; shadowParms = shadowParms->next ) {
-				tr.frontEndJobList->AddJob( (jobRun_t)PreLightShadowVolumeJob, shadowParms );
-			}
-			vLight->preLightShadowVolumes = NULL;
-		}
-	} else {
-		int start = Sys_Microseconds();
-
-		for ( viewLight_t * vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
-			for ( preLightShadowVolumeParms_t * shadowParms = vLight->preLightShadowVolumes; shadowParms != NULL; shadowParms = shadowParms->next ) {
-				PreLightShadowVolumeJob( shadowParms );
-			}
-			vLight->preLightShadowVolumes = NULL;
-		}
-
-		int end = Sys_Microseconds();
-		backEnd.pc.shadowMicroSec += end - start;
-	}
 }
 
 /*

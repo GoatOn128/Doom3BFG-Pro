@@ -111,6 +111,7 @@ public:
 	const idImageOpts &	GetOpts() const { return opts; }
 	int			GetUploadWidth() const { return opts.width; }
 	int			GetUploadHeight() const { return opts.height; }
+	GLuint		GetAPIObject() const { return texnum; }
 
 	void		SetReferencedOutsideLevelLoad() { referencedOutsideLevelLoad = true; }
 	void		SetReferencedInsideLevelLoad() { levelLoadReferenced = true; }
@@ -361,4 +362,3 @@ IMAGEPROGRAM
 
 void R_LoadImageProgram( const char *name, byte **pic, int *width, int *height, ID_TIME_T *timestamp, textureUsage_t * usage = NULL );
 const char *R_ParsePastImageProgram( idLexer &src );
-

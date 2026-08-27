@@ -285,7 +285,16 @@ static const char * GLSLParmNames[] = {
 
 	"rpOverbright",
 	"rpEnableSkinning",
-	"rpAlphaTest"
+	"rpAlphaTest",
+	"rpShadowMatrixX",
+	"rpShadowMatrixY",
+	"rpShadowMatrixZ",
+	"rpShadowMatrixW",
+	"rpShadowProjectionX",
+	"rpShadowProjectionY",
+	"rpShadowProjectionZ",
+	"rpShadowProjectionW",
+	"rpShadowParams"
 };
 
 /*
@@ -1290,4 +1299,3 @@ idRenderProgManager::ZeroUniforms
 void idRenderProgManager::ZeroUniforms() {
 	memset( glslUniforms.Ptr(), 0, glslUniforms.Allocated() );
 }
-

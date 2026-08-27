@@ -146,7 +146,10 @@ public:
 	static void				GetFrustumCorners( frustumCorners_t & corners, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds );
 	static frustumCull_t	CullFrustumCornersToPlane( const frustumCorners_t & corners, const idPlane & plane );
 
-private:
+	// Tech 5 renderer jobs operate directly on packed row-major matrices when
+	// assembling shadow and render-destination parameter blocks.
+	// Keep this public to preserve that zero-copy flow.
+public:
 	float					m[16];
 };
 

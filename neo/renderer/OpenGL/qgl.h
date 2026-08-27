@@ -63,6 +63,10 @@ GLExtension_t GLimp_ExtensionPointer( const char *name );
 	}
 #endif
 
+// GL_ARB_multitexture
+extern PFNGLACTIVETEXTUREPROC					qglActiveTextureARB;
+extern PFNGLCLIENTACTIVETEXTUREPROC			qglClientActiveTextureARB;
+
 // GL_EXT_direct_state_access
 extern PFNGLBINDMULTITEXTUREEXTPROC			qglBindMultiTextureEXT;
 
@@ -127,6 +131,13 @@ extern PFNGLBINDATTRIBLOCATIONPROC			qglBindAttribLocation;
 extern PFNGLGETUNIFORMLOCATIONPROC			qglGetUniformLocation;
 extern PFNGLUNIFORM1IPROC					qglUniform1i;
 extern PFNGLUNIFORM4FVPROC					qglUniform4fv;
+
+// OpenGL 3 framebuffer objects (shadow buffers and render destinations)
+extern PFNGLGENFRAMEBUFFERSPROC				qglGenFramebuffers;
+extern PFNGLBINDFRAMEBUFFERPROC				qglBindFramebuffer;
+extern PFNGLDELETEFRAMEBUFFERSPROC			qglDeleteFramebuffers;
+extern PFNGLFRAMEBUFFERTEXTURE2DPROC		qglFramebufferTexture2D;
+extern PFNGLCHECKFRAMEBUFFERSTATUSPROC		qglCheckFramebufferStatus;
 
 // GL_ARB_uniform_buffer_object
 extern PFNGLGETUNIFORMBLOCKINDEXPROC		qglGetUniformBlockIndex;

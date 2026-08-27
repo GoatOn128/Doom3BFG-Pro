@@ -192,7 +192,7 @@ idLight::idLight
 idLight::idLight():
 	previousBaseColor( vec3_zero ) ,
 	nextBaseColor( vec3_zero ) {
-	memset( &renderLight, 0, sizeof( renderLight ) );
+	memset( static_cast< renderLight_t * >( &renderLight ), 0, sizeof( renderLight_t ) );
 	localLightOrigin	= vec3_zero;
 	localLightAxis		= mat3_identity;
 	lightDefHandle		= -1;
@@ -217,7 +217,7 @@ idLight::~idLight
 */
 idLight::~idLight() {
 	if ( lightDefHandle != -1 ) {
-		gameRenderWorld->FreeLightDef( lightDefHandle );
+		renderLight.FreeRenderLight();
 	}
 }
 
@@ -717,9 +717,9 @@ idLight::PresentLightDefChange
 void idLight::PresentLightDefChange() {
 	// let the renderer apply it to the world
 	if ( ( lightDefHandle != -1 ) ) {
-		gameRenderWorld->UpdateLightDef( lightDefHandle, &renderLight );
+		renderLight.CommitThisFrame();
 	} else {
-		lightDefHandle = gameRenderWorld->AddLightDef( &renderLight );
+		lightDefHandle = gameRenderWorld->AddRenderLight( &renderLight );
 	}
 }
 
@@ -736,9 +736,9 @@ void idLight::PresentModelDefChange() {
 
 	// add to refresh list
 	if ( modelDefHandle == -1 ) {
-		modelDefHandle = gameRenderWorld->AddEntityDef( &renderEntity );
+		modelDefHandle = gameRenderWorld->AddRenderEntity( &renderEntity );
 	} else {
-		gameRenderWorld->UpdateEntityDef( modelDefHandle, &renderEntity );
+		renderEntity.CommitThisFrame();
 	}
 }
 
@@ -836,7 +836,7 @@ idLight::FreeLightDef
 */
 void idLight::FreeLightDef() {
 	if ( lightDefHandle != -1 ) {
-		gameRenderWorld->FreeLightDef( lightDefHandle );
+		renderLight.FreeRenderLight();
 		lightDefHandle = -1;
 	}
 }

@@ -782,7 +782,7 @@ drawSurf_t * idRenderModelDecal::CreateDecalDrawSurf( const viewEntity_t *space,
 	drawSurf->space = space;
 	drawSurf->scissorRect = space->scissorRect;
 	drawSurf->extraGLState = 0;
-	drawSurf->renderZFail = 0;
+	drawSurf->interactionCullState = SHADOWVOLUME_DONE;
 
 	R_SetupDrawSurfShader( drawSurf, material, &space->entityDef->parms );
 

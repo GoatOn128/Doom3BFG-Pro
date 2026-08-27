@@ -461,6 +461,17 @@ idImage * idImageManager::ScratchImage( const char *_name, idImageOpts *imgOpts,
 		if ( name.Icmp( image->GetName() ) == 0 ) {
 			// the built in's, like _white and _flat always match the other options
 			if ( name[0] == '_' ) {
+				// Scratch render targets are renderer-owned images, not level media.
+				// Keep them alive across BeginLevelLoad and recreate their storage if
+				// PurgeAllImages removed the GL object while retaining the idImage.
+				image->usage = usage;
+				image->levelLoadReferenced = true;
+				image->referencedOutsideLevelLoad = true;
+				if ( !image->IsLoaded() || image->opts.textureType != imgOpts->textureType ||
+					image->opts.format != imgOpts->format || image->opts.width != imgOpts->width ||
+					image->opts.height != imgOpts->height || image->opts.numLevels != imgOpts->numLevels ) {
+					image->AllocImage( *imgOpts, filter, repeat );
+				}
 				return image;
 			}
 
@@ -491,7 +502,10 @@ idImage * idImageManager::ScratchImage( const char *_name, idImageOpts *imgOpts,
 	// create a new image
 	//
 	idImage* newImage = AllocImage( name );
-	if ( newImage != NULL ) {	
+	if ( newImage != NULL ) {
+		newImage->usage = usage;
+		newImage->levelLoadReferenced = true;
+		newImage->referencedOutsideLevelLoad = true;
 		newImage->AllocImage( *imgOpts, filter, repeat );
 	}
 	return newImage;

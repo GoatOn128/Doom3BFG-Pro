@@ -69,15 +69,17 @@ static void R_PerformanceCounters() {
 	}
 	
 	if ( r_showAddModel.GetBool() ) {
-		common->Printf( "callback:%i createInteractions:%i createShadowVolumes:%i\n",
-			tr.pc.c_entityDefCallbacks, tr.pc.c_createInteractions, tr.pc.c_createShadowVolumes );
+		common->Printf( "callback:%i createShadowVolumes:%i\n",
+			tr.pc.c_entityDefCallbacks, tr.pc.c_createShadowVolumes );
 		common->Printf( "viewEntities:%i  shadowEntities:%i  viewLights:%i\n", tr.pc.c_visibleViewEntities,
 			tr.pc.c_shadowViewEntities, tr.pc.c_viewLights );
 	}
 	if ( r_showUpdates.GetBool() ) {
-		common->Printf( "entityUpdates:%i  entityRefs:%i  lightUpdates:%i  lightRefs:%i\n", 
-			tr.pc.c_entityUpdates, tr.pc.c_entityReferences,
-			tr.pc.c_lightUpdates, tr.pc.c_lightReferences );
+		common->Printf( "entityUpdates:%i  entityCommitReqs:%i  entityCommits:%i  entityRefs:%i  lightUpdates:%i  lightCommitReqs:%i  lightCommits:%i  lightRefCommits:%i  lightRefs:%i\n",
+			tr.pc.c_entityUpdates, tr.pc.c_entityCommitRequests,
+			tr.pc.c_entityCommits, tr.pc.c_entityReferences,
+			tr.pc.c_lightUpdates, tr.pc.c_lightCommitRequests, tr.pc.c_lightCommits,
+			tr.pc.c_lightReferenceCommits, tr.pc.c_lightReferences );
 	}
 	if ( r_showMemory.GetBool() ) {
 		common->Printf( "frameData: %i (%i)\n", frameData->frameMemoryAllocated.GetValue(), frameData->highWaterAllocated );

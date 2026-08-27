@@ -462,7 +462,7 @@ public:
 	unsigned int			GetNumSnapshotsReceived() const { return snapshotsReceived; }
 
 protected:
-	renderEntity_t			renderEntity;						// used to present a model to the renderer
+	idRenderEntity			renderEntity;						// game-facing render object
 	int						modelDefHandle;						// handle to static renderer model
 	refSound_t				refSound;							// used to present sound to the audio engine
 

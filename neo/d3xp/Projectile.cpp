@@ -96,7 +96,7 @@ idProjectile::idProjectile() :
 	mTouchTriggers		= false;
 	mNoExplodeDisappear = false;
 	memset( &projectileFlags, 0, sizeof( projectileFlags ) );
-	memset( &renderLight, 0, sizeof( renderLight ) );
+	memset( static_cast< renderLight_t * >( &renderLight ), 0, sizeof( renderLight_t ) );
 
 	// note: for net_instanthit projectiles, we will force this back to false at spawn time
 	fl.networkSync		= true;
@@ -199,7 +199,7 @@ void idProjectile::Restore( idRestoreGame *savefile ) {
 	}
 
 	if ( lightDefHandle >= 0 ) {
-		lightDefHandle = gameRenderWorld->AddLightDef( &renderLight );
+		lightDefHandle = gameRenderWorld->AddRenderLight( &renderLight );
 	}
 }
 
@@ -240,7 +240,7 @@ void idProjectile::Create( idEntity *owner, const idVec3 &start, const idVec3 &d
 
 	this->owner = owner;
 
-	memset( &renderLight, 0, sizeof( renderLight ) );
+	memset( static_cast< renderLight_t * >( &renderLight ), 0, sizeof( renderLight_t ) );
 	shaderName = spawnArgs.GetString( "mtr_light_shader" );
 	if ( *(const char *)shaderName ) {
 		renderLight.shader = declManager->FindMaterial( shaderName, false );
@@ -293,7 +293,7 @@ idProjectile::FreeLightDef
 */
 void idProjectile::FreeLightDef() {
 	if ( lightDefHandle != -1 ) {
-		gameRenderWorld->FreeLightDef( lightDefHandle );
+		renderLight.FreeRenderLight();
 		lightDefHandle = -1;
 	}
 }
@@ -539,9 +539,9 @@ void idProjectile::AddParticlesAndLight() {
 				renderLight.shaderParms[SHADERPARM_GREEN] = color.y;
 				renderLight.shaderParms[SHADERPARM_BLUE] = color.z;
 			} 
-			gameRenderWorld->UpdateLightDef( lightDefHandle, &renderLight );
+			renderLight.CommitThisFrame();
 		} else {
-			lightDefHandle = gameRenderWorld->AddLightDef( &renderLight );
+			lightDefHandle = gameRenderWorld->AddRenderLight( &renderLight );
 		}
 	}
 }

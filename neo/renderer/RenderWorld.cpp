@@ -43,9 +43,10 @@ void R_ListRenderLightDefs_f( const idCmdArgs &args ) {
 	if ( !tr.primaryWorld ) {
 		return;
 	}
+	tr.primaryWorld->CommitRenderEntities();
+	tr.primaryWorld->CommitLightDefs();
 	int active = 0;
 	int	totalRef = 0;
-	int	totalIntr = 0;
 
 	for ( i = 0; i < tr.primaryWorld->lightDefs.Num(); i++ ) {
 		ldef = tr.primaryWorld->lightDefs[i];
@@ -54,13 +55,6 @@ void R_ListRenderLightDefs_f( const idCmdArgs &args ) {
 			continue;
 		}
 
-		// count up the interactions
-		int	iCount = 0;
-		for ( idInteraction *inter = ldef->firstInteraction; inter != NULL; inter = inter->lightNext ) {
-			iCount++;
-		}
-		totalIntr += iCount;
-
 		// count up the references
 		int	rCount = 0;
 		for ( areaReference_t *ref = ldef->references; ref; ref = ref->ownerNext ) {
@@ -68,11 +62,11 @@ void R_ListRenderLightDefs_f( const idCmdArgs &args ) {
 		}
 		totalRef += rCount;
 
-		common->Printf( "%4i: %3i intr %2i refs %s\n", i, iCount, rCount, ldef->lightShader->GetName());
+		common->Printf( "%4i: %2i refs %s\n", i, rCount, ldef->lightShader->GetName());
 		active++;
 	}
 
-	common->Printf( "%i lightDefs, %i interactions, %i areaRefs\n", active, totalIntr, totalRef );
+	common->Printf( "%i lightDefs, %i areaRefs\n", active, totalRef );
 }
 
 /*
@@ -87,9 +81,9 @@ void R_ListRenderEntityDefs_f( const idCmdArgs &args ) {
 	if ( !tr.primaryWorld ) {
 		return;
 	}
+	tr.primaryWorld->CommitRenderEntities();
 	int active = 0;
 	int	totalRef = 0;
-	int	totalIntr = 0;
 
 	for ( i = 0; i < tr.primaryWorld->entityDefs.Num(); i++ ) {
 		mdef = tr.primaryWorld->entityDefs[i];
@@ -98,13 +92,6 @@ void R_ListRenderEntityDefs_f( const idCmdArgs &args ) {
 			continue;
 		}
 
-		// count up the interactions
-		int	iCount = 0;
-		for ( idInteraction *inter = mdef->firstInteraction; inter != NULL; inter = inter->entityNext ) {
-			iCount++;
-		}
-		totalIntr += iCount;
-
 		// count up the references
 		int	rCount = 0;
 		for ( areaReference_t *ref = mdef->entityRefs; ref; ref = ref->ownerNext ) {
@@ -112,7 +99,7 @@ void R_ListRenderEntityDefs_f( const idCmdArgs &args ) {
 		}
 		totalRef += rCount;
 
-		common->Printf( "%4i: %3i intr %2i refs %s\n", i, iCount, rCount, mdef->parms.hModel->Name());
+		common->Printf( "%4i: %2i refs %s\n", i, rCount, mdef->parms.hModel->Name());
 		active++;
 	}
 
@@ -128,8 +115,6 @@ idRenderWorldLocal::idRenderWorldLocal() {
 	mapName.Clear();
 	mapTimeStamp = FILE_NOT_FOUND_TIMESTAMP;
 
-	generateAllInteractionsCalled = false;
-
 	areaNodes = NULL;
 	numAreaNodes = 0;
 
@@ -138,10 +123,6 @@ idRenderWorldLocal::idRenderWorldLocal() {
 
 	doublePortals = NULL;
 	numInterAreaPortals = 0;
-
-	interactionTable = 0;
-	interactionTableWidth = 0;
-	interactionTableHeight = 0;
 
 	for ( int i = 0; i < decals.Num(); i++ ) {
 		decals[i].entityHandle = -1;
@@ -179,33 +160,6 @@ idRenderWorldLocal::~idRenderWorldLocal() {
 	RB_ClearDebugText( 0 );
 }
 
-/*
-===================
-ResizeInteractionTable
-===================
-*/
-void idRenderWorldLocal::ResizeInteractionTable() {
-	// we overflowed the interaction table, so make it larger
-	common->Printf( "idRenderWorldLocal::ResizeInteractionTable: overflowed interactionTable, resizing\n" );
-
-	const int oldInteractionTableWidth = interactionTableWidth;
-	const int oldIinteractionTableHeight = interactionTableHeight;
-	idInteraction ** oldInteractionTable = interactionTable;
-
-	// build the interaction table
-	// this will be dynamically resized if the entity / light counts grow too much
-	interactionTableWidth = entityDefs.Num() + 100;
-	interactionTableHeight = lightDefs.Num() + 100;
-	const int	size =  interactionTableWidth * interactionTableHeight * sizeof( *interactionTable );
-	interactionTable = (idInteraction **)R_ClearedStaticAlloc( size );
-	for ( int l = 0; l < oldIinteractionTableHeight; l++ ) {
-		for ( int e = 0; e < oldInteractionTableWidth; e++ ) {
-			interactionTable[ l * interactionTableWidth + e ] = oldInteractionTable[ l * oldInteractionTableWidth + e ];
-		}
-	}
-
-	R_StaticFree( oldInteractionTable );
-}
 
 /*
 ===================
@@ -217,15 +171,59 @@ qhandle_t idRenderWorldLocal::AddEntityDef( const renderEntity_t *re ){
 	int entityHandle = entityDefs.FindNull();
 	if ( entityHandle == -1 ) {
 		entityHandle = entityDefs.Append( NULL );
-
-		if ( interactionTable && entityDefs.Num() > interactionTableWidth ) {
-			ResizeInteractionTable();
-		}
 	}
 
 	UpdateEntityDef( entityHandle, re );
 	
 	return entityHandle;
+}
+
+qhandle_t idRenderWorldLocal::AddRenderEntity( idRenderEntity * entity ) {
+	if ( entity == NULL ) {
+		return -1;
+	}
+	if ( entity->world != NULL ) {
+		if ( entity->world != this ) {
+			common->Error( "idRenderWorld::AddRenderEntity: object already belongs to another world" );
+		}
+		QueueRenderEntity( entity );
+		return entity->index;
+	}
+
+	const qhandle_t handle = AddEntityDef( entity );
+	idRenderEntityLocal * committed = entityDefs[handle];
+	committed->owner = entity;
+	entity->world = this;
+	entity->index = handle;
+	entity->committed = committed;
+	entity->needsCommit = false;
+	return handle;
+}
+
+void idRenderWorldLocal::QueueRenderEntity( idRenderEntity * entity ) {
+	if ( entity == NULL || entity->world != this || entity->index < 0 ) {
+		return;
+	}
+	entity->needsCommit = true;
+	tr.pc.c_entityCommitRequests++;
+}
+
+void idRenderWorldLocal::CommitRenderEntities() {
+	// Keep queued producer state pending while updates are intentionally frozen.
+	// Clearing the bit here would otherwise silently discard the update forever.
+	if ( r_skipUpdates.GetBool() ) {
+		return;
+	}
+
+	for ( int i = 0; i < entityDefs.Num(); ++i ) {
+		idRenderEntityLocal * committed = entityDefs[i];
+		if ( committed == NULL || committed->owner == NULL || !committed->owner->needsCommit ) {
+			continue;
+		}
+		UpdateEntityDef( i, committed->owner );
+		committed->owner->needsCommit = false;
+		tr.pc.c_entityCommits++;
+	}
 }
 
 /*
@@ -351,6 +349,13 @@ void idRenderWorldLocal::FreeEntityDef( qhandle_t entityHandle ) {
 	}
 
 	R_FreeEntityDefDerivedData( def, false, false );
+	if ( def->owner != NULL ) {
+		def->owner->world = NULL;
+		def->owner->index = -1;
+		def->owner->committed = NULL;
+		def->owner->needsCommit = false;
+		def->owner = NULL;
+	}
 
 	if ( common->WriteDemo() && def->archived ) {
 		WriteFreeEntity( entityHandle );
@@ -387,7 +392,10 @@ const renderEntity_t *idRenderWorldLocal::GetRenderEntity( qhandle_t entityHandl
 		return NULL;
 	}
 
-	return &def->parms;
+	// Object-backed definitions expose producer state to game-side callers even
+	// before the renderer consumes the queued commit. Legacy definitions have no
+	// producer object and continue to expose their immediate state.
+	return def->owner != NULL ? static_cast< const renderEntity_t * >( def->owner ) : &def->parms;
 }
 
 /*
@@ -401,13 +409,32 @@ qhandle_t idRenderWorldLocal::AddLightDef( const renderLight_t *rlight ) {
 
 	if ( lightHandle == -1 ) {
 		lightHandle = lightDefs.Append( NULL );
-		if ( interactionTable && lightDefs.Num() > interactionTableHeight ) {
-			ResizeInteractionTable();
-		}
 	}
 	UpdateLightDef( lightHandle, rlight );
 
 	return lightHandle;
+}
+
+qhandle_t idRenderWorldLocal::AddRenderLight( idRenderLight * light ) {
+	if ( light == NULL ) {
+		return -1;
+	}
+	if ( light->world != NULL ) {
+		if ( light->world != this ) {
+			common->Error( "idRenderWorld::AddRenderLight: object already belongs to another world" );
+		}
+		light->CommitThisFrame();
+		return light->index;
+	}
+
+	const qhandle_t handle = AddLightDef( light );
+	idRenderLightLocal * committed = lightDefs[handle];
+	committed->owner = light;
+	light->world = this;
+	light->index = handle;
+	light->committed = static_cast< idRenderLightCommitted * >( committed );
+	light->needsCommit = false;
+	return handle;
 }
 
 /*
@@ -427,7 +454,6 @@ void idRenderWorldLocal::UpdateLightDef( qhandle_t lightHandle, const renderLigh
 
 	tr.pc.c_lightUpdates++;
 
-	// create new slots if needed
 	if ( lightHandle < 0 || lightHandle > LUDICROUS_INDEX ) {
 		common->Error( "idRenderWorld::UpdateLightDef: index = %i", lightHandle );
 	}
@@ -435,52 +461,101 @@ void idRenderWorldLocal::UpdateLightDef( qhandle_t lightHandle, const renderLigh
 		lightDefs.Append( NULL );
 	}
 
-	bool justUpdate = false;
-	idRenderLightLocal *light = lightDefs[lightHandle];
-	if ( light ) {
-		// if the shape of the light stays the same, we don't need to dump
-		// any of our derived data, because shader parms are calculated every frame
-		if ( rlight->axis == light->parms.axis && rlight->end == light->parms.end &&
-			 rlight->lightCenter == light->parms.lightCenter && rlight->lightRadius == light->parms.lightRadius &&
-			 rlight->noShadows == light->parms.noShadows && rlight->origin == light->parms.origin &&
-			 rlight->parallel == light->parms.parallel && rlight->pointLight == light->parms.pointLight &&
-			 rlight->right == light->parms.right && rlight->start == light->parms.start &&
-			 rlight->target == light->parms.target && rlight->up == light->parms.up && 
-			 rlight->shader == light->lightShader && rlight->prelightModel == light->parms.prelightModel ) {
-			justUpdate = true;
-		} else {
-			// if we are updating shadows, the prelight model is no longer valid
-			light->lightHasMoved = true;
-			R_FreeLightDefDerivedData( light );
-		}
-	} else {
-		// create a new one
+	idRenderLightLocal * light = lightDefs[lightHandle];
+	if ( light == NULL ) {
 		light = new (TAG_RENDER_LIGHT) idRenderLightLocal;
 		lightDefs[lightHandle] = light;
-
 		light->world = this;
 		light->index = lightHandle;
 	}
 
-	light->parms = *rlight;
+	// Stage producer-side state. Renderer-visible data is updated only by
+	// CommitLightDefs(), immediately before the world is rendered.
+	light->gameParms = *rlight;
+	// Material declarations and their images must be resolved on the update side.
+	// The commit phase can run after game-thread declaration loading is disabled.
+	R_ResolveLightResources( light->gameParms, light->stagedLightShader, light->stagedFalloffImage );
+	if ( light->gameParms.shader != NULL && light->gameParms.shader->Spectrum() ) {
+		light->gameParms.noShadows = true;
+	}
+	light->needsCommit = true;
 	light->lastModifiedFrameNum = tr.frameCount;
+
 	if ( common->WriteDemo() && light->archived ) {
 		WriteFreeLight( lightHandle );
 		light->archived = false;
 	}
+}
 
-	// new for BFG edition: force noShadows on spectrum lights so teleport spawns
-	// don't cause such a slowdown.  Hell writing shouldn't be shadowed anyway...
-	if ( light->parms.shader && light->parms.shader->Spectrum() ) {
-		light->parms.noShadows = true;
+void idRenderWorldLocal::CommitLightDef( idRenderLightLocal * light ) {
+	if ( light == NULL || !light->needsCommit ) {
+		return;
 	}
 
+	renderLight_t staged = light->gameParms;
+	const bool hasCommittedState = light->lightShader != NULL;
+	bool shapeUnchanged = false;
+	if ( hasCommittedState ) {
+		shapeUnchanged = staged.axis == light->parms.axis && staged.end == light->parms.end &&
+			staged.lightCenter == light->parms.lightCenter && staged.lightRadius == light->parms.lightRadius &&
+			staged.noShadows == light->parms.noShadows && staged.origin == light->parms.origin &&
+			staged.parallel == light->parms.parallel && staged.pointLight == light->parms.pointLight &&
+			staged.right == light->parms.right && staged.start == light->parms.start &&
+			staged.target == light->parms.target && staged.up == light->parms.up &&
+			light->stagedLightShader == light->lightShader && staged.prelightModel == light->parms.prelightModel;
+		if ( !shapeUnchanged ) {
+			light->lightHasMoved = true;
+		}
+	}
+
+	light->parms = staged;
+	light->lightShader = light->stagedLightShader;
+	light->falloffImage = light->stagedFalloffImage;
 	if ( light->lightHasMoved ) {
 		light->parms.prelightModel = NULL;
 	}
+	light->needsReferences = !shapeUnchanged;
+	light->needsCommit = false;
+	light->needsPostCommit = true;
+}
 
-	if ( !justUpdate ) {
+void idRenderWorldLocal::PostCommitLightDef( idRenderLightLocal * light ) {
+	if ( light == NULL || !light->needsPostCommit ) {
+		return;
+	}
+
+	if ( light->needsReferences ) {
+		R_FreeLightDefDerivedData( light );
 		R_CreateLightRefs( light );
+		light->needsReferences = false;
+		tr.pc.c_lightReferenceCommits++;
+	}
+
+	light->needsPostCommit = false;
+	tr.pc.c_lightCommits++;
+}
+
+void idRenderWorldLocal::CommitLightDefs() {
+	// Transfer queued game-facing light state into the staging slots. Leave it
+	// pending while updates are frozen so it can be consumed on a later frame.
+	if ( !r_skipUpdates.GetBool() ) {
+		for ( int i = 0; i < lightDefs.Num(); ++i ) {
+			idRenderLightLocal * light = lightDefs[i];
+			if ( light == NULL || light->owner == NULL || !light->owner->needsCommit ) {
+				continue;
+			}
+			UpdateLightDef( i, light->owner );
+			light->owner->needsCommit = false;
+		}
+	}
+
+	// Match the idTech 5 flow: publish all producer state first, then let the
+	// committed-world pass rebuild derived data and spatial references.
+	for ( int i = 0; i < lightDefs.Num(); ++i ) {
+		CommitLightDef( lightDefs[i] );
+	}
+	for ( int i = 0; i < lightDefs.Num(); ++i ) {
+		PostCommitLightDef( lightDefs[i] );
 	}
 }
 
@@ -507,6 +582,13 @@ void idRenderWorldLocal::FreeLightDef( qhandle_t lightHandle ) {
 	}
 
 	R_FreeLightDefDerivedData( light );
+	if ( light->owner != NULL ) {
+		light->owner->world = NULL;
+		light->owner->index = -1;
+		light->owner->committed = NULL;
+		light->owner->needsCommit = false;
+		light->owner = NULL;
+	}
 
 	if ( common->WriteDemo() && light->archived ) {
 		WriteFreeLight( lightHandle );
@@ -535,7 +617,7 @@ const renderLight_t *idRenderWorldLocal::GetRenderLight( qhandle_t lightHandle )
 		return NULL;
 	}
 
-	return &def->parms;
+	return def->owner != NULL ? static_cast< const renderLight_t * >( def->owner ) : &def->gameParms;
 }
 
 /*
@@ -783,6 +865,9 @@ void idRenderWorldLocal::RenderScene( const renderView_t *renderView ) {
 	if ( !R_IsInitialized() ) {
 		return;
 	}
+
+	CommitRenderEntities();
+	CommitLightDefs();
 
 	renderView_t copy = *renderView;
 
@@ -1519,111 +1604,6 @@ void idRenderWorldLocal::AddLightRefToArea( idRenderLightLocal *light, portalAre
 	area->lightRefs.areaNext = lref;
 }
 
-/*
-===================
-idRenderWorldLocal::GenerateAllInteractions
-
-Force the generation of all light / surface interactions at the start of a level
-If this isn't called, they will all be dynamically generated
-===================
-*/
-void idRenderWorldLocal::GenerateAllInteractions() {
-	if ( !R_IsInitialized() ) {
-		return;
-	}
-
-	int start = Sys_Milliseconds();
-
-	generateAllInteractionsCalled = false;
-
-	// let the interaction creation code know that it shouldn't
-	// try and do any view specific optimizations
-	tr.viewDef = NULL;
-
-	// build the interaction table
-	// this will be dynamically resized if the entity / light counts grow too much
-	interactionTableWidth = entityDefs.Num() + 100;
-	interactionTableHeight = lightDefs.Num() + 100;
-	int	size =  interactionTableWidth * interactionTableHeight * sizeof( *interactionTable );
-	interactionTable = (idInteraction **)R_ClearedStaticAlloc( size );
-
-	// itterate through all lights
-	int	count = 0;
-	for ( int i = 0; i < this->lightDefs.Num(); i++ ) {
-		idRenderLightLocal	*ldef = this->lightDefs[i];
-		if ( ldef == NULL ) {
-			continue;
-		}
-
-		// check all areas the light touches
-		for ( areaReference_t *lref = ldef->references; lref; lref = lref->ownerNext ) {
-			portalArea_t *area = lref->area;
-
-			// check all the models in this area
-			for ( areaReference_t *eref = area->entityRefs.areaNext; eref != &area->entityRefs; eref = eref->areaNext ) {
-				idRenderEntityLocal	 *edef = eref->entity;
-
-				// scan the doubly linked lists, which may have several dozen entries
-				idInteraction	*inter;
-
-				// we could check either model refs or light refs for matches, but it is
-				// assumed that there will be less lights in an area than models
-				// so the entity chains should be somewhat shorter (they tend to be fairly close).
-				for ( inter = edef->firstInteraction; inter != NULL; inter = inter->entityNext ) {
-					if ( inter->lightDef == ldef ) {
-						break;
-					}
-				}
-
-				// if we already have an interaction, we don't need to do anything
-				if ( inter != NULL ) {
-					continue;
-				}
-
-				// make an interaction for this light / entity pair
-				// and add a pointer to it in the table
-				inter = idInteraction::AllocAndLink( edef, ldef );
-				count++;
-
-				// the interaction may create geometry
-				inter->CreateStaticInteraction();
-			}
-		}
-
-		session->Pump();
-	}
-
-	int end = Sys_Milliseconds();
-	int	msec = end - start;
-
-	common->Printf( "idRenderWorld::GenerateAllInteractions, msec = %i\n", msec );
-	common->Printf( "interactionTable size: %i bytes\n", size );
-	common->Printf( "%i interactions take %i bytes\n", count, count * sizeof( idInteraction ) );
-
-	// entities flagged as noDynamicInteractions will no longer make any
-	generateAllInteractionsCalled = true;
-}
-
-/*
-===================
-idRenderWorldLocal::FreeInteractions
-===================
-*/
-void idRenderWorldLocal::FreeInteractions() {
-	int			i;
-	idRenderEntityLocal	*def;
-
-	for ( i = 0; i < entityDefs.Num(); i++ ) {
-		def = entityDefs[i];
-		if ( !def ) {
-			continue;
-		}
-		// free all the interactions
-		while ( def->firstInteraction != NULL ) {
-			def->firstInteraction->UnlinkAndFree();
-		}
-	}
-}
 
 /*
 ==================
@@ -2050,6 +2030,8 @@ idRenderWorldLocal::RegenerateWorld
 ===============
 */
 void idRenderWorldLocal::RegenerateWorld() {
+	CommitRenderEntities();
+	CommitLightDefs();
 	R_FreeDerivedData();
 	R_ReCreateWorldReferences();
 }

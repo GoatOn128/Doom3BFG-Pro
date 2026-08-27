@@ -438,7 +438,7 @@ idEntity::idEntity():
 	memset( &fl, 0, sizeof( fl ) );
 	fl.neverDormant	= true;			// most entities never go dormant
 
-	memset( &renderEntity, 0, sizeof( renderEntity ) );
+	memset( static_cast< renderEntity_t * >( &renderEntity ), 0, sizeof( renderEntity_t ) );
 	modelDefHandle	= -1;
 	memset( &refSound, 0, sizeof( refSound ) );
 
@@ -806,7 +806,7 @@ void idEntity::Restore( idRestoreGame *savefile ) {
 
 	// restore must retrieve modelDefHandle from the renderer
 	if ( modelDefHandle != -1 ) {
-		modelDefHandle = gameRenderWorld->AddEntityDef( &renderEntity );
+		modelDefHandle = gameRenderWorld->AddRenderEntity( &renderEntity );
 	}
 }
 
@@ -1173,7 +1173,7 @@ idEntity::FreeModelDef
 */
 void idEntity::FreeModelDef() {
 	if ( modelDefHandle != -1 ) {
-		gameRenderWorld->FreeEntityDef( modelDefHandle );
+		renderEntity.FreeRenderEntity();
 		modelDefHandle = -1;
 	}
 }
@@ -1479,9 +1479,9 @@ void idEntity::Present() {
 
 	// add to refresh list
 	if ( modelDefHandle == -1 ) {
-		modelDefHandle = gameRenderWorld->AddEntityDef( &renderEntity );
+		modelDefHandle = gameRenderWorld->AddRenderEntity( &renderEntity );
 	} else {
-		gameRenderWorld->UpdateEntityDef( modelDefHandle, &renderEntity );
+		renderEntity.CommitThisFrame();
 	}
 }
 
@@ -4875,7 +4875,7 @@ void idEntity::Event_SetGui( int guiNum, const char *guiName) {
 		*gui = uiManager->FindGui( guiName, true, false );
 		UpdateGuiParms( *gui, &spawnArgs );
 		UpdateChangeableSpawnArgs( NULL );
-		gameRenderWorld->UpdateEntityDef(modelDefHandle, &renderEntity);
+		renderEntity.CommitThisFrame();
 
 	} else {
 		gameLocal.Error( "Entity '%s' doesn't have a GUI %d", name.c_str(), guiNum );
@@ -5401,7 +5401,7 @@ void idAnimatedEntity::Restore( idRestoreGame *savefile ) {
 		animator.GetJoints( &renderEntity.numJoints, &renderEntity.joints );
 		animator.GetBounds( gameLocal.time, renderEntity.bounds );
 		if ( modelDefHandle != -1 ) {
-			gameRenderWorld->UpdateEntityDef( modelDefHandle, &renderEntity );
+			renderEntity.CommitThisFrame();
 		}
 	}
 }

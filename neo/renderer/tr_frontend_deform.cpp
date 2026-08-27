@@ -989,7 +989,7 @@ static drawSurf_t * R_ParticleDeform( drawSurf_t *surf, bool useArea ) {
 		drawSurf->space = surf->space;
 		drawSurf->scissorRect = surf->scissorRect;
 		drawSurf->extraGLState = 0;
-		drawSurf->renderZFail = 0;
+		drawSurf->interactionCullState = SHADOWVOLUME_DONE;
 
 		R_SetupDrawSurfShader( drawSurf, stage->material, renderEntity );
 

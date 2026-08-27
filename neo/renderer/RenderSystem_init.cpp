@@ -262,6 +262,12 @@ PFNGLGETUNIFORMLOCATIONPROC				qglGetUniformLocation;
 PFNGLUNIFORM1IPROC						qglUniform1i;
 PFNGLUNIFORM4FVPROC						qglUniform4fv;
 
+PFNGLGENFRAMEBUFFERSPROC				qglGenFramebuffers;
+PFNGLBINDFRAMEBUFFERPROC				qglBindFramebuffer;
+PFNGLDELETEFRAMEBUFFERSPROC			qglDeleteFramebuffers;
+PFNGLFRAMEBUFFERTEXTURE2DPROC		qglFramebufferTexture2D;
+PFNGLCHECKFRAMEBUFFERSTATUSPROC		qglCheckFramebufferStatus;
+
 // GL_ARB_uniform_buffer_object
 PFNGLGETUNIFORMBLOCKINDEXPROC			qglGetUniformBlockIndex;
 PFNGLUNIFORMBLOCKBINDINGPROC			qglUniformBlockBinding;
@@ -489,6 +495,12 @@ static void R_CheckPortableExtensions() {
 		qglGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)GLimp_ExtensionPointer( "glGetUniformLocation" );
 		qglUniform1i = (PFNGLUNIFORM1IPROC)GLimp_ExtensionPointer( "glUniform1i" );
 		qglUniform4fv = (PFNGLUNIFORM4FVPROC)GLimp_ExtensionPointer( "glUniform4fv" );
+
+		qglGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)GLimp_ExtensionPointer( "glGenFramebuffers" );
+		qglBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)GLimp_ExtensionPointer( "glBindFramebuffer" );
+		qglDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC)GLimp_ExtensionPointer( "glDeleteFramebuffers" );
+		qglFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)GLimp_ExtensionPointer( "glFramebufferTexture2D" );
+		qglCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)GLimp_ExtensionPointer( "glCheckFramebufferStatus" );
 	}
 
 	// GL_ARB_uniform_buffer_object
@@ -1882,7 +1894,6 @@ void R_InitCommands() {
 	cmdSystem->AddCommand( "testImage", R_TestImage_f, CMD_FL_RENDERER | CMD_FL_CHEAT, "displays the given image centered on screen", idCmdSystem::ArgCompletion_ImageName );
 	cmdSystem->AddCommand( "testVideo", R_TestVideo_f, CMD_FL_RENDERER | CMD_FL_CHEAT, "displays the given cinematic", idCmdSystem::ArgCompletion_VideoName );
 	cmdSystem->AddCommand( "reportSurfaceAreas", R_ReportSurfaceAreas_f, CMD_FL_RENDERER, "lists all used materials sorted by surface area" );
-	cmdSystem->AddCommand( "showInteractionMemory", R_ShowInteractionMemory_f, CMD_FL_RENDERER, "shows memory used by interactions" );
 	cmdSystem->AddCommand( "vid_restart", R_VidRestart_f, CMD_FL_RENDERER, "restarts renderSystem" );
 	cmdSystem->AddCommand( "listRenderEntityDefs", R_ListRenderEntityDefs_f, CMD_FL_RENDERER, "lists the entity defs" );
 	cmdSystem->AddCommand( "listRenderLightDefs", R_ListRenderLightDefs_f, CMD_FL_RENDERER, "lists the light defs" );
@@ -2372,6 +2383,7 @@ idRenderSystemLocal::ShutdownOpenGL
 void idRenderSystemLocal::ShutdownOpenGL() {
 	// free the context and close the window
 	R_ShutdownFrameData();
+	RB_ShutdownShadowAtlas();
 	GLimp_Shutdown();
 	r_initialized = false;
 }

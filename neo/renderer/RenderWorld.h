@@ -204,6 +204,54 @@ typedef struct renderLight_s {
 	idSoundEmitter *		referenceSound;		// for shader sound tables, allowing effects to vary with sounds
 } renderLight_t;
 
+class idRenderWorld;
+class idRenderWorldLocal;
+class idRenderEntityCommitted;
+class idRenderLightCommitted;
+
+// Game-facing render objects. Their public payload intentionally remains
+// layout-compatible with the BFG parameter structs while ownership and commit
+// identity live on the object, matching the idTech 5 producer-side lifecycle.
+class idRenderEntity : public renderEntity_t {
+public:
+							idRenderEntity();
+							~idRenderEntity();
+
+	void				CommitThisFrame( bool forceUpdate = false );
+	void				FreeRenderEntity();
+	void				ForceUpdate();
+	int					GetIndex() const { return index; }
+	bool				IsRegistered() const { return world != NULL && index >= 0; }
+	void				ProjectOverlay( const idPlane localTextureAxis[2], const idMaterial *material );
+	void				RemoveDecals();
+
+private:
+	friend class idRenderWorldLocal;
+	idRenderWorld *			world;
+	int					index;
+	idRenderEntityCommitted *committed;
+	bool					needsCommit;
+};
+
+class idRenderLight : public renderLight_t {
+public:
+							idRenderLight();
+							~idRenderLight();
+
+	void				CommitThisFrame( bool forceUpdate = false );
+	void				FreeRenderLight();
+	void				ForceUpdate();
+	int					GetIndex() const { return index; }
+	bool				IsRegistered() const { return world != NULL && index >= 0; }
+
+private:
+	friend class idRenderWorldLocal;
+	idRenderWorld *			world;
+	int					index;
+	idRenderLightCommitted *committed;
+	bool					needsCommit;
+};
+
 
 typedef struct renderView_s {
 	// player views will set this to a non-zero integer for model suppress / allow
@@ -292,15 +340,17 @@ public:
 	virtual	void			UpdateEntityDef( qhandle_t entityHandle, const renderEntity_t *re ) = 0;
 	virtual	void			FreeEntityDef( qhandle_t entityHandle ) = 0;
 	virtual const renderEntity_t *GetRenderEntity( qhandle_t entityHandle ) const = 0;
+	virtual qhandle_t		AddRenderEntity( idRenderEntity *entity ) = 0;
+	virtual void			QueueRenderEntity( idRenderEntity *entity ) = 0;
 
 	virtual	qhandle_t		AddLightDef( const renderLight_t *rlight ) = 0;
 	virtual	void			UpdateLightDef( qhandle_t lightHandle, const renderLight_t *rlight ) = 0;
 	virtual	void			FreeLightDef( qhandle_t lightHandle ) = 0;
 	virtual const renderLight_t *GetRenderLight( qhandle_t lightHandle ) const = 0;
+	virtual qhandle_t		AddRenderLight( idRenderLight *light ) = 0;
 
 	// Force the generation of all light / surface interactions at the start of a level
 	// If this isn't called, they will all be dynamically generated
-	virtual	void			GenerateAllInteractions() = 0;
 
 	// returns true if this area model needs portal sky to draw
 	virtual bool			CheckAreaForPortalSky( int areaNum ) = 0;

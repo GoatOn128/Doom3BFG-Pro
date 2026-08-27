@@ -82,9 +82,11 @@ SURFACES
 
 #include "ModelDecal.h"
 #include "ModelOverlay.h"
-#include "Interaction.h"
 
 class idRenderWorldLocal;
+class idRenderEntityCommitted;
+typedef idRenderEntityCommitted idRenderEntityLocal;
+class idRenderLightLocal;
 struct viewEntity_t;
 struct viewLight_t;
 
@@ -111,8 +113,7 @@ struct drawSurf_t {
 	drawSurf_t *			nextOnLight;		// viewLight chains
 	drawSurf_t **			linkChain;			// defer linking to lights to a serial section to avoid a mutex
 	idScreenRect			scissorRect;		// for scissor clipping, local inside renderView viewport
-	int						renderZFail;
-	volatile shadowVolumeState_t shadowVolumeState;
+	volatile shadowVolumeState_t interactionCullState;
 };
 
 // areas have references to hold all the lights and entities in them
@@ -126,45 +127,11 @@ struct areaReference_t {
 };
 
 
-// idRenderLight should become the new public interface replacing the qhandle_t to light defs in the idRenderWorld interface
-class idRenderLight {
+// Immutable-for-the-frame renderer state. A game-facing idRenderLight points
+// at this separately allocated state after registration with a render world.
+class idRenderLightCommitted {
 public:
-	virtual					~idRenderLight() {}
-
-	virtual void			FreeRenderLight() = 0;
-	virtual void			UpdateRenderLight( const renderLight_t *re, bool forceUpdate = false ) = 0;
-	virtual void			GetRenderLight( renderLight_t *re ) = 0;
-	virtual void			ForceUpdate() = 0;
-	virtual int				GetIndex() = 0;
-};
-
-
-// idRenderEntity should become the new public interface replacing the qhandle_t to entity defs in the idRenderWorld interface
-class idRenderEntity {
-public:
-	virtual					~idRenderEntity() {}
-
-	virtual void			FreeRenderEntity() = 0;
-	virtual void			UpdateRenderEntity( const renderEntity_t *re, bool forceUpdate = false ) = 0;
-	virtual void			GetRenderEntity( renderEntity_t *re ) = 0;
-	virtual void			ForceUpdate() = 0;
-	virtual int				GetIndex() = 0;
-
-	// overlays are extra polygons that deform with animating models for blood and damage marks
-	virtual void			ProjectOverlay( const idPlane localTextureAxis[2], const idMaterial *material ) = 0;
-	virtual void			RemoveDecals() = 0;
-};
-
-
-class idRenderLightLocal : public idRenderLight {
-public:
-							idRenderLightLocal();
-
-	virtual void			FreeRenderLight();
-	virtual void			UpdateRenderLight( const renderLight_t *re, bool forceUpdate = false );
-	virtual void			GetRenderLight( renderLight_t *re );
-	virtual void			ForceUpdate();
-	virtual int				GetIndex();
+							idRenderLightCommitted();
 
 	bool					LightCastsShadows() const { return parms.forceShadows || ( !parms.noShadows && lightShader->LightCastsShadows() ); }
 
@@ -199,30 +166,32 @@ public:
 	viewLight_t *			viewLight;
 
 	areaReference_t *		references;				// each area the light is present in will have a lightRef
-	idInteraction *			firstInteraction;		// doubly linked list
-	idInteraction *			lastInteraction;
+	bool					needsReferences;		// committed shape changed; rebuild during post-commit
 
 	struct doublePortal_s *	foggedPortals;
 };
 
-
-class idRenderEntityLocal : public idRenderEntity {
+class idRenderLightLocal : public idRenderLightCommitted {
 public:
-							idRenderEntityLocal();
+							idRenderLightLocal();
 
-	virtual void			FreeRenderEntity();
-	virtual void			UpdateRenderEntity( const renderEntity_t *re, bool forceUpdate = false );
-	virtual void			GetRenderEntity( renderEntity_t *re );
-	virtual void			ForceUpdate();
-	virtual int				GetIndex();
+	renderLight_t			gameParms;				// mutable producer-side specification
+	idRenderLight *			owner;					// game-facing producer object
+	const idMaterial *		stagedLightShader;		// resolved while decl loading is allowed
+	idImage *				stagedFalloffImage;
+	bool					needsCommit;
+	bool					needsPostCommit;
+};
 
-	// overlays are extra polygons that deform with animating models for blood and damage marks
-	virtual void			ProjectOverlay( const idPlane localTextureAxis[2], const idMaterial *material );
-	virtual void			RemoveDecals();
+
+class idRenderEntityCommitted {
+public:
+							idRenderEntityCommitted();
 
 	bool					IsDirectlyVisible() const;
 
 	renderEntity_t			parms;
+	idRenderEntity *			owner;					// game-facing producer object
 
 	float					modelMatrix[16];		// this is just a rearrangement of parms.axis and parms.origin
 	idRenderMatrix			modelRenderMatrix;
@@ -259,8 +228,6 @@ public:
 	idRenderModelOverlay *	overlays;				// blood overlays on animated models
 
 	areaReference_t *		entityRefs;				// chain of all references
-	idInteraction *			firstInteraction;		// doubly linked list
-	idInteraction *			lastInteraction;
 
 	bool					needsPortalSky;
 };
@@ -302,6 +269,19 @@ struct viewLight_t {
 	byte *					entityInteractionState;		// [numEntities]
 
 	idVec3					globalLightOrigin;			// global light origin used by backend
+	// Immutable per-view snapshot used to build Tech 5 style shadow maps.
+	// The render backend must never chase lightDef back into mutable game state.
+	idMat3					shadowLightAxis;
+	idVec3					shadowLightOrigin;
+	idVec3					shadowLightCenter;
+	idVec3					shadowLightTarget;
+	idVec3					shadowLightRight;
+	idVec3					shadowLightUp;
+	idVec3					shadowLightStart;
+	idBounds				shadowLightBounds;
+	idVec3					shadowViewOrigin;
+	bool					shadowPointLight;
+	bool					shadowParallel;
 	idPlane					lightProject[4];			// light project used by backend
 	idPlane					fogPlane;					// fog plane for backend fog volume rendering
 	idRenderMatrix			inverseBaseLightProject;	// the matrix for deforming the 'zeroOneCubeModel' to exactly cover the light volume in world space
@@ -315,8 +295,6 @@ struct viewLight_t {
 	drawSurf_t *			globalInteractions;			// get shadows from everything
 	drawSurf_t *			translucentInteractions;	// translucent interactions don't get shadows
 
-	// R_AddSingleLight will build a chain of parameters here to setup shadow volumes
-	preLightShadowVolumeParms_t *	preLightShadowVolumes;
 };
 
 // a viewEntity is created whenever a idRenderEntityLocal is considered for inclusion
@@ -346,6 +324,7 @@ struct viewEntity_t {
 	float					modelDepthHack;
 		
 	float					modelMatrix[16];		// local coords to global coords
+	idRenderMatrix			modelRenderMatrix;	// row-major local-to-global snapshot for renderer jobs
 	float					modelViewMatrix[16];	// local coords to eye coords
 
 	idRenderMatrix			mvp;
@@ -355,7 +334,6 @@ struct viewEntity_t {
 	drawSurf_t *			drawSurfs;
 
 	// R_AddSingleModel will build a chain of parameters here to setup shadow volumes
-	staticShadowVolumeParms_t *		staticShadowVolumes;
 	dynamicShadowVolumeParms_t *	dynamicShadowVolumes;
 };
 
@@ -571,7 +549,6 @@ const idMaterial *R_RemapShaderBySkin( const idMaterial *shader, const idDeclSki
 struct performanceCounters_t {
 	int		c_box_cull_in;
 	int		c_box_cull_out;
-	int		c_createInteractions;	// number of calls to idInteraction::CreateInteraction
 	int		c_createShadowVolumes;
 	int		c_generateMd5;
 	int		c_entityDefCallbacks;
@@ -586,7 +563,12 @@ struct performanceCounters_t {
 	int		c_deformedIndexes;	// idMD5Mesh::GenerateSurface
 	int		c_tangentIndexes;	// R_DeriveTangents()
 	int		c_entityUpdates;
+	int		c_entityCommitRequests;
+	int		c_entityCommits;
 	int		c_lightUpdates;
+	int		c_lightCommitRequests;
+	int		c_lightCommits;
+	int		c_lightReferenceCommits;
 	int		c_entityReferences;
 	int		c_lightReferences;
 	int		c_guiSurfs;
@@ -1072,6 +1054,7 @@ void R_FreeEntityDefOverlay( idRenderEntityLocal *def );
 void R_FreeEntityDefFadedDecals( idRenderEntityLocal *def, int time );
 
 void R_CreateLightRefs( idRenderLightLocal *light );
+void R_ResolveLightResources( const renderLight_t &parms, const idMaterial *&lightShader, idImage *&falloffImage );
 void R_FreeLightDefDerivedData( idRenderLightLocal *light );
 
 void R_FreeDerivedData();
@@ -1100,6 +1083,7 @@ TR_FRONTEND_MAIN
 
 void R_InitFrameData();
 void R_ShutdownFrameData();
+void RB_ShutdownShadowAtlas();
 void R_ToggleSmpFrame();
 void *R_FrameAlloc( int bytes, frameAllocType_t type = FRAME_ALLOC_UNKNOWN );
 void *R_ClearedFrameAlloc( int bytes, frameAllocType_t type = FRAME_ALLOC_UNKNOWN );

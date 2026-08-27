@@ -102,15 +102,17 @@ public:
 	virtual	void			UpdateEntityDef( qhandle_t entityHandle, const renderEntity_t *re );
 	virtual	void			FreeEntityDef( qhandle_t entityHandle );
 	virtual const renderEntity_t *GetRenderEntity( qhandle_t entityHandle ) const;
+	virtual qhandle_t		AddRenderEntity( idRenderEntity *entity );
+	virtual void			QueueRenderEntity( idRenderEntity *entity );
 
 	virtual	qhandle_t		AddLightDef( const renderLight_t *rlight );
 	virtual	void			UpdateLightDef( qhandle_t lightHandle, const renderLight_t *rlight );
 	virtual	void			FreeLightDef( qhandle_t lightHandle );
 	virtual const renderLight_t *GetRenderLight( qhandle_t lightHandle ) const;
+	virtual qhandle_t		AddRenderLight( idRenderLight *light );
 
 	virtual bool			CheckAreaForPortalSky( int areaNum );
 
-	virtual	void			GenerateAllInteractions();
 	virtual void			RegenerateWorld();
 
 	virtual void			ProjectDecalOntoWorld( const idFixedWinding &winding, const idVec3 &projectionOrigin, const bool parallel, const float fadeDepth, const idMaterial *material, const int startTime );
@@ -172,7 +174,6 @@ public:
 	idList<idRenderLightLocal*, TAG_LIGHT>		lightDefs;
 
 	idBlockAlloc<areaReference_t, 1024> areaReferenceAllocator;
-	idBlockAlloc<idInteraction, 256>	interactionAllocator;
 
 #ifdef ID_PC
 	static const int MAX_DECAL_SURFACES = 32;
@@ -181,17 +182,6 @@ public:
 #endif
 	idArray<reusableDecal_t, MAX_DECAL_SURFACES>	decals;
 	idArray<reusableOverlay_t, MAX_DECAL_SURFACES>	overlays;
-
-	// all light / entity interactions are referenced here for fast lookup without
-	// having to crawl the doubly linked lists.  EnntityDefs are sequential for better
-	// cache access, because the table is accessed by light in idRenderWorldLocal::CreateLightDefInteractions()
-	// Growing this table is time consuming, so we add a pad value to the number
-	// of entityDefs and lightDefs
-	idInteraction **		interactionTable;
-	int						interactionTableWidth;		// entityDefs
-	int						interactionTableHeight;		// lightDefs
-
-	bool					generateAllInteractionsCalled;
 
 	//-----------------------
 	// RenderWorld_load.cpp
@@ -262,17 +252,19 @@ public:
 	//--------------------------
 	// RenderWorld.cpp
 
-	void					ResizeInteractionTable();
 
 	void					AddEntityRefToArea( idRenderEntityLocal *def, portalArea_t *area );
 	void					AddLightRefToArea( idRenderLightLocal *light, portalArea_t *area );
+	void					CommitRenderEntities();
+	void					CommitLightDef( idRenderLightLocal *light );
+	void					PostCommitLightDef( idRenderLightLocal *light );
+	void					CommitLightDefs();
 
 	void					RecurseProcBSP_r( modelTrace_t *results, int parentNodeNum, int nodeNum, float p1f, float p2f, const idVec3 &p1, const idVec3 &p2 ) const;
 	void					BoundsInAreas_r( int nodeNum, const idBounds &bounds, int *areas, int *numAreas, int maxAreas ) const;
 
 	float					DrawTextLength( const char *text, float scale, int len = 0 );
 
-	void					FreeInteractions();
 
 	void					PushFrustumIntoTree_r( idRenderEntityLocal *def, idRenderLightLocal *light, const frustumCorners_t & corners, int nodeNum );
 	void					PushFrustumIntoTree( idRenderEntityLocal *def, idRenderLightLocal *light, const idRenderMatrix & frustumTransform, const idBounds & frustumBounds );
@@ -280,15 +272,7 @@ public:
 	idRenderModelDecal *	AllocDecal( qhandle_t newEntityHandle, int startTime );
 	idRenderModelOverlay *	AllocOverlay( qhandle_t newEntityHandle, int startTime );
 
-	//-------------------------------
-	// tr_light.c
-	void					CreateLightDefInteractions( idRenderLightLocal * const ldef, const int renderViewID );
 };
-
-// if an entity / light combination has been evaluated and found to not genrate any surfaces or shadows,
-// the constant INTERACTION_EMPTY will be stored in the interaction table, int contrasts to NULL, which
-// means that the combination has not yet been tested for having surfaces.
-static idInteraction * const INTERACTION_EMPTY = (idInteraction *)1;
 
 void R_ListRenderLightDefs_f( const idCmdArgs &args );
 void R_ListRenderEntityDefs_f( const idCmdArgs &args );
