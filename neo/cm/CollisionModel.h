@@ -84,6 +84,8 @@ typedef int cmHandle_t;
 #define CM_BOX_EPSILON		1.0f			// should always be larger than clip epsilon
 #define CM_MAX_TRACE_DIST	4096.0f			// maximum distance a trace model may be traced, point traces are unlimited
 
+struct idPositionedCollisionModel;
+
 class idCollisionModelManager {
 public:
 	virtual					~idCollisionModelManager() {}
@@ -93,12 +95,22 @@ public:
 	// Frees all the collision models.
 	virtual void			FreeMap() = 0;
 
+	// Collision queries live within an explicit frame boundary. Immediate
+	// physics batches submit and wait at their dependency point; these hooks are
+	// the frame-level flush boundary for deferred query producers.
+	virtual void			StartQueryFrame() = 0;
+	virtual void			SubmitQueries() = 0;
+	virtual void			WaitForAllQueries() = 0;
+	virtual void			EndQueryFrame() = 0;
+
 	virtual void			Preload( const char *mapName ) = 0;
 
 	// Gets the clip handle for a model.
 	virtual cmHandle_t		LoadModel( const char *modelName ) = 0;
 	// Sets up a trace model for collision with other trace models.
 	virtual cmHandle_t		SetupTrmModel( const idTraceModel &trm, const idMaterial *material ) = 0;
+	// Returns a map-lifetime immutable collision model for a trace shape.
+	virtual cmHandle_t		SetupImmutableTrmModel( const idTraceModel &trm, const idMaterial *material ) = 0;
 	// Creates a trace model from a collision model, returns true if succesfull.
 	virtual bool			TrmFromModel( const char *modelName, idTraceModel &trm ) = 0;
 
@@ -119,18 +131,45 @@ public:
 	virtual void			Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	// Starts one immutable-model query on a worker when possible. The caller may
+	// perform read-only work before joining with WaitForAllQueries(). Returns
+	// true when the result is pending and false when it completed synchronously.
+	virtual bool			BeginTranslation( trace_t *results, const idVec3 &start, const idVec3 &end,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	// Translate against immutable positioned models. Results preserve input
+	// ordering so the caller can merge them deterministically after jobs finish.
+	virtual void			TranslationModels( trace_t *results, const int numModels,
+								const idVec3 &start, const idVec3 &end, const idTraceModel *trm,
+								const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels ) = 0;
 	// Rotates a trace model and reports the first collision if any.
 	virtual void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	virtual bool			BeginRotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	virtual void			RotationModels( trace_t *results, const int numModels,
+								const idVec3 &start, const idRotation &rotation, const idTraceModel *trm,
+								const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels ) = 0;
 	// Returns the contents touched by the trace model or 0 if the trace model is in free space.
 	virtual int				Contents( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	virtual void			ContentsModels( int *results, const int numModels, const idVec3 &start,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels ) = 0;
 	// Stores all contact points of the trace model with the model, returns the number of contacts.
 	virtual int				Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+	virtual void			ContactsModels( contactInfo_t *contacts, int *numContacts,
+								const int maxContactsPerModel, const int numModels,
+								const idVec3 &start, const idVec6 &dir, const float depth,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels ) = 0;
 
 	// Tests collision detection.
 	virtual void			DebugOutput( const idVec3 &origin ) = 0;

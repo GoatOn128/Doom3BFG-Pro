@@ -60,10 +60,11 @@ bool idCollisionModelManagerLocal::TestTrmVertsInBrush( cm_traceWork_t *tw, cm_b
 	float d, bestd;
 	idVec3 *p;
 
-	if ( b->checkcount == idCollisionModelManagerLocal::checkCount ) {
+	cm_queryPrimitiveState_t &brushState = tw->queryCache->StateFor( b );
+	if ( brushState.checked ) {
 		return false;
 	}
-	b->checkcount = idCollisionModelManagerLocal::checkCount;
+	brushState.checked = true;
 
 	if ( !(b->contents & tw->contents) ) {
 		return false;
@@ -118,13 +119,14 @@ bool idCollisionModelManagerLocal::TestTrmVertsInBrush( cm_traceWork_t *tw, cm_b
 CM_SetTrmEdgeSidedness
 ================
 */
-#define CM_SetTrmEdgeSidedness( edge, bpl, epl, bitNum ) {						\
-	const int mask = 1 << bitNum;												\
-	if ( ( edge->sideSet & mask ) == 0 ) {										\
-		const float fl = (bpl).PermutedInnerProduct( epl );						\
-		edge->side = ( edge->side & ~mask ) | ( ( fl < 0.0f ) ? mask : 0 );		\
-		edge->sideSet |= mask;													\
-	}																			\
+ID_INLINE void CM_SetTrmEdgeSidedness( cm_traceWork_t *tw, cm_edge_t *edge, const idPluecker &bpl, const idPluecker &epl, int bitNum ) {
+	const int mask = 1 << bitNum;
+	cm_queryPrimitiveState_t &state = tw->queryCache->StateFor( edge );
+	if ( ( state.sideSet & mask ) == 0 ) {
+		const float fl = bpl.PermutedInnerProduct( epl );
+		state.side = ( state.side & ~mask ) | ( ( fl < 0.0f ) ? mask : 0 );
+		state.sideSet |= mask;
+	}
 }
 
 /*
@@ -132,13 +134,14 @@ CM_SetTrmEdgeSidedness
 CM_SetTrmPolygonSidedness
 ================
 */
-#define CM_SetTrmPolygonSidedness( v, plane, bitNum ) {						\
-	const int mask = 1 << bitNum;											\
-	if ( ( (v)->sideSet & mask ) == 0 ) {									\
-		const float fl = plane.Distance( (v)->p );							\
-		(v)->side = ( (v)->side & ~mask ) | ( ( fl < 0.0f ) ? mask : 0 );		\
-		(v)->sideSet |= mask;												\
-	}																		\
+ID_INLINE void CM_SetTrmPolygonSidedness( cm_traceWork_t *tw, cm_vertex_t *v, const idPlane &plane, int bitNum ) {
+	const int mask = 1 << bitNum;
+	cm_queryPrimitiveState_t &state = tw->queryCache->StateFor( v );
+	if ( ( state.sideSet & mask ) == 0 ) {
+		const float fl = plane.Distance( v->p );
+		state.side = ( state.side & ~mask ) | ( ( fl < 0.0f ) ? mask : 0 );
+		state.sideSet |= mask;
+	}
 }
 
 /*
@@ -157,10 +160,11 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 	cm_vertex_t *v, *v1, *v2;
 
 	// if already checked this polygon
-	if ( p->checkcount == idCollisionModelManagerLocal::checkCount ) {
+	cm_queryPrimitiveState_t &polygonState = tw->queryCache->StateFor( p );
+	if ( polygonState.checked ) {
 		return false;
 	}
-	p->checkcount = idCollisionModelManagerLocal::checkCount;
+	polygonState.checked = true;
 
 	// if this polygon does not have the right contents behind it
 	if ( !(p->contents & tw->contents) ) {
@@ -192,14 +196,14 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 			edgeNum = p->edges[i];
 			edge = tw->model->edges + abs(edgeNum);
 			// if this edge is already tested
-			if ( edge->checkcount == idCollisionModelManagerLocal::checkCount ) {
+			if ( tw->queryCache->StateFor( edge ).checked ) {
 				continue;
 			}
 
 			for ( j = 0; j < 2; j++ ) {
 				v = &tw->model->vertices[edge->vertexNum[j]];
 				// if this vertex is already tested
-				if ( v->checkcount == idCollisionModelManagerLocal::checkCount ) {
+				if ( tw->queryCache->StateFor( v ).checked ) {
 					continue;
 				}
 
@@ -235,18 +239,13 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 		edgeNum = p->edges[i];
 		edge = tw->model->edges + abs(edgeNum);
 		// reset sidedness cache if this is the first time we encounter this edge
-		if ( edge->checkcount != idCollisionModelManagerLocal::checkCount ) {
-			edge->sideSet = 0;
-		}
+		tw->queryCache->StateFor( edge );
 		// pluecker coordinate for edge
 		tw->polygonEdgePlueckerCache[i].FromLine( tw->model->vertices[edge->vertexNum[0]].p,
 													tw->model->vertices[edge->vertexNum[1]].p );
 		v = &tw->model->vertices[edge->vertexNum[INT32_SIGNBITSET( edgeNum )]];
 		// reset sidedness cache if this is the first time we encounter this vertex
-		if ( v->checkcount != idCollisionModelManagerLocal::checkCount ) {
-			v->sideSet = 0;
-		}
-		v->checkcount = idCollisionModelManagerLocal::checkCount;
+		tw->queryCache->StateFor( v ).checked = true;
 	}
 
 	// get side of polygon for each trm vertex
@@ -268,8 +267,8 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 			edgeNum = p->edges[j];
 			edge = tw->model->edges + abs(edgeNum);
 #if 1
-			CM_SetTrmEdgeSidedness( edge, tw->edges[i].pl, tw->polygonEdgePlueckerCache[j], i );
-			if ( INT32_SIGNBITSET( edgeNum ) ^ ( ( edge->side >> i ) & 1 ) ^ flip ) {
+			CM_SetTrmEdgeSidedness( tw, edge, tw->edges[i].pl, tw->polygonEdgePlueckerCache[j], i );
+			if ( INT32_SIGNBITSET( edgeNum ) ^ ( ( tw->queryCache->StateFor( edge ).side >> i ) & 1 ) ^ flip ) {
 				break;
 			}
 #else
@@ -307,22 +306,23 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 	for ( i = 0; i < p->numEdges; i++ ) {
 		edgeNum = p->edges[i];
 		edge = tw->model->edges + abs(edgeNum);
-		if ( edge->checkcount == idCollisionModelManagerLocal::checkCount ) {
+		cm_queryPrimitiveState_t &edgeState = tw->queryCache->StateFor( edge );
+		if ( edgeState.checked ) {
 			continue;
 		}
-		edge->checkcount = idCollisionModelManagerLocal::checkCount;
+		edgeState.checked = true;
 
 		for ( j = 0; j < tw->numPolys; j++ ) {
 #if 1
 			v1 = tw->model->vertices + edge->vertexNum[0];
-			CM_SetTrmPolygonSidedness( v1, tw->polys[j].plane, j );
+			CM_SetTrmPolygonSidedness( tw, v1, tw->polys[j].plane, j );
 			v2 = tw->model->vertices + edge->vertexNum[1];
-			CM_SetTrmPolygonSidedness( v2, tw->polys[j].plane, j );
+			CM_SetTrmPolygonSidedness( tw, v2, tw->polys[j].plane, j );
 			// if the polygon edge does not cross the trm polygon plane
-			if ( !(((v1->side ^ v2->side) >> j) & 1) ) {
+			if ( !(((tw->queryCache->StateFor( v1 ).side ^ tw->queryCache->StateFor( v2 ).side) >> j) & 1) ) {
 				continue;
 			}
-			flip = (v1->side >> j) & 1;
+			flip = (tw->queryCache->StateFor( v1 ).side >> j) & 1;
 #else
 			float d1, d2;
 
@@ -345,8 +345,8 @@ bool idCollisionModelManagerLocal::TestTrmInPolygon( cm_traceWork_t *tw, cm_poly
 				trmEdge = tw->edges + abs(trmEdgeNum);
 #if 1
 				bitNum = abs(trmEdgeNum);
-				CM_SetTrmEdgeSidedness( edge, trmEdge->pl, tw->polygonEdgePlueckerCache[i], bitNum );
-				if ( INT32_SIGNBITSET( trmEdgeNum ) ^ ( ( edge->side >> bitNum ) & 1 ) ^ flip ) {
+				CM_SetTrmEdgeSidedness( tw, edge, trmEdge->pl, tw->polygonEdgePlueckerCache[i], bitNum );
+				if ( INT32_SIGNBITSET( trmEdgeNum ) ^ ( ( tw->queryCache->StateFor( edge ).side >> bitNum ) & 1 ) ^ flip ) {
 					break;
 				}
 #else
@@ -477,7 +477,8 @@ int idCollisionModelManagerLocal::ContentsTrm( trace_t *results, const idVec3 &s
 	bool model_rotated, trm_rotated;
 	idMat3 invModelAxis, tmpAxis;
 	idVec3 dir;
-	ALIGN16( cm_traceWork_t tw );
+	cm_queryScratchScope_t queryScratch;
+	cm_traceWork_t &tw = queryScratch.TraceWork();
 
 	// fast point case
 	if ( !trm || ( trm->bounds[1][0] - trm->bounds[0][0] <= 0.0f &&
@@ -491,8 +492,6 @@ int idCollisionModelManagerLocal::ContentsTrm( trace_t *results, const idVec3 &s
 
 		return results->c.contents;
 	}
-
-	idCollisionModelManagerLocal::checkCount++;
 
 	tw.trace.fraction = 1.0f;
 	tw.trace.c.contents = 0;
@@ -618,7 +617,7 @@ int idCollisionModelManagerLocal::ContentsTrm( trace_t *results, const idVec3 &s
 idCollisionModelManagerLocal::Contents
 ==================
 */
-int idCollisionModelManagerLocal::Contents( const idVec3 &start,
+int idCollisionModelManagerLocal::ContentsInternal( const idVec3 &start,
 									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 									cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
 	trace_t results;

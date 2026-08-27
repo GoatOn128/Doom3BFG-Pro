@@ -35,6 +35,8 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #include "CollisionModel.h"
+#include "CollisionQuery.h"
+#include "CollisionQueryJobManager.h"
 
 #define MIN_NODE_SIZE						64.0f
 #define MAX_NODE_POLYGONS					128
@@ -238,6 +240,87 @@ typedef struct cm_trmPolygon_s {
 	idBounds rotationBounds;						// rotation bounds for this polygon
 } cm_trmPolygon_t;
 
+/*
+===============================================================================
+
+	Per-query collision primitive state
+
+	The original BFG collision code cached visitation and sidedness directly in
+	cm_vertex_t, cm_edge_t, cm_polygon_t and cm_brush_t.  That made otherwise
+	read-only collision models unsafe to query from more than one thread.  Keep
+	the serialized model layout intact and move that transient state here.
+
+===============================================================================
+*/
+
+typedef struct cm_queryPrimitiveState_s {
+	const void *			primitive;
+	unsigned long		side;
+	unsigned long		sideSet;
+	bool				checked;
+	unsigned int		generation;
+} cm_queryPrimitiveState_t;
+
+class cm_queryCache_t {
+public:
+	cm_queryCache_t() : currentGeneration( 1 ) {
+		memset( states, 0, sizeof( states ) );
+		overflow.SetGranularity( 64 );
+	}
+
+	ID_INLINE void Reset() {
+		// Retain rare broad-query overflow storage for the next query on this
+		// worker; SetNum( 0 ) resets logical contents without freeing capacity.
+		overflow.SetNum( 0 );
+		++currentGeneration;
+		if ( currentGeneration == 0 ) {
+			memset( states, 0, sizeof( states ) );
+			currentGeneration = 1;
+		}
+	}
+
+	ID_INLINE cm_queryPrimitiveState_t & StateFor( const void *primitive ) {
+		const size_t value = reinterpret_cast<size_t>( primitive );
+		const unsigned int hash = static_cast<unsigned int>( ( value >> 4 ) ^ ( value >> 15 ) ^ ( value >> 25 ) );
+		unsigned int index = hash & ( INLINE_STATE_COUNT - 1 );
+
+		for ( unsigned int probe = 0; probe < INLINE_STATE_COUNT; ++probe ) {
+			cm_queryPrimitiveState_t &state = states[index];
+			if ( state.generation == currentGeneration && state.primitive == primitive ) {
+				return state;
+			}
+			if ( state.generation != currentGeneration ) {
+				state.primitive = primitive;
+				state.side = 0;
+				state.sideSet = 0;
+				state.checked = false;
+				state.generation = currentGeneration;
+				return state;
+			}
+			index = ( index + 1 ) & ( INLINE_STATE_COUNT - 1 );
+		}
+
+		// Extremely broad traces can exceed the inline table.  Preserve exact
+		// behavior in that case instead of dropping cache entries.
+		for ( int i = 0; i < overflow.Num(); ++i ) {
+			if ( overflow[i].primitive == primitive ) {
+				return overflow[i];
+			}
+		}
+		cm_queryPrimitiveState_t state;
+		memset( &state, 0, sizeof( state ) );
+		state.primitive = primitive;
+		state.generation = currentGeneration;
+		return overflow.Alloc() = state;
+	}
+
+private:
+	static const unsigned int INLINE_STATE_COUNT = 2048;
+	cm_queryPrimitiveState_t states[INLINE_STATE_COUNT];
+	idList< cm_queryPrimitiveState_t, TAG_COLLISION > overflow;
+	unsigned int currentGeneration;
+};
+
 typedef struct cm_traceWork_s {
 	int numVerts;
 	cm_trmVertex_t vertices[MAX_TRACEMODEL_VERTS];	// trm vertices
@@ -246,6 +329,7 @@ typedef struct cm_traceWork_s {
 	int numPolys;
 	cm_trmPolygon_t polys[MAX_TRACEMODEL_POLYS];	// trm polygons
 	cm_model_t *model;								// model colliding with
+	cm_queryCache_t *queryCache;					// transient state owned by this query
 	idVec3 start;									// start of trace
 	idVec3 end;										// end of trace
 	idVec3 dir;										// trace direction
@@ -287,6 +371,35 @@ typedef struct cm_traceWork_s {
 /*
 ===============================================================================
 
+	Reusable per-thread collision query scratch
+
+	Collision workers have deliberately small stacks.  Keep the large trace work
+	and primitive cache off those stacks while preserving complete isolation
+	between simultaneous and nested queries.
+
+===============================================================================
+*/
+
+class cm_queryScratchScope_t {
+public:
+	cm_queryScratchScope_t();
+	~cm_queryScratchScope_t();
+
+	ID_INLINE cm_traceWork_t & TraceWork() const { return *traceWork; }
+	ID_INLINE cm_queryCache_t & QueryCache() const { return *queryCache; }
+
+private:
+	cm_traceWork_t *	traceWork;
+	cm_queryCache_t *	queryCache;
+	int					slotIndex;
+
+	cm_queryScratchScope_t( const cm_queryScratchScope_t & );
+	cm_queryScratchScope_t & operator=( const cm_queryScratchScope_t & );
+};
+
+/*
+===============================================================================
+
 Collision Map
 
 ===============================================================================
@@ -297,18 +410,29 @@ typedef struct cm_procNode_s {
 	int children[2];				// negative numbers are (-1 - areaNumber), 0 = solid
 } cm_procNode_t;
 
+struct cm_immutableTrmModel_t {
+	idTraceModel			traceModel;
+	const idMaterial *	material;
+	cmHandle_t			handle;
+};
+
 class idCollisionModelManagerLocal : public idCollisionModelManager {
 public:
 	// load collision models from a map file
 	void			LoadMap( const idMapFile *mapFile );
 	// frees all the collision models
 	void			FreeMap();
+	void			StartQueryFrame();
+	void			SubmitQueries();
+	void			WaitForAllQueries();
+	void			EndQueryFrame();
 
 	void			Preload( const char *mapName );
 	// get clip handle for model
 	cmHandle_t		LoadModel( const char *modelName );
 	// sets up a trace model for collision with other trace models
 	cmHandle_t		SetupTrmModel( const idTraceModel &trm, const idMaterial *material );
+	cmHandle_t		SetupImmutableTrmModel( const idTraceModel &trm, const idMaterial *material );
 	// create trace model from a collision model, returns true if succesfull
 	bool			TrmFromModel( const char *modelName, idTraceModel &trm );
 
@@ -329,18 +453,40 @@ public:
 	void			Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	bool			BeginTranslation( trace_t *results, const idVec3 &start, const idVec3 &end,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	void			TranslationModels( trace_t *results, const int numModels,
+								const idVec3 &start, const idVec3 &end, const idTraceModel *trm,
+								const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels );
 	// rotates a trm and reports the first collision if any
 	void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	bool			BeginRotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	void			RotationModels( trace_t *results, const int numModels,
+								const idVec3 &start, const idRotation &rotation, const idTraceModel *trm,
+								const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels );
 	// returns the contents the trm is stuck in or 0 if the trm is in free space
 	int				Contents( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	void			ContentsModels( int *results, const int numModels, const idVec3 &start,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels );
 	// stores all contact points of the trm with the model, returns the number of contacts
 	int				Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	void			ContactsModels( contactInfo_t *contacts, int *numContacts,
+								const int maxContactsPerModel, const int numModels,
+								const idVec3 &start, const idVec6 &dir, const float depth,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								const idPositionedCollisionModel *positionedModels );
 	// test collision detection
 	void			DebugOutput( const idVec3 &origin );
 	// draw a model
@@ -352,6 +498,23 @@ public:
 	void			ListModels();
 	// write a collision model file for the map entity
 	bool			WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
+
+	friend class idCollisionQueryExecute;
+
+private:			// CollisionQuery.cpp synchronous execution targets
+	void			TranslationInternal( trace_t *results, const idVec3 &start, const idVec3 &end,
+						const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+						cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
+						contactInfo_t *contactBuffer, int contactCapacity, int *contactCount );
+	void			RotationInternal( trace_t *results, const idVec3 &start, const idRotation &rotation,
+						const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+						cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	int				ContentsInternal( const idVec3 &start,
+						const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+						cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	int				ContactsInternal( contactInfo_t *contacts, int maxContacts, const idVec3 &start,
+						const idVec6 &dir, float depth, const idTraceModel *trm, const idMat3 &trmAxis,
+						int contentMask, cmHandle_t model, const idVec3 &origin, const idMat3 &modelAxis );
 
 private:			// CollisionMap_translate.cpp
 	int				TranslateEdgeThroughEdge( idVec3 &cross, idPluecker &l1, idPluecker &l2, float *fraction );
@@ -525,14 +688,19 @@ private:			// collision map data
 	cm_polygonRef_t*trmPolygons[MAX_TRACEMODEL_POLYS];
 	cm_brushRef_t *	trmBrushes[1];
 	const idMaterial *trmMaterial;
+	idList< cm_immutableTrmModel_t, TAG_COLLISION > immutableTrmModels;
 					// for data pruning
 	int				numProcNodes;
 	cm_procNode_t *	procNodes;
-					// for retrieving contact points
-	bool			getContacts;
-	contactInfo_t *	contacts;
-	int				maxContacts;
-	int				numContacts;
+	bool			queryFrameActive;
+	uint64			queryCount[4];
+	uint64			queryTimeMicroSec[4];
+	uint64			queryParallelBatchCount[4];
+	uint64			queryParallelJobCount[4];
+	bool			pendingQueryStats;
+	cmQueryType_t	pendingQueryType;
+	uint64			pendingQueryStartTime;
+	idCollisionQueryJobManager queryJobManager;
 };
 
 // for debugging
