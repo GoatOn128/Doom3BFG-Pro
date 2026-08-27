@@ -49,6 +49,7 @@ public:
 	void				LoadCubeFromMemory( int width, const byte * pics[6], int numLevels, textureFormat_t & textureFormat, bool gammaMips );
 
 	ID_TIME_T			LoadFromGeneratedFile( ID_TIME_T sourceFileTime );
+	bool				LoadGeneratedFileHeader( bimageFile_t & header );
 	ID_TIME_T			WriteGeneratedFile( ID_TIME_T sourceFileTime );
 
 	const bimageFile_t &	GetFileHeader() { return fileData; }

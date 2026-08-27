@@ -3460,6 +3460,45 @@ void idGameLocal::SpawnMapEntities() {
 		Error( "...no entities" );
 	}
 
+	// Resolve entityDef defaults and cache all declared media before creating
+	// entities.  This gives the VMTR builder the complete map material set and
+	// lets its immutable archive job overlap the more expensive spawn phase.
+	idList< const idDeclEntityDef * > linkedMediaDefs;
+	auto QueueLinkedMediaDefs = [this, &linkedMediaDefs]( const idDict & mediaArgs ) {
+		for ( int keyIndex = 0; keyIndex < mediaArgs.GetNumKeyVals(); ++keyIndex ) {
+			const idKeyValue * keyValue = mediaArgs.GetKeyVal( keyIndex );
+			if ( keyValue == NULL || keyValue->GetKey().Icmpn( "def_", 4 ) != 0 ||
+					keyValue->GetValue().IsEmpty() ) {
+				continue;
+			}
+			const idDeclEntityDef * linkedDef = FindEntityDef( keyValue->GetValue(), false );
+			if ( linkedDef != NULL ) {
+				linkedMediaDefs.AddUnique( linkedDef );
+			}
+		}
+	};
+	for ( i = 0; i < numEntities; ++i ) {
+		common->UpdateLevelLoadPacifier();
+		mapEnt = mapFile->GetEntity( i );
+		args = mapEnt->epairs;
+		if ( i > 0 && InhibitEntitySpawn( args ) ) {
+			continue;
+		}
+		const char * className = args.GetString( "classname" );
+		const idDeclEntityDef * entityDef = FindEntityDef( className, false );
+		if ( entityDef != NULL ) {
+			args.SetDefaults( &entityDef->dict );
+		}
+		CacheDictionaryMedia( &args );
+		QueueLinkedMediaDefs( args );
+	}
+	for ( int defIndex = 0; defIndex < linkedMediaDefs.Num(); ++defIndex ) {
+		const idDict & mediaArgs = linkedMediaDefs[defIndex]->dict;
+		CacheDictionaryMedia( &mediaArgs );
+		QueueLinkedMediaDefs( mediaArgs );
+	}
+	renderSystem->PrepareVirtualTextures();
+
 	// the worldspawn is a special that performs any global setup
 	// needed by a level
 	mapEnt = mapFile->GetEntity( 0 );
@@ -3480,9 +3519,6 @@ void idGameLocal::SpawnMapEntities() {
 		args = mapEnt->epairs;
 
 		if ( !InhibitEntitySpawn( args ) ) {
-			// precache any media specified in the map entity
-			CacheDictionaryMedia( &args );
-
 			SpawnEntityDef( args );
 			num++;
 		} else {

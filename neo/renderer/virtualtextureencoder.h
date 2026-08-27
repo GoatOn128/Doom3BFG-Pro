@@ -8,6 +8,11 @@ struct vtHDPPageSource_t {
 	const idImage * diffuseImage;
 	const idImage * normalImage;
 	const idImage * specularImage;
+	const char * diffuseGeneratedName;
+	const char * normalGeneratedName;
+	const char * specularGeneratedName;
+	int width;
+	int height;
 };
 
 // Development-side encoder for the Tech 5 .pages disk ABI.  Runtime code

@@ -361,6 +361,35 @@ ID_TIME_T idBinaryImage::LoadFromGeneratedFile( ID_TIME_T sourceFileTime ) {
 
 /*
 ==========================
+idBinaryImage::LoadGeneratedFileHeader
+
+Reads only the fixed-size generated image header.  The virtual texture
+archive builder uses this while level images are still being loaded, so it
+does not need to make the source image resident just to size its allocation.
+==========================
+*/
+bool idBinaryImage::LoadGeneratedFileHeader( bimageFile_t & header ) {
+	idStr binaryFileName;
+	MakeGeneratedFileName( binaryFileName );
+	idFileLocal bFile = fileSystem->OpenFileRead( binaryFileName );
+	if ( bFile == NULL || bFile->Read( &header, sizeof( header ) ) != sizeof( header ) ) {
+		return false;
+	}
+
+	idSwapClass< bimageFile_t > swap;
+	swap.Big( header.sourceFileTime );
+	swap.Big( header.headerMagic );
+	swap.Big( header.textureType );
+	swap.Big( header.format );
+	swap.Big( header.colorFormat );
+	swap.Big( header.width );
+	swap.Big( header.height );
+	swap.Big( header.numLevels );
+	return header.headerMagic == BIMAGE_MAGIC && header.width > 0 && header.height > 0;
+}
+
+/*
+==========================
 idBinaryImage::LoadFromGeneratedFile
 
 Load the preprocessed image from the generated folder.
@@ -445,5 +474,4 @@ void idBinaryImage::GetGeneratedFileName( idStr & gfn, const char *name ) {
 	gfn.Replace( ")", "" );
 	gfn.Replace( " ", "" );
 }
-
 

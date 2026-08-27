@@ -62,17 +62,68 @@ int BitsForFormat( textureFormat_t format ) {
 	}
 }
 
-bool idImage::LoadRGBAForVirtualTexture( idList< byte > & rgba,
-		int & width, int & height ) const {
-	rgba.Clear();
-	width = 0;
-	height = 0;
+/*
+================
+idImage::GetVirtualTextureSourceDimensions
+
+Returns dimensions without forcing the GL image to load.  Unloaded level
+images have zeroed upload options, but their generated bimage header already
+contains the source size needed by the VMTR allocator.
+================
+*/
+bool idImage::GetVirtualTextureSourceDimensions( int & width, int & height ) const {
+	width = GetUploadWidth();
+	height = GetUploadHeight();
+	if ( width > 0 && height > 0 ) {
+		return true;
+	}
 	if ( cubeFiles != CF_2D || generatorFunction != NULL ) {
+		width = height = 0;
 		return false;
 	}
 
 	idStrStatic< MAX_OSPATH > generatedName = GetName();
 	GetGeneratedName( generatedName, usage, cubeFiles );
+	idBinaryImage binaryImage( generatedName );
+	bimageFile_t header;
+	if ( !binaryImage.LoadGeneratedFileHeader( header ) ) {
+		width = height = 0;
+		return false;
+	}
+	width = header.width;
+	height = header.height;
+	return true;
+}
+
+bool idImage::GetVirtualTextureGeneratedName( idStr & generatedName ) const {
+	generatedName.Clear();
+	if ( cubeFiles != CF_2D || generatorFunction != NULL || imgName[0] == '_' ) {
+		return false;
+	}
+	generatedName = GetName();
+	GetGeneratedName( generatedName, usage, cubeFiles );
+	return true;
+}
+
+bool idImage::LoadRGBAForVirtualTexture( idList< byte > & rgba,
+		int & width, int & height ) const {
+	idStrStatic< MAX_OSPATH > generatedName;
+	if ( !GetVirtualTextureGeneratedName( generatedName ) ) {
+		rgba.Clear();
+		width = height = 0;
+		return false;
+	}
+	return LoadRGBAForVirtualTextureGenerated( generatedName.c_str(), rgba, width, height );
+}
+
+bool idImage::LoadRGBAForVirtualTextureGenerated( const char * generatedName,
+		idList< byte > & rgba, int & width, int & height ) {
+	rgba.Clear();
+	width = 0;
+	height = 0;
+	if ( generatedName == NULL || generatedName[0] == '\0' ) {
+		return false;
+	}
 	idBinaryImage binaryImage( generatedName );
 	if ( binaryImage.LoadFromGeneratedFile( FILE_NOT_FOUND_TIMESTAMP ) ==
 			FILE_NOT_FOUND_TIMESTAMP || binaryImage.NumImages() <= 0 ) {

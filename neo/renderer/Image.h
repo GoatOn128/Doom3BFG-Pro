@@ -163,6 +163,10 @@ public:
 	// back to RGBA. Used by the runtime VMTR cache writer after source TGAs
 	// have been stripped from a production install.
 	bool		LoadRGBAForVirtualTexture( idList< byte > & rgba, int & width, int & height ) const;
+	bool		GetVirtualTextureSourceDimensions( int & width, int & height ) const;
+	bool		GetVirtualTextureGeneratedName( idStr & generatedName ) const;
+	static bool	LoadRGBAForVirtualTextureGenerated( const char * generatedName,
+				idList< byte > & rgba, int & width, int & height );
 
 	static void			GetGeneratedName( idStr &_name, const textureUsage_t &_usage, const cubeFiles_t &_cube );
 

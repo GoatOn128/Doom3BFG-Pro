@@ -303,55 +303,6 @@ private:
 	idList< vtFeedbackJob_t * > completedFeedback;
 };
 
-class idVirtualTextureArchiveWorker : public idSysThread {
-public:
-	idVirtualTextureArchiveWorker() : success( false ), materialCount( 0 ) {}
-	~idVirtualTextureArchiveWorker() { StopThread( true ); }
-	bool Start( const char * base, const char * pages, const char * metadata,
-			const idList< vtHDPPageSource_t > & sourceList ) {
-		cacheBase = base;
-		pagesPath = pages;
-		metadataPath = metadata;
-		sources = sourceList;
-		// The encoder runs after EndLevelLoad returns.  The source pointers came
-		// from material declarations and are not an ownership boundary; keeping
-		// them directly lets the debug heap poison the names before the worker
-		// writes the .vmtr file.  Own a stable copy for the complete archive job.
-		materialNames.SetNum( sourceList.Num() );
-		for ( int i = 0; i < sourceList.Num(); ++i ) {
-			materialNames[i] = sourceList[i].materialName;
-			sources[i].materialName = materialNames[i].c_str();
-		}
-		materialCount = sources.Num();
-		if ( !StartThread( "VirtualTextureArchive", CORE_ANY,
-				THREAD_BELOW_NORMAL, 1024 * 1024 ) ) {
-			return false;
-		}
-		return true;
-	}
-	virtual int Run() {
-		idVirtualTextureEncoder encoder;
-		success = encoder.WriteHDPPageArchive( pagesPath.c_str(), metadataPath.c_str(),
-			sources.Ptr(), sources.Num(), 30, error );
-		// Image pointers are only needed while encoding; release the list before
-		// the completed worker waits to be collected by the render thread.
-		sources.Clear();
-		materialNames.Clear();
-		return 0;
-	}
-
-	idStr cacheBase;
-	idStr pagesPath;
-	idStr metadataPath;
-	idStr error;
-	bool success;
-	int materialCount;
-
-private:
-	idList< vtHDPPageSource_t > sources;
-	idList< idStr > materialNames;
-};
-
 idVirtualTextureSystem::idVirtualTextureSystem()
 	: initialized( false ), runtimeReady( false ), feedbackDestination( NULL ),
 	  feedbackWriteIndex( 0 ), feedbackPreviousFBO( 0 ),
@@ -360,7 +311,7 @@ idVirtualTextureSystem::idVirtualTextureSystem()
 	  runtimeRequests( 0 ), runtimeUploads( 0 ), runtimeEvictions( 0 ),
 	  runtimeFeedbackAnalyses( 0 ), runtimeFeedbackPages( 0 ),
 	  runtimeFeedbackPending( false ), runtimeDebugMode( 0 ),
-	  runtimePageWorker( NULL ), archiveWorker( NULL ), runtimeSourceBytesReleased( 0 ) {
+	  runtimePageWorker( NULL ), runtimeSourceBytesReleased( 0 ) {
 	feedbackPBOIssued[0] = feedbackPBOIssued[1] = false;
 	memset( feedbackPreviousViewport, 0, sizeof( feedbackPreviousViewport ) );
 	memset( feedbackPreviousScissor, 0, sizeof( feedbackPreviousScissor ) );
@@ -407,8 +358,6 @@ void idVirtualTextureSystem::Shutdown() {
 		return;
 	}
 	InvalidateRuntime();
-	delete archiveWorker;
-	archiveWorker = NULL;
 	for ( int i = 0; i < PAGESOURCE_TOTAL; ++i ) {
 		vts[i].ReleaseSource();
 	}
@@ -518,48 +467,6 @@ void idVirtualTextureSystem::ProcessVirtualTextureFallbackImages() {
 	}
 }
 
-void idVirtualTextureSystem::PollArchiveBuild() {
-	if ( archiveWorker == NULL || archiveWorker->IsRunning() ) { return; }
-	idStr cacheBase = archiveWorker->cacheBase;
-	idStr pagesPath = archiveWorker->pagesPath;
-	idStr error = archiveWorker->error;
-	const bool success = archiveWorker->success;
-	const int materialCount = archiveWorker->materialCount;
-	delete archiveWorker;
-	archiveWorker = NULL;
-	if ( !success ) {
-		idLib::Warning( "VMTR background builder failed: %s", error.c_str() );
-		return;
-	}
-	idStr expectedBase = currentMapName;
-	expectedBase += "_vmtr";
-	if ( cacheBase.Icmp( expectedBase ) != 0 ) {
-		idLib::Printf( "VMTR background builder: finished '%s' after the map changed; leaving it cached\n",
-			pagesPath.c_str() );
-		BuildLoadedVmtrCache( false );
-		return;
-	}
-	InvalidateRuntime();
-	vts[PAGESOURCE_VMTR].ReleaseSource();
-	if ( !vts[PAGESOURCE_VMTR].SetSource( cacheBase.c_str(), pagesPath.c_str(),
-			PHYSICAL_PAGES_POOL_VMTR, ID_VTF_VMTR ) ) {
-		idLib::Warning( "VMTR background builder wrote the archive but could not reopen it" );
-		return;
-	}
-	vtPageValidation_t validation;
-	if ( !vts[PAGESOURCE_VMTR].ValidatePageFile(
-			vts[PAGESOURCE_VMTR].header.totalPages, validation ) || validation.badPages != 0 ||
-			validation.pagesChecked != vts[PAGESOURCE_VMTR].header.totalPages ) {
-		idLib::Warning( "VMTR background builder wrote an invalid page tree (%i checked, %i bad)",
-			validation.pagesChecked, validation.badPages );
-		vts[PAGESOURCE_VMTR].ReleaseSource();
-		return;
-	}
-	idLib::Printf( "VMTR background builder: attached %i materials, %i HDP pages, %lld bytes\n",
-		materialCount, validation.hdpPages, validation.fileBytes );
-	QueueVirtualTextureFallbackImages();
-}
-
 bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 	if ( !initialized ) {
 		return false;
@@ -567,11 +474,6 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 	if ( currentMapName.Length() == 0 ) {
 		// EndLevelLoad is also used by front-end/startup media. There is no map
 		// archive to build in that case, and encoding it here stalls startup.
-		return false;
-	}
-	PollArchiveBuild();
-	if ( archiveWorker != NULL ) {
-		idLib::Printf( "VMTR background builder: archive generation is already in progress\n" );
 		return false;
 	}
 
@@ -647,6 +549,21 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 		source.diffuseImage = diffuseImage;
 		source.normalImage = normalImage;
 		source.specularImage = specularImage;
+		source.diffuseGeneratedName = NULL;
+		source.normalGeneratedName = NULL;
+		source.specularGeneratedName = NULL;
+		source.width = 1;
+		source.height = 1;
+		const idImage * sourceImages[3] = { diffuseImage, normalImage, specularImage };
+		for ( int imageIndex = 0; imageIndex < 3; ++imageIndex ) {
+			int width = 0;
+			int height = 0;
+			if ( sourceImages[imageIndex] != NULL &&
+					sourceImages[imageIndex]->GetVirtualTextureSourceDimensions( width, height ) ) {
+				source.width = Max( source.width, width );
+				source.height = Max( source.height, height );
+			}
+		}
 		sources.Append( source );
 	}
 
@@ -656,19 +573,57 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 	}
 
 	// Windows does not permit replacing a pages file while this slot still has
-	// it open. Release it before queuing the background encoder. Rendering uses
-	// the material's ordinary images until PollArchiveBuild attaches the result.
+	// it open.  A missing per-map archive is a blocking level-load operation:
+	// build, publish, validate, and attach it before returning to the game.
 	InvalidateRuntime();
 	vts[PAGESOURCE_VMTR].ReleaseSource();
-	idLib::Printf( "VMTR background builder: queued %i materials into '%s'\n",
-		sources.Num(), pagesPath.c_str() );
-	archiveWorker = new ( TAG_RENDER ) idVirtualTextureArchiveWorker;
-	if ( !archiveWorker->Start( cacheBase.c_str(), pagesPath.c_str(), metadataPath.c_str(), sources ) ) {
-		delete archiveWorker;
-		archiveWorker = NULL;
-		idLib::Warning( "VMTR background builder could not start its worker thread" );
+	idLib::Printf( "Building VMTR page archive for '%s' (%i materials). "
+		"Map loading will resume after it is ready.\n", currentMapName.c_str(), sources.Num() );
+	idList< idStr > generatedImageNames;
+	generatedImageNames.SetNum( sources.Num() * 3 );
+	for ( int sourceIndex = 0; sourceIndex < sources.Num(); ++sourceIndex ) {
+		const idImage * images[3] = { sources[sourceIndex].diffuseImage,
+			sources[sourceIndex].normalImage, sources[sourceIndex].specularImage };
+		for ( int plane = 0; plane < 3; ++plane ) {
+			if ( images[plane] != NULL ) {
+				images[plane]->GetVirtualTextureGeneratedName(
+					generatedImageNames[sourceIndex * 3 + plane] );
+			}
+		}
+		sources[sourceIndex].diffuseGeneratedName =
+			generatedImageNames[sourceIndex * 3 + 0].c_str();
+		sources[sourceIndex].normalGeneratedName =
+			generatedImageNames[sourceIndex * 3 + 1].c_str();
+		sources[sourceIndex].specularGeneratedName =
+			generatedImageNames[sourceIndex * 3 + 2].c_str();
+	}
+	const int startTime = Sys_Milliseconds();
+	idVirtualTextureEncoder encoder;
+	idStr error;
+	if ( !encoder.WriteHDPPageArchive( pagesPath.c_str(), metadataPath.c_str(),
+			sources.Ptr(), sources.Num(), 30, error ) ) {
+		idLib::Warning( "VMTR page build failed: %s", error.c_str() );
 		return false;
 	}
+
+	if ( !vts[PAGESOURCE_VMTR].SetSource( cacheBase.c_str(), pagesPath.c_str(),
+			PHYSICAL_PAGES_POOL_VMTR, ID_VTF_VMTR ) ) {
+		idLib::Warning( "VMTR page build completed but the archive could not be reopened" );
+		return false;
+	}
+	vtPageValidation_t validation;
+	if ( !vts[PAGESOURCE_VMTR].ValidatePageFile(
+			vts[PAGESOURCE_VMTR].header.totalPages, validation ) || validation.badPages != 0 ||
+			validation.pagesChecked != vts[PAGESOURCE_VMTR].header.totalPages ) {
+		idLib::Warning( "VMTR page build produced an invalid page tree (%i checked, %i bad)",
+			validation.pagesChecked, validation.badPages );
+		vts[PAGESOURCE_VMTR].ReleaseSource();
+		return false;
+	}
+	idLib::Printf( "VMTR page archive ready: %i materials, %i HDP pages, "
+		"%lld bytes in %.1f seconds\n", sources.Num(), validation.hdpPages,
+		validation.fileBytes, ( Sys_Milliseconds() - startTime ) * 0.001f );
+	QueueVirtualTextureFallbackImages();
 	return true;
 }
 
@@ -877,7 +832,6 @@ bool idVirtualTextureSystem::MakePageResident( int pageX, int pageY ) {
 }
 
 void idVirtualTextureSystem::UpdateRuntime() {
-	PollArchiveBuild();
 	if ( !runtimeReady || runtimePageWorker == NULL ) { return; }
 	ProcessVirtualTextureFallbackImages();
 	if ( runtimeDebugMode != vt_showFeedback.GetInteger() ) {

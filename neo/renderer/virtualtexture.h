@@ -12,7 +12,6 @@ class idCmdArgs;
 class idParallelJobList;
 class idRenderDestination;
 class idVirtualTexturePageWorker;
-class idVirtualTextureArchiveWorker;
 struct vtFeedbackJob_t;
 
 static const int PAGE_FILE_MAGIC = 1999870212;
@@ -304,13 +303,11 @@ public:
 	bool			runtimeFeedbackPending;
 	int			runtimeDebugMode;
 	idVirtualTexturePageWorker * runtimePageWorker;
-	idVirtualTextureArchiveWorker * archiveWorker;
 	idList< idImage * > pendingFallbackImages;
 	idList< idImage * > demotedFallbackImages;
 	int64			runtimeSourceBytesReleased;
 
 private:
-	void			PollArchiveBuild();
 	void			QueueVirtualTextureFallbackImages();
 	void			ProcessVirtualTextureFallbackImages();
 	bool			BuildLeafPageIndex();

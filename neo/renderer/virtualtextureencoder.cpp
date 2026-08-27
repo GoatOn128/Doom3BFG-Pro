@@ -64,30 +64,31 @@ static void MakeSolidPage( idList< byte > & page, byte r, byte g, byte b, byte a
 	}
 }
 
-static bool LoadAndResamplePage( const idImage * image, byte defaultR,
+struct decodedVTImage_t {
+	idList< byte > rgba;
+	int width;
+	int height;
+	bool loaded;
+};
+
+static void LoadVTImage( const char * generatedName, decodedVTImage_t & image ) {
+	image.width = 0;
+	image.height = 0;
+	image.loaded = generatedName != NULL && generatedName[0] != '\0' &&
+		idImage::LoadRGBAForVirtualTextureGenerated( generatedName, image.rgba,
+			image.width, image.height );
+}
+
+static bool ResamplePage( const decodedVTImage_t & image, byte defaultR,
 		byte defaultG, byte defaultB, int tileX, int tileY,
 		int tilesWide, int tilesHigh, idList< byte > & page ) {
-	if ( image == NULL || image->GetName()[0] == '_' ) {
+	if ( !image.loaded ) {
 		MakeSolidPage( page, defaultR, defaultG, defaultB, 255 );
 		return false;
 	}
-
-	byte * source = NULL;
-	int width = 0;
-	int height = 0;
-	idList< byte > generatedSource;
-	// Prefer the immutable generated image here. It is safe for the background
-	// archive worker and avoids reparsing image programs during gameplay.
-	if ( image->LoadRGBAForVirtualTexture( generatedSource, width, height ) ) {
-		source = generatedSource.Ptr();
-	} else {
-		R_LoadImageProgram( image->GetName(), &source, &width, &height, NULL );
-		if ( source == NULL || width <= 0 || height <= 0 ) {
-			Mem_Free( source );
-			MakeSolidPage( page, defaultR, defaultG, defaultB, 255 );
-			return false;
-		}
-	}
+	const int width = image.width;
+	const int height = image.height;
+	const byte * source = image.rgba.Ptr();
 
 	page.SetNum( idVirtualTextureEncoder::PAGE_RGBA_BYTES );
 	const int pageBorder = 4;
@@ -122,10 +123,26 @@ static bool LoadAndResamplePage( const idImage * image, byte defaultR,
 			}
 		}
 	}
-	if ( generatedSource.Num() == 0 ) {
-		Mem_Free( source );
-	}
 	return true;
+}
+
+static void BuildMaterialPlanePages( const char * generatedName, byte defaultR,
+		byte defaultG, byte defaultB, int tilesWide, int tilesHigh,
+		idList< byte > & materialPages ) {
+	decodedVTImage_t source;
+	LoadVTImage( generatedName, source );
+	const int tileCount = tilesWide * tilesHigh;
+	materialPages.SetNum( tileCount * idVirtualTextureEncoder::PAGE_RGBA_BYTES );
+	idList< byte > page;
+	for ( int tileY = 0; tileY < tilesHigh; ++tileY ) {
+		for ( int tileX = 0; tileX < tilesWide; ++tileX ) {
+			ResamplePage( source, defaultR, defaultG, defaultB, tileX, tileY,
+				tilesWide, tilesHigh, page );
+			const int tileIndex = tileY * tilesWide + tileX;
+			memcpy( materialPages.Ptr() + tileIndex * idVirtualTextureEncoder::PAGE_RGBA_BYTES,
+				page.Ptr(), idVirtualTextureEncoder::PAGE_RGBA_BYTES );
+		}
+	}
 }
 
 static bool EncodeHDPPagePayload( const byte * diffuseRGBA,
@@ -443,16 +460,8 @@ bool idVirtualTextureEncoder::WriteHDPPageArchive( const char * pagesOSPath,
 	allocations.SetNum( sourceCount );
 	allocationOrder.SetNum( sourceCount );
 	for ( int index = 0; index < sourceCount; ++index ) {
-		int imageWidth = 1;
-		int imageHeight = 1;
-		const idImage * images[3] = { sources[index].diffuseImage,
-			sources[index].normalImage, sources[index].specularImage };
-		for ( int plane = 0; plane < 3; ++plane ) {
-			if ( images[plane] != NULL ) {
-				imageWidth = Max( imageWidth, images[plane]->GetUploadWidth() );
-				imageHeight = Max( imageHeight, images[plane]->GetUploadHeight() );
-			}
-		}
+		const int imageWidth = Max( 1, sources[index].width );
+		const int imageHeight = Max( 1, sources[index].height );
 		allocations[index].x = allocations[index].y = 0;
 		allocations[index].pagesWide = idMath::ClampInt( 1, maxMaterialPagesPerAxis,
 			( imageWidth + 119 ) / 120 );
@@ -552,80 +561,113 @@ bool idVirtualTextureEncoder::WriteHDPPageArchive( const char * pagesOSPath,
 		return false;
 	}
 
-	idList< byte > diffuse;
-	idList< byte > normal;
-	idList< byte > specular;
+	// Page offsets, rather than physical record order, define the tree.  Write
+	// all leaves belonging to one material together so each generated image is
+	// decoded exactly once instead of once per 128x128 tile.  A 4x4 material used
+	// to perform 48 full image reads/decompressions here.
+	auto WritePage = [&]( int x, int y, int level, const idList< byte > & payload,
+			const char * description ) -> bool {
+		const int width = levelWidths[level];
+		const int nodeIndex = levelStarts[level] + y * width + x;
+		const int64 pageOffset = output->Tell64();
+		if ( ( pageOffset & ( diskOffsetScale - 1 ) ) != 0 ||
+				pageOffset / diskOffsetScale > 0xFFFFFFFFLL ) {
+			error = "VMTR archive offset exceeds the page-file ABI";
+			return false;
+		}
+
+		pageHeader_t page;
+		memset( &page, 0, sizeof( page ) );
+		page.magic = PAGE_SUBROOT_MAGIC;
+		page.pageCompression = COMP_HDP;
+		page.x = static_cast< uint16 >( x );
+		page.y = static_cast< uint16 >( y );
+		page.level = static_cast< uint16 >( level );
+		if ( level > 0 ) {
+			const int childWidth = levelWidths[level - 1];
+			for ( int quadrant = 0; quadrant < 4; ++quadrant ) {
+				const int childX = x * 2 + ( quadrant & 1 );
+				const int childY = y * 2 + ( ( quadrant >> 1 ) & 1 );
+				const archivePageRef_t & child = pageRefs[levelStarts[level - 1] +
+					childY * childWidth + childX];
+				page.finerDiskOffset[quadrant] = child.offset;
+				page.finerDiskLength[quadrant] = child.length;
+			}
+		}
+
+		const int pageBytes = sizeof( pageHeader_t ) + payload.Num();
+		const int storedBytes = AlignUp( pageBytes, diskOffsetScale );
+		if ( storedBytes / diskOffsetScale > 0xFFFF ) {
+			error.Format( "encoded page for '%s' is too large for the page-file ABI",
+				description );
+			return false;
+		}
+		pageRefs[nodeIndex].offset = static_cast< uint32 >( pageOffset / diskOffsetScale );
+		pageRefs[nodeIndex].length = static_cast< uint16 >( storedBytes / diskOffsetScale );
+		pageHeader_t diskPage = page;
+		diskPage.Swap();
+		return WriteExact( output, &diskPage, sizeof( diskPage ), "page header", error ) &&
+			WriteExact( output, payload.Ptr(), payload.Num(), "HDP payload", error ) &&
+			WriteZeroes( output, storedBytes - pageBytes, error );
+	};
+
+	idList< byte > diffusePages;
+	idList< byte > normalPages;
+	idList< byte > specularPages;
 	idList< byte > encodedPayload;
-	for ( int level = 0; level < numLevels; ++level ) {
+	idLib::Printf( "Building VMTR pages: 0/%i materials (0%%)\n", sourceCount );
+	const int progressStep = Max( 1, sourceCount / 20 );
+	for ( int materialIndex = 0; materialIndex < sourceCount; ++materialIndex ) {
+		const materialAllocation_t & allocation = allocations[materialIndex];
+		// Only one potentially large generated source is alive at a time.  The
+		// resampled material planes are bounded to 16 physical pages each.
+		BuildMaterialPlanePages( sources[materialIndex].diffuseGeneratedName,
+			255, 255, 255, allocation.pagesWide, allocation.pagesHigh, diffusePages );
+		BuildMaterialPlanePages( sources[materialIndex].normalGeneratedName,
+			128, 128, 255, allocation.pagesWide, allocation.pagesHigh, normalPages );
+		BuildMaterialPlanePages( sources[materialIndex].specularGeneratedName,
+			0, 0, 0, allocation.pagesWide, allocation.pagesHigh, specularPages );
+		for ( int tileY = 0; tileY < allocation.pagesHigh; ++tileY ) {
+			for ( int tileX = 0; tileX < allocation.pagesWide; ++tileX ) {
+				const int tileIndex = tileY * allocation.pagesWide + tileX;
+				const int tileOffset = tileIndex * PAGE_RGBA_BYTES;
+				if ( !EncodeHDPPagePayload( diffusePages.Ptr() + tileOffset,
+						normalPages.Ptr() + tileOffset, specularPages.Ptr() + tileOffset,
+						quality, encodedPayload, error ) ||
+						!WritePage( allocation.x + tileX, allocation.y + tileY, 0,
+							encodedPayload, sources[materialIndex].materialName ) ) {
+					error.Append( va( " while encoding material '%s'",
+						sources[materialIndex].materialName ) );
+					delete output;
+					return false;
+				}
+			}
+		}
+		common->UpdateLevelLoadPacifier();
+		if ( materialIndex + 1 == sourceCount ||
+				( materialIndex + 1 ) % progressStep == 0 ) {
+			idLib::Printf( "Building VMTR pages: %i/%i materials (%i%%)\n",
+				materialIndex + 1, sourceCount,
+				( materialIndex + 1 ) * 100 / sourceCount );
+		}
+	}
+
+	// Fill unused leaves after all owned leaves have their final offsets.
+	for ( int y = 0; y < pagesWide; ++y ) {
+		for ( int x = 0; x < pagesWide; ++x ) {
+			if ( leafOwner[y * pagesWide + x] < 0 &&
+					!WritePage( x, y, 0, neutralPayload, "neutral leaf" ) ) {
+				delete output;
+				return false;
+			}
+		}
+	}
+	// Parent pages are neutral but contain the offsets of the four finer pages.
+	for ( int level = 1; level < numLevels; ++level ) {
 		const int width = levelWidths[level];
 		for ( int y = 0; y < width; ++y ) {
 			for ( int x = 0; x < width; ++x ) {
-				const int nodeIndex = levelStarts[level] + y * width + x;
-				const int64 pageOffset = output->Tell64();
-				if ( ( pageOffset & ( diskOffsetScale - 1 ) ) != 0 ||
-						pageOffset / diskOffsetScale > 0xFFFFFFFFLL ) {
-					error = "VMTR archive offset exceeds the page-file ABI";
-					delete output;
-					return false;
-				}
-
-				const idList< byte > * payload = &neutralPayload;
-				const int leafIndex = y * pagesWide + x;
-				const int materialIndex = level == 0 ? leafOwner[leafIndex] : -1;
-				if ( materialIndex >= 0 ) {
-					const materialAllocation_t & allocation = allocations[materialIndex];
-					LoadAndResamplePage( sources[materialIndex].diffuseImage,
-						255, 255, 255, leafTileX[leafIndex], leafTileY[leafIndex],
-						allocation.pagesWide, allocation.pagesHigh, diffuse );
-					LoadAndResamplePage( sources[materialIndex].normalImage,
-						128, 128, 255, leafTileX[leafIndex], leafTileY[leafIndex],
-						allocation.pagesWide, allocation.pagesHigh, normal );
-					LoadAndResamplePage( sources[materialIndex].specularImage,
-						0, 0, 0, leafTileX[leafIndex], leafTileY[leafIndex],
-						allocation.pagesWide, allocation.pagesHigh, specular );
-					if ( !EncodeHDPPagePayload( diffuse.Ptr(), normal.Ptr(), specular.Ptr(),
-							quality, encodedPayload, error ) ) {
-						error.Append( va( " while encoding material '%s'", sources[materialIndex].materialName ) );
-						delete output;
-						return false;
-					}
-					payload = &encodedPayload;
-				}
-
-				pageHeader_t page;
-				memset( &page, 0, sizeof( page ) );
-				page.magic = PAGE_SUBROOT_MAGIC;
-				page.pageCompression = COMP_HDP;
-				page.x = static_cast< uint16 >( x );
-				page.y = static_cast< uint16 >( y );
-				page.level = static_cast< uint16 >( level );
-				if ( level > 0 ) {
-					const int childWidth = levelWidths[level - 1];
-					for ( int quadrant = 0; quadrant < 4; ++quadrant ) {
-						const int childX = x * 2 + ( quadrant & 1 );
-						const int childY = y * 2 + ( ( quadrant >> 1 ) & 1 );
-						const archivePageRef_t & child = pageRefs[levelStarts[level - 1] +
-							childY * childWidth + childX];
-						page.finerDiskOffset[quadrant] = child.offset;
-						page.finerDiskLength[quadrant] = child.length;
-					}
-				}
-
-				const int pageBytes = sizeof( pageHeader_t ) + payload->Num();
-				const int storedBytes = AlignUp( pageBytes, diskOffsetScale );
-				if ( storedBytes / diskOffsetScale > 0xFFFF ) {
-					error.Format( "encoded page for '%s' is too large for the page-file ABI",
-						materialIndex >= 0 ? sources[materialIndex].materialName : "neutral mip" );
-					delete output;
-					return false;
-				}
-				pageRefs[nodeIndex].offset = static_cast< uint32 >( pageOffset / diskOffsetScale );
-				pageRefs[nodeIndex].length = static_cast< uint16 >( storedBytes / diskOffsetScale );
-				pageHeader_t diskPage = page;
-				diskPage.Swap();
-				if ( !WriteExact( output, &diskPage, sizeof( diskPage ), "page header", error ) ||
-						!WriteExact( output, payload->Ptr(), payload->Num(), "HDP payload", error ) ||
-						!WriteZeroes( output, storedBytes - pageBytes, error ) ) {
+				if ( !WritePage( x, y, level, neutralPayload, "neutral mip" ) ) {
 					delete output;
 					return false;
 				}

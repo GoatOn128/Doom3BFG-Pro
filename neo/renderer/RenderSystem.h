@@ -224,6 +224,7 @@ public:
 	virtual void			EndLevelLoad() = 0;
 	virtual void			Preload( const idPreloadManifest &manifest, const char *mapName ) = 0;
 	virtual void			LoadLevelImages() = 0;
+	virtual void			PrepareVirtualTextures() = 0;
 
 	virtual void			BeginAutomaticBackgroundSwaps( autoRenderIconType_t icon = AUTORENDER_DEFAULTICON ) = 0;
 	virtual void			EndAutomaticBackgroundSwaps() = 0;

@@ -575,6 +575,7 @@ public:
 	virtual void			EndLevelLoad();
 	virtual void			LoadLevelImages();
 	virtual void			Preload( const idPreloadManifest &manifest, const char *mapName );
+	virtual void			PrepareVirtualTextures();
 	virtual void			BeginAutomaticBackgroundSwaps( autoRenderIconType_t icon = AUTORENDER_DEFAULTICON );
 	virtual void			EndAutomaticBackgroundSwaps();
 	virtual bool			AreAutomaticBackgroundSwapsRunning( autoRenderIconType_t * usingAlternateIcon = NULL ) const;

@@ -2296,13 +2296,21 @@ void idRenderSystemLocal::Preload( const idPreloadManifest &manifest, const char
 
 /*
 ========================
+idRenderSystemLocal::PrepareVirtualTextures
+========================
+*/
+void idRenderSystemLocal::PrepareVirtualTextures() {
+	virtualTextureSystem.BuildLoadedVmtrCache();
+}
+
+/*
+========================
 idRenderSystemLocal::EndLevelLoad
 ========================
 */
 void idRenderSystemLocal::EndLevelLoad() {
 	renderModelManager->EndLevelLoad();
 	globalImages->EndLevelLoad();
-	virtualTextureSystem.BuildLoadedVmtrCache();
 }
 
 /*
