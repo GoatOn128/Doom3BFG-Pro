@@ -290,10 +290,12 @@ public:
 	idList< vtRuntimeDiskPage_t > runtimeLeafPages;
 	idList< int >	runtimePageToSlot;
 	idList< int >	runtimePagePending;
+	idList< int >	runtimePageLastVisible;
 	idList< int >	runtimeSlotToPage;
 	idList< int >	runtimeSlotLastUsed;
 	idList< byte > runtimePageTableShadow;
 	int			runtimeFrame;
+	int			runtimeLatestFeedbackFrame;
 	int			runtimeRequests;
 	int			runtimeUploads;
 	int			runtimeEvictions;

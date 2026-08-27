@@ -2289,6 +2289,8 @@ static void RB_DrawVirtualTextureFeedback( drawSurf_t ** drawSurfs, int numDrawS
 	if ( !virtualTextureSystem.BeginFeedbackPass() ) {
 		return;
 	}
+	const uint64 previousState = GL_GetCurrentState();
+	const int previousCullType = backEnd.glState.faceCulling;
 	// The feedback target receives a downscaled copy of the scene depth. This
 	// keeps walls and glass-separated rooms from flooding residency with hidden
 	// pages. Fall back to conservative coverage if the depth blit is unavailable.
@@ -2330,6 +2332,11 @@ static void RB_DrawVirtualTextureFeedback( drawSurf_t ** drawSurfs, int numDrawS
 	}
 	renderProgManager.Unbind();
 	virtualTextureSystem.EndFeedbackPass();
+	// Feedback is an auxiliary pass and must be invisible to whatever follows
+	// it. In particular, its no-depth-write/two-sided state must not become the
+	// starting state for a translucent or post-process material.
+	GL_State( previousState, true );
+	GL_Cull( previousCullType );
 }
 
 /*
@@ -2604,7 +2611,6 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	// Allocate VT render targets before depth/ambient rendering. Scratch-image
 	// creation changes GL texture bindings, so it must not happen mid-pass.
 	virtualTextureSystem.EnsureRuntimeResources();
-	virtualTextureSystem.UpdateRuntime();
 	GL_SelectTexture( 0 );
 
 	//------------------------------------
@@ -2674,13 +2680,6 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	RB_FogAllLights();
 
 	//-------------------------------------------------
-	// virtual-texture visibility feedback for next-frame page residency
-	//-------------------------------------------------
-	if ( viewDef->viewEntitys != NULL ) {
-		RB_DrawVirtualTextureFeedback( drawSurfs, numDrawSurfs );
-	}
-
-	//-------------------------------------------------
 	// capture the depth for the motion blur before rendering any post process surfaces that may contribute to the depth
 	//-------------------------------------------------
 	if ( r_motionBlur.GetInteger() > 0 ) {
@@ -2729,6 +2728,23 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 		RB_DrawShaderPasses( drawSurfs + processed, numDrawSurfs - processed, 0.0f /* definitely not a gui */, stereoEye );
 		renderLog.CloseMainBlock();
 	}
+
+	//-------------------------------------------------
+	// Virtual-texture visibility feedback is independent of the displayed
+	// color. Run it only after all _currentRender consumers have finished so
+	// feedback-frame FBO/state transitions can never perturb glass/refraction.
+	//-------------------------------------------------
+	if ( viewDef->viewEntitys != NULL ) {
+		RB_DrawVirtualTextureFeedback( drawSurfs, numDrawSurfs );
+	}
+
+	// Consume completed page jobs only after every visible color consumer has
+	// finished.  Runtime uploads use legacy texture update entry points and are
+	// intentionally kept outside the scene/post-process portion of the view.
+	// Newly uploaded mappings become visible on the following view, which is the
+	// same one-frame latency already imposed by asynchronous feedback readback.
+	virtualTextureSystem.UpdateRuntime();
+	GL_SelectTexture( 0 );
 
 	//-------------------------------------------------
 	// render debug tools

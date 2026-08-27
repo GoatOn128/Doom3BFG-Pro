@@ -593,9 +593,23 @@ CopyFramebuffer
 ====================
 */
 void idImage::CopyFramebuffer( int x, int y, int imageWidth, int imageHeight ) {
+	const GLenum target = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0_ARB;
+	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
 
-
-	qglBindTexture( ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D, texnum );
+	// CopyTexImage operates on the texture bound to the *active* unit. Most of
+	// the renderer uses BindMultiTextureEXT and only changes currenttmu in
+	// GL_SelectTexture, so a raw BindTexture here may otherwise target the last
+	// unit touched by the DSA fallback (VT commonly leaves that at unit 9).
+	// Keep the real GL binding and the renderer's per-unit cache synchronized.
+	qglActiveTextureARB( GL_TEXTURE0_ARB + texUnit );
+	qglBindTexture( target, texnum );
+	if ( target == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
 
 	qglReadBuffer( GL_BACK );
 
@@ -609,6 +623,7 @@ void idImage::CopyFramebuffer( int x, int y, int imageWidth, int imageHeight ) {
 
 	qglTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	qglTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+	qglActiveTextureARB( previousActiveTexture );
 
 	backEnd.pc.c_copyFrameBuffer++;
 }
@@ -619,11 +634,22 @@ CopyDepthbuffer
 ====================
 */
 void idImage::CopyDepthbuffer( int x, int y, int imageWidth, int imageHeight ) {
-	qglBindTexture( ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D, texnum );
+	const GLenum target = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0_ARB;
+	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	qglActiveTextureARB( GL_TEXTURE0_ARB + texUnit );
+	qglBindTexture( target, texnum );
+	if ( target == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
 
 	opts.width = imageWidth;
 	opts.height = imageHeight;
 	qglCopyTexImage2D( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, x, y, imageWidth, imageHeight, 0 );
+	qglActiveTextureARB( previousActiveTexture );
 
 	backEnd.pc.c_copyFrameBuffer++;
 }

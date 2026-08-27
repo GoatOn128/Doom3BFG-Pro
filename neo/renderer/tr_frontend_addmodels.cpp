@@ -43,6 +43,12 @@ idCVar r_forceShadowCaps( "r_forceShadowCaps", "0", CVAR_RENDERER | CVAR_BOOL, "
 
 static const float CHECK_BOUNDS_EPSILON = 1.0f;
 
+// A material remap can make a surface receive lighting even though its source
+// material did not require tangents when the model was finalized. Add-model
+// jobs may share static model geometry, so the late compatibility path must
+// not derive tangents concurrently.
+static idSysMutex lateSurfaceTangentsMutex;
+
 /*
 ==================
 R_SortViewEntities
@@ -583,8 +589,10 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 				// we are going to use it for drawing, so make sure we have the tangents and normals
 				if ( shader->ReceivesLighting() && !tri->tangentsCalculated ) {
 					assert( tri->staticModelWithJoints == NULL );
-					R_DeriveTangents( tri );
-					assert( false );	// this should no longer be hit
+					idScopedCriticalSection lock( lateSurfaceTangentsMutex );
+					if ( !tri->tangentsCalculated ) {
+						R_DeriveTangents( tri );
+					}
 				}
 				tri->ambientCache = vertexCache.AllocVertex( tri->verts, ALIGN( tri->numVerts * sizeof( idDrawVert ), VERTEX_CACHE_ALIGN ) );
 			}

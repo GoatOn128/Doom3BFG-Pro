@@ -42,6 +42,16 @@ void InvalidateTextureBindingCache() {
 	}
 }
 
+// The interaction VT contains opaque surface response only. Translucent and
+// post-process materials (notably glass using _currentRender) do not
+// participate in feedback and must never switch their stage images according
+// to incidental page residency.
+bool MaterialIsEligibleForVT( const idMaterial * material ) {
+	return material != NULL && material->ReceivesLighting() &&
+		material->Coverage() != MC_TRANSLUCENT &&
+		material->GetSort() < SS_POST_PROCESS;
+}
+
 }
 
 struct vtRuntimePageJob_t {
@@ -325,6 +335,7 @@ idVirtualTextureSystem::idVirtualTextureSystem()
 	: initialized( false ), runtimeReady( false ), feedbackDestination( NULL ),
 	  feedbackWriteIndex( 0 ), feedbackPreviousFBO( 0 ),
 	  feedbackPreviousScissorEnabled( false ), feedbackUsesSceneDepth( false ), runtimeFrame( 0 ),
+	  runtimeLatestFeedbackFrame( 0 ),
 	  runtimeRequests( 0 ), runtimeUploads( 0 ), runtimeEvictions( 0 ),
 	  runtimeFeedbackAnalyses( 0 ), runtimeFeedbackPages( 0 ),
 	  runtimeFeedbackPending( false ), runtimeDebugMode( 0 ),
@@ -494,7 +505,7 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 		const idMaterial * material = static_cast< const idMaterial * >(
 			declManager->DeclByIndex( DECL_MATERIAL, materialIndex, false ) );
 		if ( material == NULL || material->GetState() != DS_PARSED ||
-				!material->EverReferenced() ) {
+				!material->EverReferenced() || !MaterialIsEligibleForVT( material ) ) {
 			continue;
 		}
 
@@ -569,7 +580,7 @@ void idVirtualTextureSystem::EmptyCache( bool ) {
 
 idVirtualMaterial * idVirtualTextureSystem::VirtualMaterialForMaterial( const idMaterial * material ) {
 	idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
-	return material != NULL && vt.vmtrData != NULL
+	return MaterialIsEligibleForVT( material ) && vt.vmtrData != NULL
 		? vt.vmtrData->VirtualMaterialForMaterial( material ) : NULL;
 }
 
@@ -671,9 +682,11 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 
 	runtimePageToSlot.SetNum( runtimeLeafPages.Num() );
 	runtimePagePending.SetNum( runtimeLeafPages.Num() );
+	runtimePageLastVisible.SetNum( runtimeLeafPages.Num() );
 	for ( int i = 0; i < runtimePageToSlot.Num(); ++i ) {
 		runtimePageToSlot[i] = -1;
 		runtimePagePending[i] = 0;
+		runtimePageLastVisible[i] = 0;
 	}
 	const int slotCount = VT_CACHE_PAGES_WIDE * VT_CACHE_PAGES_WIDE;
 	runtimeSlotToPage.SetNum( slotCount );
@@ -705,7 +718,8 @@ bool idVirtualTextureSystem::EnsureRuntimeResources() {
 	}
 	feedbackPBOIssued[0] = feedbackPBOIssued[1] = false;
 	feedbackWriteIndex = 0;
-	runtimeFrame = runtimeRequests = runtimeUploads = runtimeEvictions = 0;
+	runtimeFrame = runtimeLatestFeedbackFrame = 0;
+	runtimeRequests = runtimeUploads = runtimeEvictions = 0;
 	runtimeFeedbackAnalyses = runtimeFeedbackPages = 0;
 	runtimeFeedbackPending = false;
 	runtimeDebugMode = vt_showFeedback.GetInteger();
@@ -776,6 +790,15 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		ProcessFeedbackPages( feedbackJob );
 		delete feedbackJob;
 	}
+
+	// SubImageUpload is a legacy bind-to-edit path.  Pin those binds to the VT
+	// page-table unit instead of allowing them to hit whichever hardware unit a
+	// previous DSA/fallback bind happened to leave active (often a glass stage).
+	// The renderer's logical currenttmu is deliberately not changed here.
+	GLint previousActiveTexture = GL_TEXTURE0_ARB;
+	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	qglActiveTextureARB( GL_TEXTURE0_ARB + 9 );
+
 	const int uploadBudget = r_virtualTextureUploadBudget.GetInteger();
 	bool pageTableChanged = false;
 	for ( int uploaded = 0; uploaded < uploadBudget; ) {
@@ -789,14 +812,40 @@ void idVirtualTextureSystem::UpdateRuntime() {
 			delete job;
 			continue;
 		}
+		if ( job->pageIndex < 0 || job->pageIndex >= runtimePageToSlot.Num() ) {
+			delete job;
+			continue;
+		}
+		const int existingSlot = runtimePageToSlot[job->pageIndex];
+		if ( existingSlot >= 0 ) {
+			runtimeSlotLastUsed[existingSlot] = Max( runtimeSlotLastUsed[existingSlot],
+				runtimePageLastVisible[job->pageIndex] );
+			delete job;
+			continue;
+		}
 		int slot = -1;
 		for ( int i = 0; i < runtimeSlotToPage.Num(); ++i ) {
 			if ( runtimeSlotToPage[i] < 0 ) { slot = i; break; }
 		}
 		if ( slot < 0 ) {
+			// Do not let an old asynchronous request displace pages reported by
+			// either of the two most recent feedback analyses. Tech 5 makes the
+			// same decision from pageFrameNum before allocating a physical page.
+			const int protectedFrame = runtimeLatestFeedbackFrame - 1;
+			if ( protectedFrame > 0 &&
+					runtimePageLastVisible[job->pageIndex] < protectedFrame ) {
+				delete job;
+				continue;
+			}
 			slot = 0;
 			for ( int i = 1; i < runtimeSlotLastUsed.Num(); ++i ) {
 				if ( runtimeSlotLastUsed[i] < runtimeSlotLastUsed[slot] ) { slot = i; }
+			}
+			if ( protectedFrame > 0 && runtimeSlotLastUsed[slot] >= protectedFrame ) {
+				// The working set is larger than the physical cache. Keep the
+				// current set stable and allow feedback to request this page again.
+				delete job;
+				continue;
 			}
 			const int evictedPage = runtimeSlotToPage[slot];
 			if ( evictedPage >= 0 ) {
@@ -817,7 +866,8 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		pool.physicalPagesImage2->SubImageUpload( 0, physicalX, physicalY, 0,
 			VT_PAGE_TEXELS, VT_PAGE_TEXELS, job->planes.Ptr() + planeBytes * 2 );
 		runtimeSlotToPage[slot] = job->pageIndex;
-		runtimeSlotLastUsed[slot] = runtimeFrame;
+		runtimeSlotLastUsed[slot] = runtimePageLastVisible[job->pageIndex] > 0
+			? runtimePageLastVisible[job->pageIndex] : runtimeFrame;
 		runtimePageToSlot[job->pageIndex] = slot;
 		byte * mapping = runtimePageTableShadow.Ptr() + job->pageIndex * 4;
 		mapping[0] = static_cast< byte >( slot % VT_CACHE_PAGES_WIDE );
@@ -834,6 +884,7 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		delete job;
 	}
 	if ( pageTableChanged ) { UploadPageTable(); }
+	qglActiveTextureARB( previousActiveTexture );
 }
 
 bool idVirtualTextureSystem::BindVirtualMaterial( const idMaterial * material ) {
@@ -913,11 +964,34 @@ void idVirtualTextureSystem::ProcessFeedbackPages( vtFeedbackJob_t * job ) {
 	const idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
 	pageIndices_t * pageIndices = reinterpret_cast< pageIndices_t * >( job->pageStorage.Ptr() );
 	const int count = job->pageCount;
+	runtimeLatestFeedbackFrame = Max( runtimeLatestFeedbackFrame, job->frame );
 	++runtimeFeedbackAnalyses;
 	runtimeFeedbackPages = count;
 	if ( runtimeFeedbackAnalyses == 1 ) {
 		idLib::Printf( "VT runtime: feedback readback live (%i unique page-tree nodes)\n", count );
 	}
+	// Refresh every resident feedback hit before considering allocations. The
+	// feedback list is priority sorted, but the request budget must not prevent
+	// later resident pages from being marked as used.
+	for ( int i = 0; i < count; ++i ) {
+		const uint64 key = pageIndices->indices[i] >> 2;
+		const int x = static_cast< int >( key & 0x7FF );
+		const uint64 yAndTexture = key >> 11;
+		const int y = static_cast< int >( yAndTexture & 0x7FF );
+		const int textureAndLevel = static_cast< int >( yAndTexture >> 11 );
+		const int level = textureAndLevel & 15;
+		const int texture = ( textureAndLevel >> 4 ) & 15;
+		if ( texture == PAGESOURCE_VMTR && level == 0 && x >= 0 && y >= 0 &&
+				x < vt.header.pagesWide && y < vt.header.pagesWide ) {
+			const int pageIndex = y * vt.header.pagesWide + x;
+			runtimePageLastVisible[pageIndex] = Max( runtimePageLastVisible[pageIndex], job->frame );
+			const int slot = runtimePageToSlot[pageIndex];
+			if ( slot >= 0 ) {
+				runtimeSlotLastUsed[slot] = Max( runtimeSlotLastUsed[slot], job->frame );
+			}
+		}
+	}
+
 	int queuedThisFrame = 0;
 	for ( int i = 0; i < count && queuedThisFrame < 8; ++i ) {
 		const uint64 key = pageIndices->indices[i] >> 2;
@@ -928,11 +1002,12 @@ void idVirtualTextureSystem::ProcessFeedbackPages( vtFeedbackJob_t * job ) {
 		const int level = textureAndLevel & 15;
 		const int texture = ( textureAndLevel >> 4 ) & 15;
 		if ( texture == PAGESOURCE_VMTR && level == 0 && x >= 0 && y >= 0 &&
-				x < vt.header.pagesWide && y < vt.header.pagesWide &&
-				runtimePageToSlot[y * vt.header.pagesWide + x] < 0 &&
-				runtimePagePending[y * vt.header.pagesWide + x] == 0 ) {
-			MakePageResident( x, y );
-			++queuedThisFrame;
+				x < vt.header.pagesWide && y < vt.header.pagesWide ) {
+			const int pageIndex = y * vt.header.pagesWide + x;
+			if ( runtimePageToSlot[pageIndex] < 0 && runtimePagePending[pageIndex] == 0 ) {
+				MakePageResident( x, y );
+				++queuedThisFrame;
+			}
 		}
 	}
 }
@@ -980,6 +1055,7 @@ void idVirtualTextureSystem::InvalidateRuntime() {
 	runtimeLeafPages.Clear();
 	runtimePageToSlot.Clear();
 	runtimePagePending.Clear();
+	runtimePageLastVisible.Clear();
 	runtimeSlotToPage.Clear();
 	runtimeSlotLastUsed.Clear();
 	runtimePageTableShadow.Clear();
