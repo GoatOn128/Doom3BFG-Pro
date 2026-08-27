@@ -198,6 +198,10 @@ int idFile::Length() const {
 	return 0;
 }
 
+int64 idFile::Length64() const {
+	return Length();
+}
+
 /*
 =================
 idFile::Timestamp
@@ -214,6 +218,10 @@ idFile::Tell
 */
 int idFile::Tell() const {
 	return 0;
+}
+
+int64 idFile::Tell64() const {
+	return Tell();
 }
 
 /*
@@ -239,6 +247,23 @@ idFile::Seek
 */
 int idFile::Seek( long offset, fsOrigin_t origin ) {
 	return -1;
+}
+
+int idFile::Seek64( int64 offset, fsOrigin_t origin ) {
+	if ( offset < LONG_MIN || offset > LONG_MAX ) {
+		return -1;
+	}
+	return Seek( static_cast< long >( offset ), origin );
+}
+
+int idFile::ReadAt( int64 offset, void * buffer, int len ) {
+	const int64 oldPosition = Tell64();
+	if ( oldPosition < 0 || Seek64( offset, FS_SEEK_SET ) != 0 ) {
+		return 0;
+	}
+	const int bytesRead = Read( buffer, len );
+	Seek64( oldPosition, FS_SEEK_SET );
+	return bytesRead;
 }
 
 /*
@@ -1302,7 +1327,17 @@ idFile_Permanent::Tell
 =================
 */
 int idFile_Permanent::Tell() const {
-	return SetFilePointer( o, 0, NULL, FILE_CURRENT );
+	const int64 position = Tell64();
+	return position > INT_MAX ? INT_MAX : static_cast< int >( position );
+}
+
+int64 idFile_Permanent::Tell64() const {
+	LARGE_INTEGER distance = {};
+	LARGE_INTEGER position = {};
+	if ( !SetFilePointerEx( o, distance, &position, FILE_CURRENT ) ) {
+		return -1;
+	}
+	return position.QuadPart;
 }
 
 /*
@@ -1311,6 +1346,10 @@ idFile_Permanent::Length
 ================
 */
 int idFile_Permanent::Length() const {
+	return fileSize > INT_MAX ? INT_MAX : static_cast< int >( fileSize );
+}
+
+int64 idFile_Permanent::Length64() const {
 	return fileSize;
 }
 
@@ -1332,13 +1371,31 @@ idFile_Permanent::Seek
 =================
 */
 int idFile_Permanent::Seek( long offset, fsOrigin_t origin ) {
-	int retVal = INVALID_SET_FILE_POINTER;
+	return Seek64( offset, origin );
+}
+
+int idFile_Permanent::Seek64( int64 offset, fsOrigin_t origin ) {
+	DWORD moveMethod = FILE_BEGIN;
 	switch( origin ) {
-		case FS_SEEK_CUR: retVal = SetFilePointer( o, offset, NULL, FILE_CURRENT ); break;
-		case FS_SEEK_END: retVal = SetFilePointer( o, offset, NULL, FILE_END ); break;
-		case FS_SEEK_SET: retVal = SetFilePointer( o, offset, NULL, FILE_BEGIN ); break;
+		case FS_SEEK_CUR: moveMethod = FILE_CURRENT; break;
+		case FS_SEEK_END: moveMethod = FILE_END; break;
+		case FS_SEEK_SET: moveMethod = FILE_BEGIN; break;
+		default: return -1;
 	}
-	return ( retVal == INVALID_SET_FILE_POINTER ) ? -1 : 0;
+	LARGE_INTEGER distance;
+	distance.QuadPart = offset;
+	return SetFilePointerEx( o, distance, NULL, moveMethod ) ? 0 : -1;
+}
+
+int idFile_Permanent::ReadAt( int64 offset, void * buffer, int len ) {
+	idScopedCriticalSection lock( positionMutex );
+	const int64 oldPosition = Tell64();
+	if ( oldPosition < 0 || Seek64( offset, FS_SEEK_SET ) != 0 ) {
+		return 0;
+	}
+	const int bytesRead = Read( buffer, len );
+	Seek64( oldPosition, FS_SEEK_SET );
+	return bytesRead;
 }
 
 #if 1
@@ -1804,5 +1861,4 @@ CONSOLE_COMMAND( testEndianNessRead, "Tests the read/write compatibility between
 CONSOLE_COMMAND( testEndianNessReset, "Tests the read/write compatibility between platforms", 0 ) {
 	fileSystem->RemoveFile( testEndianNessFilename );
 }
-
 

@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "virtualtexture.h"
 
 idCVar r_drawEyeColor( "r_drawEyeColor", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a colored box, red = left eye, blue = right eye, grey = non-stereo" );
 idCVar r_motionBlur( "r_motionBlur", "0", CVAR_RENDERER | CVAR_INTEGER | CVAR_ARCHIVE, "1 - 5, log2 of the number of motion blur samples" );
@@ -1504,6 +1505,7 @@ static void RB_RenderInteractions( const drawSurf_t *surfList, const viewLight_t
 
 		for ( int sortedSurfNum = 0; sortedSurfNum < allSurfaces.Num(); sortedSurfNum++ ) {
 			const drawSurf_t * const surf = allSurfaces[ sortedSurfNum ];
+			const idMaterial * surfaceShader = surf->material;
 
 			// select the render prog
 			if ( lightShader->IsAmbientLight() ) {
@@ -1520,8 +1522,8 @@ static void RB_RenderInteractions( const drawSurf_t *surfList, const viewLight_t
 				}
 			}
 
-			const idMaterial * surfaceShader = surf->material;
 			const float * surfaceRegs = surf->shaderRegisters;
+			virtualTextureSystem.BindVirtualMaterial( surfaceShader );
 
 			inter.surf = surf;
 
@@ -2270,6 +2272,66 @@ static void RB_BlendLight( const drawSurf_t *drawSurfs, const drawSurf_t *drawSu
 }
 
 /*
+========================
+RB_DrawVirtualTextureFeedback
+
+Renders compact page IDs after the color pass.  Readback is double buffered,
+so the CPU analyzes the previous feedback image while the GPU fills the next.
+========================
+*/
+static void RB_DrawVirtualTextureFeedback( drawSurf_t ** drawSurfs, int numDrawSurfs ) {
+	static bool reportedDrawCount = false;
+	static int feedbackIntervalCounter = 0;
+	const int feedbackInterval = Max( 1, r_virtualTextureFeedbackInterval.GetInteger() );
+	if ( ( feedbackIntervalCounter++ % feedbackInterval ) != 0 ) {
+		return;
+	}
+	if ( !virtualTextureSystem.BeginFeedbackPass() ) {
+		return;
+	}
+	// Feedback may run after fog/post state has touched depth and culling.  Use
+	// conservative coverage here: over-requesting an occluded material is safe,
+	// while dropping it would leave a visible page unresolved next frame.
+	GL_State( GLS_DEPTHFUNC_ALWAYS, true );
+	GL_Cull( CT_TWO_SIDED );
+	backEnd.currentSpace = NULL;
+	int feedbackDraws = 0;
+	for ( int i = 0; i < numDrawSurfs; ++i ) {
+		const drawSurf_t * surf = drawSurfs[i];
+		if ( surf == NULL || surf->material == NULL ||
+				surf->material->Coverage() == MC_TRANSLUCENT ) {
+			continue;
+		}
+		idVirtualMaterial * vmtr = virtualTextureSystem.VirtualMaterialForMaterial( surf->material );
+		if ( vmtr == NULL ) {
+			continue;
+		}
+		if ( surf->jointCache ) {
+			renderProgManager.BindShader_VirtualTextureFeedbackSkinned();
+		} else {
+			renderProgManager.BindShader_VirtualTextureFeedback();
+		}
+		if ( surf->space != backEnd.currentSpace ) {
+			backEnd.currentSpace = surf->space;
+			RB_SetMVP( surf->space->mvp );
+		}
+		const idVec4 feedbackParms = virtualTextureSystem.FeedbackParms( vmtr );
+		renderProgManager.SetUniformValue( static_cast< renderParm_t >( RENDERPARM_USER + 0 ),
+			vmtr->scaleAndBias.ToFloatPtr() );
+		renderProgManager.SetUniformValue( static_cast< renderParm_t >( RENDERPARM_USER + 1 ),
+			feedbackParms.ToFloatPtr() );
+		RB_DrawElementsWithCounters( surf );
+		++feedbackDraws;
+	}
+	if ( !reportedDrawCount ) {
+		idLib::Printf( "VT runtime: feedback pass submitted %i VMTR surfaces\n", feedbackDraws );
+		reportedDrawCount = true;
+	}
+	renderProgManager.Unbind();
+	virtualTextureSystem.EndFeedbackPass();
+}
+
+/*
 =========================================================================================================
 
 FOG LIGHTS
@@ -2538,6 +2600,11 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 		RB_EnsureShadowAtlas();
 		GL_SelectTexture( 0 );
 	}
+	// Allocate VT render targets before depth/ambient rendering. Scratch-image
+	// creation changes GL texture bindings, so it must not happen mid-pass.
+	virtualTextureSystem.EnsureRuntimeResources();
+	virtualTextureSystem.UpdateRuntime();
+	GL_SelectTexture( 0 );
 
 	//------------------------------------
 	// sets variables that can be used by all programs
@@ -2604,6 +2671,13 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	// so they are properly dimmed down
 	//-------------------------------------------------
 	RB_FogAllLights();
+
+	//-------------------------------------------------
+	// virtual-texture visibility feedback for next-frame page residency
+	//-------------------------------------------------
+	if ( viewDef->viewEntitys != NULL ) {
+		RB_DrawVirtualTextureFeedback( drawSurfs, numDrawSurfs );
+	}
 
 	//-------------------------------------------------
 	// capture the depth for the motion blur before rendering any post process surfaces that may contribute to the depth

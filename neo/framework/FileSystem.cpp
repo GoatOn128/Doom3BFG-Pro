@@ -255,7 +255,7 @@ private:
 	int						ListOSFiles( const char *directory, const char *extension, idStrList &list );
 	idFileHandle			OpenOSFile( const char *name, fsMode_t mode );
 	void					CloseOSFile( idFileHandle o );
-	int						DirectFileLength( idFileHandle o );
+	int64					DirectFileLength( idFileHandle o );
 	void					CopyFile( idFile *src, const char *toOSPath );
 	int						AddUnique( const char *name, idStrList &list, idHashIndex &hashIndex ) const;
 	void					GetExtensionList( const char *extension, idStrList &extensionList ) const;
@@ -460,8 +460,9 @@ void idFileSystemLocal::CloseOSFile( idFileHandle o ) {
 idFileSystemLocal::DirectFileLength
 ================
 */
-int idFileSystemLocal::DirectFileLength( idFileHandle o ) {
-	return GetFileSize( o, NULL );
+int64 idFileSystemLocal::DirectFileLength( idFileHandle o ) {
+	LARGE_INTEGER size = {};
+	return GetFileSizeEx( o, &size ) ? size.QuadPart : 0;
 }
 
 /*
@@ -2911,9 +2912,15 @@ idFile *idFileSystemLocal::OpenFileReadFlags( const char *relativePath, int sear
 			}
 
 			if ( searchFlags & FSFLAG_RETURN_FILE_MEM ) {
+				if ( file->fileSize > INT_MAX ) {
+					common->Warning( "OpenFileReadMemory cannot map files larger than 2 GiB: %s", relativePath );
+					delete file;
+					return NULL;
+				}
 				idFile_Memory * memFile = new (TAG_IDFILE) idFile_Memory( file->name );
-				memFile->SetLength( file->fileSize );
-				file->Read( (void *)memFile->GetDataPtr(), file->fileSize );
+				const int memoryFileSize = static_cast< int >( file->fileSize );
+				memFile->SetLength( memoryFileSize );
+				file->Read( (void *)memFile->GetDataPtr(), memoryFileSize );
 				delete file;
 				memFile->TakeDataOwnership();
 				return memFile;

@@ -152,6 +152,10 @@ public:
 	void		SetTexParameters();	// update aniso and trilinear
 
 	bool		IsLoaded() const { return texnum != TEXTURE_NOT_LOADED; }
+	// Reload the top mip from BFG's generated image container and convert it
+	// back to RGBA. Used by the runtime VMTR cache writer after source TGAs
+	// have been stripped from a production install.
+	bool		LoadRGBAForVirtualTexture( idList< byte > & rgba, int & width, int & height ) const;
 
 	static void			GetGeneratedName( idStr &_name, const textureUsage_t &_usage, const cubeFiles_t &_cube );
 

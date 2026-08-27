@@ -70,6 +70,8 @@ UnbindBufferObjects
 void UnbindBufferObjects() {
 	qglBindBufferARB( GL_ARRAY_BUFFER_ARB, 0 );
 	qglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, 0 );
+	qglBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB, 0 );
+	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB, 0 );
 }
 
 #ifdef ID_WIN_X86_SSE2_INTRIN
@@ -840,4 +842,162 @@ void idJointBuffer::Swap( idJointBuffer & other ) {
 	SwapValues( other.numJoints, numJoints );
 	SwapValues( other.offsetInOtherBuffer, offsetInOtherBuffer );
 	SwapValues( other.apiObject, apiObject );
+}
+
+/*
+================================================================================================
+
+	Pixel Buffer Objects
+
+================================================================================================
+*/
+
+static GLbitfield PixelBufferMapFlags( bufferMapType_t mapType ) {
+	switch ( mapType ) {
+		case BM_READ:			return GL_MAP_READ_BIT;
+		case BM_READ_NOSYNC:	return GL_MAP_READ_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
+		case BM_WRITE:			return GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT;
+		case BM_WRITE_NOSYNC:	return GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
+		default:				assert( false ); return 0;
+	}
+}
+
+static bool AllocPixelBuffer( GLenum target, GLenum usage, void * & apiObject, int allocSize ) {
+	if ( allocSize <= 0 ) {
+		idLib::Error( "AllocPixelBuffer: allocSize = %i", allocSize );
+	}
+	GLuint object = 0;
+	qglGetError();
+	qglGenBuffersARB( 1, &object );
+	qglBindBufferARB( target, object );
+	qglBufferDataARB( target, ( allocSize + 15 ) & ~15, NULL, usage );
+	apiObject = reinterpret_cast< void * >( object );
+	if ( qglGetError() == GL_OUT_OF_MEMORY ) {
+		qglDeleteBuffersARB( 1, &object );
+		apiObject = NULL;
+		return false;
+	}
+	return true;
+}
+
+static void FreePixelBuffer( void * & apiObject ) {
+	if ( apiObject != NULL ) {
+		GLuint object = reinterpret_cast< GLuint >( apiObject );
+		qglDeleteBuffersARB( 1, &object );
+		apiObject = NULL;
+	}
+}
+
+idPixelPackBuffer::idPixelPackBuffer() : size( 0 ), apiObject( NULL ) {}
+idPixelPackBuffer::~idPixelPackBuffer() { FreeBufferObject(); }
+
+bool idPixelPackBuffer::AllocBufferObject( const void * data, int allocSize ) {
+	assert( apiObject == NULL );
+	if ( !AllocPixelBuffer( GL_PIXEL_PACK_BUFFER_ARB, GL_STREAM_READ_ARB, apiObject, allocSize ) ) {
+		return false;
+	}
+	size = allocSize;
+	SetUnmapped();
+	if ( data != NULL ) {
+		Update( data, allocSize );
+	}
+	return true;
+}
+
+void idPixelPackBuffer::FreeBufferObject() {
+	if ( IsMapped() ) {
+		UnmapBuffer();
+	}
+	FreePixelBuffer( apiObject );
+	size = 0;
+}
+
+void idPixelPackBuffer::Update( const void * data, int updateSize ) const {
+	assert( apiObject != NULL && !IsMapped() && updateSize <= GetSize() );
+	qglBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	qglBufferSubDataARB( GL_PIXEL_PACK_BUFFER_ARB, 0, updateSize, data );
+}
+
+void * idPixelPackBuffer::TryMapBuffer( bufferMapType_t mapType ) const {
+	assert( apiObject != NULL && !IsMapped() );
+	qglBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	void * buffer = qglMapBufferRange( GL_PIXEL_PACK_BUFFER_ARB, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
+	if ( buffer != NULL ) {
+		SetMapped();
+	}
+	return buffer;
+}
+
+void * idPixelPackBuffer::MapBuffer( bufferMapType_t mapType ) const {
+	void * buffer = TryMapBuffer( mapType );
+	if ( buffer == NULL ) {
+		idLib::FatalError( "idPixelPackBuffer::MapBuffer: failed" );
+	}
+	return buffer;
+}
+
+void idPixelPackBuffer::UnmapBuffer() const {
+	assert( apiObject != NULL && IsMapped() );
+	qglBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	if ( !qglUnmapBufferARB( GL_PIXEL_PACK_BUFFER_ARB ) ) {
+		idLib::Warning( "idPixelPackBuffer::UnmapBuffer failed" );
+	}
+	SetUnmapped();
+}
+
+idPixelUnpackBuffer::idPixelUnpackBuffer() : size( 0 ), apiObject( NULL ) {}
+idPixelUnpackBuffer::~idPixelUnpackBuffer() { FreeBufferObject(); }
+
+bool idPixelUnpackBuffer::AllocBufferObject( const void * data, int allocSize ) {
+	assert( apiObject == NULL );
+	if ( !AllocPixelBuffer( GL_PIXEL_UNPACK_BUFFER_ARB, GL_STREAM_DRAW_ARB, apiObject, allocSize ) ) {
+		return false;
+	}
+	size = allocSize;
+	SetUnmapped();
+	if ( data != NULL ) {
+		Update( data, allocSize );
+	}
+	return true;
+}
+
+void idPixelUnpackBuffer::FreeBufferObject() {
+	if ( IsMapped() ) {
+		UnmapBuffer();
+	}
+	FreePixelBuffer( apiObject );
+	size = 0;
+}
+
+void idPixelUnpackBuffer::Update( const void * data, int updateSize ) const {
+	assert( apiObject != NULL && !IsMapped() && updateSize <= GetSize() );
+	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	qglBufferSubDataARB( GL_PIXEL_UNPACK_BUFFER_ARB, 0, updateSize, data );
+}
+
+void * idPixelUnpackBuffer::TryMapBuffer( bufferMapType_t mapType ) const {
+	assert( apiObject != NULL && !IsMapped() );
+	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	void * buffer = qglMapBufferRange( GL_PIXEL_UNPACK_BUFFER_ARB, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
+	if ( buffer != NULL ) {
+		SetMapped();
+	}
+	return buffer;
+}
+
+void * idPixelUnpackBuffer::MapBuffer( bufferMapType_t mapType ) const {
+	void * buffer = TryMapBuffer( mapType );
+	if ( buffer == NULL ) {
+		idLib::FatalError( "idPixelUnpackBuffer::MapBuffer: failed" );
+	}
+	return buffer;
+}
+
+void idPixelUnpackBuffer::UnmapBuffer() const {
+	assert( apiObject != NULL && IsMapped() );
+	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB, reinterpret_cast< GLuint >( apiObject ) );
+	if ( !qglUnmapBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB ) ) {
+		idLib::Warning( "idPixelUnpackBuffer::UnmapBuffer failed" );
+	}
+	SetUnmapped();
 }

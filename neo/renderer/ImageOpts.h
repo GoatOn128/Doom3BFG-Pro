@@ -87,6 +87,12 @@ enum textureFormat_t {
 	FMT_X16,			// 16 bpp
 	FMT_Y16_X16,		// 32 bpp
 	FMT_RGB565,			// 16 bpp
+
+	// Tech 5 virtual-texture page tables and feedback/render destinations.
+	// Appended to preserve the numeric values of BFG's serialized formats.
+	FMT_RG8,			// 16 bpp
+	FMT_RGBA16F,		// 64 bpp
+	FMT_RGBA32F,		// 128 bpp
 };
 
 int BitsForFormat( textureFormat_t format );

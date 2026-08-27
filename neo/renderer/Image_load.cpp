@@ -30,6 +30,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "DXT/DXTCodec.h"
+#include "color/ColorSpace.h"
 
 /*
 ================
@@ -51,10 +53,122 @@ int BitsForFormat( textureFormat_t format ) {
 		case FMT_DEPTH:		return 32;
 		case FMT_X16:		return 16;
 		case FMT_Y16_X16:	return 32;
+		case FMT_RG8:		return 16;
+		case FMT_RGBA16F:	return 64;
+		case FMT_RGBA32F:	return 128;
 		default:
 			assert( 0 );
 			return 0;
 	}
+}
+
+bool idImage::LoadRGBAForVirtualTexture( idList< byte > & rgba,
+		int & width, int & height ) const {
+	rgba.Clear();
+	width = 0;
+	height = 0;
+	if ( cubeFiles != CF_2D || generatorFunction != NULL ) {
+		return false;
+	}
+
+	idStrStatic< MAX_OSPATH > generatedName = GetName();
+	GetGeneratedName( generatedName, usage, cubeFiles );
+	idBinaryImage binaryImage( generatedName );
+	if ( binaryImage.LoadFromGeneratedFile( FILE_NOT_FOUND_TIMESTAMP ) ==
+			FILE_NOT_FOUND_TIMESTAMP || binaryImage.NumImages() <= 0 ) {
+		return false;
+	}
+	const bimageFile_t & fileHeader = binaryImage.GetFileHeader();
+	int topImage = -1;
+	for ( int index = 0; index < binaryImage.NumImages(); ++index ) {
+		const bimageImage_t & imageHeader = binaryImage.GetImageHeader( index );
+		if ( imageHeader.level == 0 && imageHeader.destZ == 0 ) {
+			topImage = index;
+			break;
+		}
+	}
+	if ( topImage < 0 ) {
+		return false;
+	}
+
+	const bimageImage_t & imageHeader = binaryImage.GetImageHeader( topImage );
+	const byte * data = binaryImage.GetImageData( topImage );
+	width = imageHeader.width;
+	height = imageHeader.height;
+	if ( data == NULL || width <= 0 || height <= 0 ) {
+		return false;
+	}
+
+	const textureFormat_t format = static_cast< textureFormat_t >( fileHeader.format );
+	const textureColor_t colorFormat = static_cast< textureColor_t >( fileHeader.colorFormat );
+	const int paddedWidth = ( width + 3 ) & ~3;
+	const int paddedHeight = ( height + 3 ) & ~3;
+	idList< byte > decoded;
+	decoded.SetNum( paddedWidth * paddedHeight * 4 );
+	memset( decoded.Ptr(), 0, decoded.Num() );
+
+	if ( format == FMT_DXT1 || format == FMT_DXT5 ) {
+		idDxtDecoder decoder;
+		if ( format == FMT_DXT1 ) {
+			decoder.DecompressImageDXT1( data, decoded.Ptr(), paddedWidth, paddedHeight );
+		} else if ( colorFormat == CFM_NORMAL_DXT5 ) {
+			decoder.DecompressNormalMapDXT5( data, decoded.Ptr(), paddedWidth, paddedHeight );
+		} else if ( colorFormat == CFM_YCOCG_DXT5 ) {
+			decoder.DecompressYCoCgDXT5( data, decoded.Ptr(), paddedWidth, paddedHeight );
+			idColorSpace::ConvertCoCg_YToRGB( decoded.Ptr(), decoded.Ptr(),
+				paddedWidth, paddedHeight );
+		} else {
+			decoder.DecompressImageDXT5( data, decoded.Ptr(), paddedWidth, paddedHeight );
+		}
+	} else {
+		for ( int pixel = 0; pixel < width * height; ++pixel ) {
+			byte * destination = decoded.Ptr() + pixel * 4;
+			switch ( format ) {
+				case FMT_RGBA8:
+				case FMT_XRGB8:
+					memcpy( destination, data + pixel * 4, 4 );
+					if ( format == FMT_XRGB8 ) {
+						destination[3] = 255;
+					}
+					break;
+				case FMT_L8A8:
+					destination[0] = destination[1] = destination[2] = data[pixel * 2];
+					destination[3] = data[pixel * 2 + 1];
+					break;
+				case FMT_ALPHA:
+					destination[0] = destination[1] = destination[2] = 255;
+					destination[3] = data[pixel];
+					break;
+				case FMT_LUM8:
+					destination[0] = destination[1] = destination[2] = data[pixel];
+					destination[3] = 255;
+					break;
+				case FMT_INT8:
+					destination[0] = destination[1] = destination[2] = destination[3] = data[pixel];
+					break;
+				case FMT_RGB565: {
+					const uint16 packed = static_cast< uint16 >( data[pixel * 2] << 8 ) |
+						data[pixel * 2 + 1];
+					destination[0] = static_cast< byte >( ( ( packed >> 11 ) & 31 ) * 255 / 31 );
+					destination[1] = static_cast< byte >( ( ( packed >> 5 ) & 63 ) * 255 / 63 );
+					destination[2] = static_cast< byte >( ( packed & 31 ) * 255 / 31 );
+					destination[3] = 255;
+					break;
+				}
+				default:
+					rgba.Clear();
+					width = height = 0;
+					return false;
+			}
+		}
+	}
+
+	rgba.SetNum( width * height * 4 );
+	for ( int y = 0; y < height; ++y ) {
+		memcpy( rgba.Ptr() + y * width * 4,
+			decoded.Ptr() + y * paddedWidth * 4, width * 4 );
+	}
+	return true;
 }
 
 /*
@@ -621,6 +735,9 @@ void idImage::Print() const {
 		NAME_FORMAT( DEPTH );
 		NAME_FORMAT( X16 );
 		NAME_FORMAT( Y16_X16 );
+		NAME_FORMAT( RG8 );
+		NAME_FORMAT( RGBA16F );
+		NAME_FORMAT( RGBA32F );
 		default:
 			common->Printf( "<%3i>", opts.format );
 			break;

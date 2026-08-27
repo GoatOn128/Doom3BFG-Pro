@@ -118,7 +118,9 @@ struct imagePreload_s {
 	int cubeMap;
 };
 
-enum preloadType_t {
+// Resource-manifest preload kinds.  Keep this distinct from the Tech 5
+// virtual-texture preloader's preloadType_t.
+enum preloadResourceType_t {
 	PRELOAD_IMAGE,
 	PRELOAD_MODEL,
 	PRELOAD_SAMPLE,

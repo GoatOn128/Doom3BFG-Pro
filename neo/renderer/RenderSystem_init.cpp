@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "virtualtexture.h"
 
 // Vista OpenGL wrapper check
 #include "../sys/win32/win_local.h"
@@ -267,6 +268,7 @@ PFNGLBINDFRAMEBUFFERPROC				qglBindFramebuffer;
 PFNGLDELETEFRAMEBUFFERSPROC			qglDeleteFramebuffers;
 PFNGLFRAMEBUFFERTEXTURE2DPROC		qglFramebufferTexture2D;
 PFNGLCHECKFRAMEBUFFERSTATUSPROC		qglCheckFramebufferStatus;
+PFNGLDRAWBUFFERSPROC					qglDrawBuffers;
 
 // GL_ARB_uniform_buffer_object
 PFNGLGETUNIFORMBLOCKINDEXPROC			qglGetUniformBlockIndex;
@@ -501,6 +503,7 @@ static void R_CheckPortableExtensions() {
 		qglDeleteFramebuffers = (PFNGLDELETEFRAMEBUFFERSPROC)GLimp_ExtensionPointer( "glDeleteFramebuffers" );
 		qglFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)GLimp_ExtensionPointer( "glFramebufferTexture2D" );
 		qglCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)GLimp_ExtensionPointer( "glCheckFramebufferStatus" );
+		qglDrawBuffers = (PFNGLDRAWBUFFERSPROC)GLimp_ExtensionPointer( "glDrawBuffers" );
 	}
 
 	// GL_ARB_uniform_buffer_object
@@ -2170,6 +2173,7 @@ void idRenderSystemLocal::Init() {
 	tr_guiModel = guiModel;	// for DeviceContext fast path
 
 	globalImages->Init();
+	virtualTextureSystem.Init();
 
 	idCinematic::InitCinematic( );
 
@@ -2212,10 +2216,11 @@ void idRenderSystemLocal::Init() {
 idRenderSystemLocal::Shutdown
 ===============
 */
-void idRenderSystemLocal::Shutdown() {	
+void idRenderSystemLocal::Shutdown() {
 	common->Printf( "idRenderSystem::Shutdown()\n" );
 
 	fonts.DeleteContents();
+	virtualTextureSystem.Shutdown();
 
 	if ( R_IsInitialized() ) {
 		globalImages->PurgeAllImages();
@@ -2287,6 +2292,7 @@ idRenderSystemLocal::Preload
 ========================
 */
 void idRenderSystemLocal::Preload( const idPreloadManifest &manifest, const char *mapName ) {
+	virtualTextureSystem.SetMapName( mapName );
 	globalImages->Preload( manifest, true );
 	uiManager->Preload( mapName );
 	renderModelManager->Preload( manifest );
@@ -2300,6 +2306,7 @@ idRenderSystemLocal::EndLevelLoad
 void idRenderSystemLocal::EndLevelLoad() {
 	renderModelManager->EndLevelLoad();
 	globalImages->EndLevelLoad();
+	virtualTextureSystem.BuildLoadedVmtrCache();
 }
 
 /*

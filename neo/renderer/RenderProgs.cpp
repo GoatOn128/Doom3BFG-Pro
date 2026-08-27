@@ -88,6 +88,8 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_INTERACTION_SKINNED, "interaction_skinned.vfp" },
 		{ BUILTIN_INTERACTION_AMBIENT, "interactionAmbient.vfp" },
 		{ BUILTIN_INTERACTION_AMBIENT_SKINNED, "interactionAmbient_skinned.vfp" },
+		{ BUILTIN_VT_FEEDBACK, "vtFeedback.vfp" },
+		{ BUILTIN_VT_FEEDBACK_SKINNED, "vtFeedback_skinned.vfp" },
 		{ BUILTIN_ENVIRONMENT, "environment.vfp" },
 		{ BUILTIN_ENVIRONMENT_SKINNED, "environment_skinned.vfp" },
 		{ BUILTIN_BUMPY_ENVIRONMENT, "bumpyEnvironment.vfp" },
@@ -138,6 +140,7 @@ void idRenderProgManager::Init() {
 	vertexShaders[builtinShaders[BUILTIN_TEXTURE_VERTEXCOLOR_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_INTERACTION_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_INTERACTION_AMBIENT_SKINNED]].usesJoints = true;
+	vertexShaders[builtinShaders[BUILTIN_VT_FEEDBACK_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_ENVIRONMENT_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_BUMPY_ENVIRONMENT_SKINNED]].usesJoints = true;
 	vertexShaders[builtinShaders[BUILTIN_DEPTH_SKINNED]].usesJoints = true;
@@ -408,4 +411,3 @@ idRenderProgManager::SetRenderParm
 void idRenderProgManager::SetRenderParm( renderParm_t rp, const float * value ) {
 	SetUniformValue( rp, value );
 }
-

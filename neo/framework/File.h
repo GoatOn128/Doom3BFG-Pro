@@ -60,16 +60,24 @@ public:
 	virtual int				Write( const void *buffer, int len );
 							// Returns the length of the file.
 	virtual int				Length() const;
+	// Large-file variants used by streaming systems.  The legacy methods stay
+	// intact so existing BFG code does not silently change its ABI or behavior.
+	virtual int64			Length64() const;
 							// Return a time value for reload operations.
 	virtual ID_TIME_T		Timestamp() const;
 							// Returns offset in file.
 	virtual int				Tell() const;
+	virtual int64			Tell64() const;
 							// Forces flush on files being writting to.
 	virtual void			ForceFlush();
 							// Causes any buffered data to be written to the file.
 	virtual void			Flush();
 							// Seek on a file.
 	virtual int				Seek( long offset, fsOrigin_t origin );
+	virtual int				Seek64( int64 offset, fsOrigin_t origin );
+	// Thread-safe positional read.  This does not alter the caller-visible file
+	// position and is the primitive used by the virtual texture stream cache.
+	virtual int				ReadAt( int64 offset, void * buffer, int len );
 							// Go back to the beginning of the file.
 	virtual void			Rewind();
 							// Like fprintf.
@@ -243,11 +251,15 @@ public:
 	virtual int				Read( void *buffer, int len );
 	virtual int				Write( const void *buffer, int len );
 	virtual int				Length() const;
+	virtual int64			Length64() const;
 	virtual ID_TIME_T		Timestamp() const;
 	virtual int				Tell() const;
+	virtual int64			Tell64() const;
 	virtual void			ForceFlush();
 	virtual void			Flush();
 	virtual int				Seek( long offset, fsOrigin_t origin );
+	virtual int				Seek64( int64 offset, fsOrigin_t origin );
+	virtual int				ReadAt( int64 offset, void * buffer, int len );
 
 	// returns file pointer
 	idFileHandle			GetFilePtr() { return o; }
@@ -256,9 +268,10 @@ private:
 	idStr					name;			// relative path of the file - relative path
 	idStr					fullPath;		// full file path - OS path
 	int						mode;			// open mode
-	int						fileSize;		// size of the file
+	int64					fileSize;		// size of the file (VT containers exceed 2 GiB)
 	idFileHandle			o;				// file handle
 	bool					handleSync;		// true if written data is immediately flushed
+	mutable idSysMutex	positionMutex;	// serializes seek/read positional fallback
 };
 
 class idFile_Cached : public idFile_Permanent {

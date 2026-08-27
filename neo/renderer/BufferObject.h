@@ -39,8 +39,10 @@ If you have questions concerning this license or the applicable additional terms
 class idIndexBuffer;
 
 enum bufferMapType_t {
-	BM_READ,			// map for reading
-	BM_WRITE			// map for writing
+	BM_READ = 0,			// map for reading, waiting for pending GPU work
+	BM_READ_NOSYNC = 1,	// map for reading without an implicit wait
+	BM_WRITE = 2,			// map for writing, invalidating the previous contents
+	BM_WRITE_NOSYNC = 3	// map for writing without an implicit wait
 };
 
 // Returns all targets to virtual memory use instead of buffer object use.
@@ -197,6 +199,72 @@ private:
 	bool				OwnsBuffer() const { return ( ( offsetInOtherBuffer & OWNS_BUFFER_FLAG ) != 0 ); }
 
 	DISALLOW_COPY_AND_ASSIGN( idJointBuffer );
+};
+
+/*
+================================================
+idPixelPackBuffer / idPixelUnpackBuffer
+
+The virtual texture feedback path reads pixels through a pack buffer while
+page uploads are staged through an unpack buffer.  These live beside BFG's
+existing buffer objects because Windows cannot keep BufferObject.h and the
+Tech 5 bufferobject.h as separate files.
+================================================
+*/
+class idPixelPackBuffer {
+public:
+						idPixelPackBuffer();
+						~idPixelPackBuffer();
+
+	bool				AllocBufferObject( const void * data, int allocSize );
+	bool				AllocBufferObject( int allocSize ) { return AllocBufferObject( NULL, allocSize ); }
+	void				FreeBufferObject();
+	void				Update( const void * data, int updateSize ) const;
+	void *				TryMapBuffer( bufferMapType_t mapType ) const;
+	void *				MapBuffer( bufferMapType_t mapType ) const;
+	void				UnmapBuffer() const;
+
+	int					GetSize() const { return size & ~MAPPED_FLAG; }
+	int					GetAllocedSize() const { return ( GetSize() + 15 ) & ~15; }
+	bool				IsMapped() const { return ( size & MAPPED_FLAG ) != 0; }
+	void *				GetAPIObject() const { return apiObject; }
+	int					GetOffset() const { return 0; }
+
+private:
+	int					size;
+	void *				apiObject;
+	static const int	MAPPED_FLAG = 1 << ( 4 * 8 - 1 );
+	void				SetMapped() const { const_cast< int & >( size ) |= MAPPED_FLAG; }
+	void				SetUnmapped() const { const_cast< int & >( size ) &= ~MAPPED_FLAG; }
+	DISALLOW_COPY_AND_ASSIGN( idPixelPackBuffer );
+};
+
+class idPixelUnpackBuffer {
+public:
+						idPixelUnpackBuffer();
+						~idPixelUnpackBuffer();
+
+	bool				AllocBufferObject( const void * data, int allocSize );
+	bool				AllocBufferObject( int allocSize ) { return AllocBufferObject( NULL, allocSize ); }
+	void				FreeBufferObject();
+	void				Update( const void * data, int updateSize ) const;
+	void *				TryMapBuffer( bufferMapType_t mapType ) const;
+	void *				MapBuffer( bufferMapType_t mapType ) const;
+	void				UnmapBuffer() const;
+
+	int					GetSize() const { return size & ~MAPPED_FLAG; }
+	int					GetAllocedSize() const { return ( GetSize() + 15 ) & ~15; }
+	bool				IsMapped() const { return ( size & MAPPED_FLAG ) != 0; }
+	void *				GetAPIObject() const { return apiObject; }
+	int					GetOffset() const { return 0; }
+
+private:
+	int					size;
+	void *				apiObject;
+	static const int	MAPPED_FLAG = 1 << ( 4 * 8 - 1 );
+	void				SetMapped() const { const_cast< int & >( size ) |= MAPPED_FLAG; }
+	void				SetUnmapped() const { const_cast< int & >( size ) &= ~MAPPED_FLAG; }
+	DISALLOW_COPY_AND_ASSIGN( idPixelUnpackBuffer );
 };
 
 #endif // !__BUFFEROBJECT_H__

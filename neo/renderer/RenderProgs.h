@@ -165,6 +165,8 @@ public:
 	void	BindShader_InteractionSkinned()  { BindShader_Builtin( BUILTIN_INTERACTION_SKINNED ); }
 	void	BindShader_InteractionAmbient()  { BindShader_Builtin( BUILTIN_INTERACTION_AMBIENT ); }
 	void	BindShader_InteractionAmbientSkinned()  { BindShader_Builtin( BUILTIN_INTERACTION_AMBIENT_SKINNED ); }
+	void	BindShader_VirtualTextureFeedback() { BindShader_Builtin( BUILTIN_VT_FEEDBACK ); }
+	void	BindShader_VirtualTextureFeedbackSkinned() { BindShader_Builtin( BUILTIN_VT_FEEDBACK_SKINNED ); }
 	void	BindShader_SimpleShade() { BindShader_Builtin( BUILTIN_SIMPLESHADE ); }
 	void	BindShader_Environment() { BindShader_Builtin( BUILTIN_ENVIRONMENT ); }
 	void	BindShader_EnvironmentSkinned() { BindShader_Builtin( BUILTIN_ENVIRONMENT_SKINNED ); }
@@ -228,6 +230,8 @@ protected:
 		BUILTIN_INTERACTION_SKINNED,
 		BUILTIN_INTERACTION_AMBIENT,
 		BUILTIN_INTERACTION_AMBIENT_SKINNED,
+		BUILTIN_VT_FEEDBACK,
+		BUILTIN_VT_FEEDBACK_SKINNED,
 		BUILTIN_ENVIRONMENT,
 		BUILTIN_ENVIRONMENT_SKINNED,
 		BUILTIN_BUMPY_ENVIRONMENT,

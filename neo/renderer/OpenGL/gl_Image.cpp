@@ -364,6 +364,21 @@ void idImage::AllocImage() {
 		dataFormat = GL_LUMINANCE_ALPHA;
 		dataType = GL_UNSIGNED_SHORT;
 		break;
+	case FMT_RG8:
+		internalFormat = GL_RG8;
+		dataFormat = GL_RG;
+		dataType = GL_UNSIGNED_BYTE;
+		break;
+	case FMT_RGBA16F:
+		internalFormat = GL_RGBA16F;
+		dataFormat = GL_RGBA;
+		dataType = GL_HALF_FLOAT;
+		break;
+	case FMT_RGBA32F:
+		internalFormat = GL_RGBA32F;
+		dataFormat = GL_RGBA;
+		dataType = GL_FLOAT;
+		break;
 	default:
 		idLib::Error( "Unhandled image format %d in %s\n", opts.format, GetName() );
 	}

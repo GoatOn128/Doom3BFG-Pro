@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "virtualtexture.h"
 
 
 /*
@@ -724,6 +725,10 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 		ClearWorld();
 		return true;
 	}
+
+	// Loose-file development builds do not execute the preload-manifest path,
+	// so derive the VT archive name from the render world itself as well.
+	virtualTextureSystem.SetMapName( name );
 
 	// load it
 	idStrStatic< MAX_OSPATH > filename = name;

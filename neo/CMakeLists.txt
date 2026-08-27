@@ -71,6 +71,41 @@ add_library(external STATIC ${EXTERNAL_SOURCES})
 darklight_common_target(external)
 target_include_directories(external PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6")
 
+# Microsoft JPEG XR reference encoder.  Virtual-texture pages store the JPEG XR
+# image-plane stream without the ordinary container/image header, so the engine
+# wrapper uses the low-level streaming API directly.
+set(JXRLIB_ENCODER_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/adapthuff.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/image.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strcodec.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strPredQuant.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strTransform.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/perfTimerANSI.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/encode.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/segenc.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strenc.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strFwdTransform.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strPredQuantEnc.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/decode.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/postprocess.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/segdec.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strdec.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strInvTransform.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strPredQuantDec.c")
+add_library(jxrlib_encoder STATIC ${JXRLIB_ENCODER_SOURCES})
+target_include_directories(jxrlib_encoder PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/common/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode"
+    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode")
+target_compile_definitions(jxrlib_encoder PRIVATE
+    __ANSI__
+    DISABLE_PERF_MEASUREMENT
+    _CRT_SECURE_NO_DEPRECATE)
+target_compile_options(jxrlib_encoder PRIVATE
+    /W0
+    /wd4996)
+
 file(GLOB_RECURSE GAME_D3XP_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/d3xp/*.cpp")
 list(REMOVE_ITEM GAME_D3XP_SOURCES
@@ -124,6 +159,14 @@ file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageminlod/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pagesort/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageupdate/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/baredct/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barehdp/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/dynamicshadowvolume/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/prelightshadowvolume/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/staticshadowvolume/*.cpp"
@@ -133,6 +176,11 @@ file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/sys/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")
+# The reconstructed JXR codec uses std::clamp internally. Keep the legacy
+# engine at C++14 and opt only these isolated translation units into C++17.
+file(GLOB BAREJXR_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp")
+set_source_files_properties(${BAREJXR_SOURCES} PROPERTIES COMPILE_OPTIONS "/std:c++17")
 list(REMOVE_ITEM DARKLIGHT_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/framework/Session.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/BoundsTrack.cpp"
@@ -150,6 +198,7 @@ target_link_libraries(Darklight PRIVATE
     idlib
     game_d3xp
     external
+    jxrlib_encoder
     doomclassic
     timidity
     xinput
