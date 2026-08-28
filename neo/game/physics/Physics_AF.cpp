@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../idlib/precompiled.h"
 
 #include "../Game_local.h"
+#include "../../cm/CollisionMerge.h"
 
 CLASS_DECLARATION( idPhysics_Base, idPhysics_AF )
 END_CLASS
@@ -68,6 +69,10 @@ idCVar af_deferredSolver( "af_deferredSolver", "1", CVAR_GAME | CVAR_BOOL,
 	"run active articulated-figure constraint solves after game thinking and consume them next frame" );
 idCVar af_deferredSolverMinBodies( "af_deferredSolverMinBodies", "4", CVAR_GAME | CVAR_INTEGER,
 	"minimum AF body count for a frame-deferred worker solve", 1, 64 );
+idCVar af_batchCollisionQueries( "af_batchCollisionQueries", "1", CVAR_GAME | CVAR_BOOL,
+	"batch independent AF body world collision queries through the CM worker queue" );
+idCVar af_batchCollisionQueriesMinBodies( "af_batchCollisionQueriesMinBodies", "4", CVAR_GAME | CVAR_INTEGER,
+	"minimum AF body count for heterogeneous world collision batches", 1, 64 );
 
 static const int AF_MAX_DEFERRED_SOLVERS = 4096;
 static idParallelJobList *afDeferredJobList = NULL;
@@ -5632,6 +5637,213 @@ void idPhysics_AF::CheckForCollisions( float timeStep ) {
 	collisions.SetNum( 0 );
 
 	if ( !enableCollision ) {
+		return;
+	}
+
+	if ( af_batchCollisionQueries.GetBool() && collisionModelManager != NULL &&
+		( !selfCollision || af_skipSelfCollision.GetBool() ) &&
+		bodies.Num() >= af_batchCollisionQueriesMinBodies.GetInteger() ) {
+		struct afCollisionBatchState_t {
+			idAFBody *body;
+			idEntity *passEntity;
+			idVec3 start;
+			idVec3 end;
+			idMat3 startAxis;
+			idRotation rotation;
+			idRotation endRotation;
+			const idTraceModel *traceModel;
+			trace_t translationTrace;
+			trace_t rotationTrace;
+			bool active;
+			bool translate;
+			bool rotate;
+			bool fallback;
+		};
+
+		idList< afCollisionBatchState_t, TAG_PHYSICS > states;
+		idList< idCollisionTranslationQuery, TAG_PHYSICS > translationQueries;
+		states.SetNum( bodies.Num() );
+
+		{
+			SCOPED_PROFILE_EVENT( "AF Collision Prepare" );
+			for ( i = 0; i < bodies.Num(); ++i ) {
+				body = bodies[i];
+				afCollisionBatchState_t &state = states[i];
+				state.body = body;
+				state.passEntity = NULL;
+				state.active = body->clipMask != 0;
+				state.translate = false;
+				state.rotate = false;
+				state.fallback = false;
+
+				if ( !state.active ) {
+					continue;
+				}
+
+				state.passEntity = SetupCollisionForBody( body );
+				state.start = body->current->worldOrigin;
+				state.end = body->next->worldOrigin;
+				state.startAxis = body->current->worldAxis;
+				state.traceModel = body->clipModel->GetTraceModel();
+
+				TransposeMultiply( body->current->worldAxis, body->next->worldAxis, axis );
+				state.rotation = axis.ToRotation();
+				state.rotation.SetOrigin( state.start );
+				state.translate = state.start != state.end;
+				state.rotate = state.rotation.GetAngle() != 0.0f &&
+					state.rotation.GetVec() != vec3_origin;
+				state.fallback = state.traceModel == NULL ||
+					( state.end - state.start ).LengthSqr() > Square( CM_MAX_TRACE_DIST );
+
+				memset( &state.translationTrace, 0, sizeof( state.translationTrace ) );
+				state.translationTrace.fraction = 1.0f;
+				state.translationTrace.endpos = state.end;
+				state.translationTrace.endAxis = state.startAxis;
+
+				if ( !state.fallback && state.translate && state.passEntity != gameLocal.world ) {
+					idCollisionTranslationQuery query;
+					query.result = &state.translationTrace;
+					query.start = state.start;
+					query.end = state.end;
+					query.traceModel = state.traceModel;
+					query.traceModelAxis = state.startAxis;
+					query.contentsMask = body->clipMask;
+					query.model = 0;
+					query.modelOrigin = vec3_origin;
+					query.modelAxis = mat3_default;
+					translationQueries.Append( query );
+				}
+			}
+		}
+
+		{
+			SCOPED_PROFILE_EVENT( "AF Collision World Translation Batch" );
+			if ( translationQueries.Num() > 0 ) {
+				collisionModelManager->TranslationQueries( translationQueries.Ptr(), translationQueries.Num() );
+			}
+		}
+
+		// Dynamic clip-model broadphase and render-model traces touch mutable game
+		// state, so merge them deterministically on the game thread.
+		for ( i = 0; i < states.Num(); ++i ) {
+			afCollisionBatchState_t &state = states[i];
+			if ( !state.active || state.fallback || !state.translate ) {
+				continue;
+			}
+			if ( state.passEntity != gameLocal.world && state.translationTrace.fraction < 1.0f ) {
+				state.translationTrace.c.entityNum = ENTITYNUM_WORLD;
+			}
+			if ( state.translationTrace.fraction != 0.0f ) {
+				trace_t entityTrace;
+				SetupCollisionForBody( state.body );
+				gameLocal.clip.TranslationEntities( entityTrace, state.start, state.end,
+					state.body->clipModel, state.startAxis, state.body->clipMask, state.passEntity );
+				idCollisionDetectionMerge::MergeTraceResult( state.translationTrace, entityTrace,
+					entityTrace.fraction < 1.0f ? entityTrace.c.entityNum : ENTITYNUM_NONE,
+					entityTrace.fraction < 1.0f ? entityTrace.c.id : 0 );
+			}
+		}
+
+		idList< idCollisionRotationQuery, TAG_PHYSICS > rotationQueries;
+		for ( i = 0; i < states.Num(); ++i ) {
+			afCollisionBatchState_t &state = states[i];
+			if ( !state.active || state.fallback || !state.rotate ||
+				state.translationTrace.fraction == 0.0f ) {
+				continue;
+			}
+
+			state.endRotation = state.rotation;
+			state.endRotation.SetOrigin( state.translationTrace.endpos );
+			memset( &state.rotationTrace, 0, sizeof( state.rotationTrace ) );
+			state.rotationTrace.fraction = 1.0f;
+			state.rotationTrace.endpos = state.translationTrace.endpos;
+			state.rotationTrace.endAxis = state.startAxis * state.endRotation.ToMat3();
+
+			if ( state.passEntity != gameLocal.world ) {
+				idCollisionRotationQuery query;
+				query.result = &state.rotationTrace;
+				query.start = state.translationTrace.endpos;
+				query.rotation = state.endRotation;
+				query.traceModel = state.traceModel;
+				query.traceModelAxis = state.startAxis;
+				query.contentsMask = state.body->clipMask;
+				query.model = 0;
+				query.modelOrigin = vec3_origin;
+				query.modelAxis = mat3_default;
+				rotationQueries.Append( query );
+			}
+		}
+
+		{
+			SCOPED_PROFILE_EVENT( "AF Collision World Rotation Batch" );
+			if ( rotationQueries.Num() > 0 ) {
+				collisionModelManager->RotationQueries( rotationQueries.Ptr(), rotationQueries.Num() );
+			}
+		}
+
+		for ( i = 0; i < states.Num(); ++i ) {
+			afCollisionBatchState_t &state = states[i];
+			if ( !state.active ) {
+				state.body->clipModel->Link( gameLocal.clip, self, state.body->clipModel->GetId(),
+					state.body->next->worldOrigin, state.body->next->worldAxis );
+				continue;
+			}
+
+			if ( state.fallback ) {
+				SetupCollisionForBody( state.body );
+				if ( gameLocal.clip.Motion( collision, state.start, state.end, state.rotation,
+					state.body->clipModel, state.startAxis, state.body->clipMask, state.passEntity ) ) {
+					state.body->next->worldOrigin = collision.endpos;
+					state.body->next->worldAxis = collision.endAxis;
+					index = collisions.Num();
+					collisions.SetNum( index + 1 );
+					collisions[index].trace = collision;
+					collisions[index].body = state.body;
+				}
+			} else {
+				trace_t finalTrace = state.translationTrace;
+				bool collided = state.translate && state.translationTrace.fraction < 1.0f;
+
+				if ( state.rotate && state.translationTrace.fraction != 0.0f ) {
+					if ( state.passEntity != gameLocal.world && state.rotationTrace.fraction < 1.0f ) {
+						state.rotationTrace.c.entityNum = ENTITYNUM_WORLD;
+					}
+					if ( state.rotationTrace.fraction != 0.0f ) {
+						trace_t entityTrace;
+						SetupCollisionForBody( state.body );
+						gameLocal.clip.RotationEntities( entityTrace, state.translationTrace.endpos,
+							state.endRotation, state.body->clipModel, state.startAxis,
+							state.body->clipMask, state.passEntity );
+						idCollisionDetectionMerge::MergeTraceResult( state.rotationTrace, entityTrace,
+							entityTrace.fraction < 1.0f ? entityTrace.c.entityNum : ENTITYNUM_NONE,
+							entityTrace.fraction < 1.0f ? entityTrace.c.id : 0 );
+					}
+
+					if ( state.rotationTrace.fraction < 1.0f ) {
+						finalTrace = state.rotationTrace;
+					} else {
+						finalTrace.endAxis = state.rotationTrace.endAxis;
+					}
+					if ( state.translate ) {
+						finalTrace.fraction = Max( state.translationTrace.fraction,
+							state.rotationTrace.fraction );
+					}
+					collided = collided || state.rotationTrace.fraction < 1.0f;
+				}
+
+				if ( collided ) {
+					state.body->next->worldOrigin = finalTrace.endpos;
+					state.body->next->worldAxis = finalTrace.endAxis;
+					index = collisions.Num();
+					collisions.SetNum( index + 1 );
+					collisions[index].trace = finalTrace;
+					collisions[index].body = state.body;
+				}
+			}
+
+			state.body->clipModel->Link( gameLocal.clip, self, state.body->clipModel->GetId(),
+				state.body->next->worldOrigin, state.body->next->worldAxis );
+		}
 		return;
 	}
 

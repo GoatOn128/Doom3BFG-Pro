@@ -38,6 +38,7 @@ typedef struct renderEntity_s {
 	bool					noShadow;
 	bool					noDynamicInteractions;
 	bool					weaponDepthHack;
+	float					weaponFov;
 	bool					noOverlays;
 	bool					skipMotionBlur;
 	int						forceUpdate;

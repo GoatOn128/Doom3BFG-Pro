@@ -460,6 +460,8 @@ public:
 								const idVec3 &start, const idVec3 &end, const idTraceModel *trm,
 								const idMat3 &trmAxis, int contentMask,
 								const idPositionedCollisionModel *positionedModels );
+	void			TranslationQueries( idCollisionTranslationQuery *queries,
+								const int numQueries );
 	// rotates a trm and reports the first collision if any
 	void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
@@ -471,6 +473,8 @@ public:
 								const idVec3 &start, const idRotation &rotation, const idTraceModel *trm,
 								const idMat3 &trmAxis, int contentMask,
 								const idPositionedCollisionModel *positionedModels );
+	void			RotationQueries( idCollisionRotationQuery *queries,
+								const int numQueries );
 	// returns the contents the trm is stuck in or 0 if the trm is in free space
 	int				Contents( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,

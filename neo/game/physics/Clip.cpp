@@ -1295,6 +1295,77 @@ void idClip::TranslationEntities( trace_t &results, const idVec3 &start, const i
 
 /*
 ============
+idClip::RotationEntities
+
+Rotates against linked entity collision models without querying the immutable
+world model.  This is the rotation counterpart to TranslationEntities and is
+used after AF world rotations have completed as one heterogeneous CM batch.
+============
+*/
+void idClip::RotationEntities( trace_t &results, const idVec3 &start,
+		const idRotation &rotation, const idClipModel *mdl, const idMat3 &trmAxis,
+		int contentMask, const idEntity *passEntity ) {
+	idClipModel *touch, *clipModelList[MAX_GENTITIES];
+	idBounds traceBounds;
+	trace_t trace;
+	const idTraceModel *trm = TraceModelForClipModel( mdl );
+
+	memset( &results, 0, sizeof( results ) );
+	results.fraction = 1.0f;
+	results.endpos = start;
+	results.endAxis = trmAxis * rotation.ToMat3();
+
+	if ( !trm ) {
+		traceBounds.FromPointRotation( start, rotation );
+	} else {
+		traceBounds.FromBoundsRotation( trm->bounds, start, trmAxis, rotation );
+	}
+
+	const int num = GetTraceClipModels( traceBounds, contentMask, passEntity, clipModelList );
+	const int numPositionedModels = BuildPositionedCollisionModels(
+		clipModelList, num, contentMask, 0, NULL );
+	const bool usePositionedBatch = numPositionedModels > 1;
+	idList< idPositionedCollisionModel, TAG_PHYSICS > positionedModels;
+	idList< trace_t, TAG_PHYSICS > positionedResults;
+	if ( usePositionedBatch ) {
+		BuildPositionedCollisionModels( clipModelList, num, contentMask, 0, &positionedModels );
+		positionedResults.SetNum( numPositionedModels );
+		idClip::numRotations += numPositionedModels;
+		collisionModelManager->RotationModels( positionedResults.Ptr(), numPositionedModels,
+			start, rotation, trm, trmAxis, contentMask, positionedModels.Ptr() );
+	}
+
+	int positionedIndex = 0;
+	for ( int i = 0; i < num; ++i ) {
+		touch = clipModelList[i];
+		if ( !touch ) {
+			continue;
+		}
+		if ( !touch->IsRenderModel() &&
+			!IsPositionedCollisionModelCandidate( touch, contentMask, 0 ) ) {
+			continue;
+		}
+		if ( touch->IsRenderModel() ) {
+			continue;
+		}
+
+		if ( usePositionedBatch ) {
+			trace = positionedResults[positionedIndex++];
+		} else {
+			idClip::numRotations++;
+			collisionModelManager->Rotation( &trace, start, rotation, trm, trmAxis,
+				contentMask, touch->Handle(), touch->origin, touch->axis );
+		}
+
+		if ( idCollisionDetectionMerge::MergeTraceResult( results, trace,
+			touch->entity->entityNumber, touch->id ) && results.fraction == 0.0f ) {
+			break;
+		}
+	}
+}
+
+/*
+============
 idClip::Translation
 ============
 */

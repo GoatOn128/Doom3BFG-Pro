@@ -1380,6 +1380,7 @@ void idRestoreGame::ReadRenderEntity( renderEntity_t &renderEntity ) {
 	ReadBool( renderEntity.noShadow );
 	ReadBool( renderEntity.noDynamicInteractions );
 	ReadBool( renderEntity.weaponDepthHack );
+	renderEntity.weaponFov = 0.0f;
 
 	ReadInt( renderEntity.forceUpdate );
 

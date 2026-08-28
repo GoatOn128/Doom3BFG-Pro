@@ -2411,6 +2411,7 @@ void idWeapon::PresentWeapon( bool showViewModel ) {
 
 	// only show the surface in player view
 	renderEntity.allowSurfaceInViewID = owner->entityNumber+1;
+	renderEntity.weaponFov = g_fov_weapon.GetFloat();
 
 	// crunch the depth range so it never pokes into walls this breaks the machine gun gui
 	renderEntity.weaponDepthHack = g_useWeaponDepthHack.GetBool();

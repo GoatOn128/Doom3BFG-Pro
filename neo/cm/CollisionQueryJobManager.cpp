@@ -163,6 +163,27 @@ bool idCollisionQueryJobManager::Translation( idCollisionModelManagerLocal &mana
 	return ExecuteJobs( CM_ExecuteQueryJob, jobs.Ptr(), sizeof( jobs[0] ), numModels, allowParallel );
 }
 
+bool idCollisionQueryJobManager::TranslationQueries( idCollisionModelManagerLocal &manager,
+		idCollisionTranslationQuery *queries, int numQueries, bool allowParallel ) {
+	jobs.SetNum( numQueries );
+	for ( int i = 0; i < numQueries; ++i ) {
+		cmExecuteQueryJob_t &job = jobs[i];
+		job.manager = &manager;
+		job.traceResult = queries[i].result;
+		job.integerResult = NULL;
+		job.parms.type = CM_QUERY_TRANSLATION;
+		job.parms.start = queries[i].start;
+		job.parms.end = queries[i].end;
+		job.parms.traceModel = queries[i].traceModel;
+		job.parms.traceModelAxis = queries[i].traceModelAxis;
+		job.parms.contentsMask = queries[i].contentsMask;
+		job.parms.model = queries[i].model;
+		job.parms.modelOrigin = queries[i].modelOrigin;
+		job.parms.modelAxis = queries[i].modelAxis;
+	}
+	return ExecuteJobs( CM_ExecuteQueryJob, jobs.Ptr(), sizeof( jobs[0] ), numQueries, allowParallel );
+}
+
 bool idCollisionQueryJobManager::Rotation( idCollisionModelManagerLocal &manager,
 		trace_t *results, const int numModels, const idVec3 &start, const idRotation &rotation,
 		const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
@@ -184,6 +205,28 @@ bool idCollisionQueryJobManager::Rotation( idCollisionModelManagerLocal &manager
 		job.parms.modelAxis = positionedModels[i].axis;
 	}
 	return ExecuteJobs( CM_ExecuteQueryJob, jobs.Ptr(), sizeof( jobs[0] ), numModels, allowParallel );
+}
+
+bool idCollisionQueryJobManager::RotationQueries( idCollisionModelManagerLocal &manager,
+		idCollisionRotationQuery *queries, int numQueries, bool allowParallel ) {
+	jobs.SetNum( numQueries );
+	for ( int i = 0; i < numQueries; ++i ) {
+		cmExecuteQueryJob_t &job = jobs[i];
+		job.manager = &manager;
+		job.traceResult = queries[i].result;
+		job.integerResult = NULL;
+		job.rotationStorage = queries[i].rotation;
+		job.parms.type = CM_QUERY_ROTATION;
+		job.parms.start = queries[i].start;
+		job.parms.rotation = &job.rotationStorage;
+		job.parms.traceModel = queries[i].traceModel;
+		job.parms.traceModelAxis = queries[i].traceModelAxis;
+		job.parms.contentsMask = queries[i].contentsMask;
+		job.parms.model = queries[i].model;
+		job.parms.modelOrigin = queries[i].modelOrigin;
+		job.parms.modelAxis = queries[i].modelAxis;
+	}
+	return ExecuteJobs( CM_ExecuteQueryJob, jobs.Ptr(), sizeof( jobs[0] ), numQueries, allowParallel );
 }
 
 bool idCollisionQueryJobManager::Contents( idCollisionModelManagerLocal &manager, int *results,

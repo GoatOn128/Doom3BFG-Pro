@@ -21,6 +21,7 @@ class idParallelJobList;
 struct cmExecuteQueryJob_t {
 	idCollisionModelManagerLocal *manager;
 	cmQueryParms_t parms;
+	idRotation rotationStorage;
 	trace_t *traceResult;
 	int *integerResult;
 };
@@ -42,10 +43,14 @@ public:
 				const int numModels, const idVec3 &start, const idVec3 &end,
 				const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 				const idPositionedCollisionModel *positionedModels, bool allowParallel );
+	bool	TranslationQueries( idCollisionModelManagerLocal &manager,
+				idCollisionTranslationQuery *queries, int numQueries, bool allowParallel );
 	bool	Rotation( idCollisionModelManagerLocal &manager, trace_t *results,
 				const int numModels, const idVec3 &start, const idRotation &rotation,
 				const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 				const idPositionedCollisionModel *positionedModels, bool allowParallel );
+	bool	RotationQueries( idCollisionModelManagerLocal &manager,
+				idCollisionRotationQuery *queries, int numQueries, bool allowParallel );
 	bool	Contents( idCollisionModelManagerLocal &manager, int *results,
 				const int numModels, const idVec3 &start, const idTraceModel *trm,
 				const idMat3 &trmAxis, int contentMask,

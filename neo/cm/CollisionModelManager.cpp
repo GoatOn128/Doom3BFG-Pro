@@ -131,6 +131,26 @@ void idCollisionModelManagerLocal::TranslationModels( trace_t *results, const in
 	}
 }
 
+void idCollisionModelManagerLocal::TranslationQueries( idCollisionTranslationQuery *queries,
+		const int numQueries ) {
+	if ( queries == NULL || numQueries <= 0 ) {
+		return;
+	}
+
+	const bool trackStats = queryFrameActive && cm_showQueryStats.GetBool();
+	const uint64 startTime = trackStats ? Sys_Microseconds() : 0;
+	const bool ranParallel = queryJobManager.TranslationQueries( *this, queries, numQueries,
+		!cm_debugCollision.GetBool() );
+	if ( trackStats ) {
+		queryCount[CM_QUERY_TRANSLATION] += numQueries;
+		queryTimeMicroSec[CM_QUERY_TRANSLATION] += Sys_Microseconds() - startTime;
+		if ( ranParallel ) {
+			queryParallelBatchCount[CM_QUERY_TRANSLATION]++;
+			queryParallelJobCount[CM_QUERY_TRANSLATION] += numQueries;
+		}
+	}
+}
+
 void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 		const idTraceModel *trm, const idMat3 &trmAxis, int contentMask, cmHandle_t model,
 		const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
@@ -202,6 +222,26 @@ void idCollisionModelManagerLocal::RotationModels( trace_t *results, const int n
 	if ( trackStats ) {
 		queryCount[CM_QUERY_ROTATION] += numModels;
 		queryTimeMicroSec[CM_QUERY_ROTATION] += Sys_Microseconds() - startTime;
+	}
+}
+
+void idCollisionModelManagerLocal::RotationQueries( idCollisionRotationQuery *queries,
+		const int numQueries ) {
+	if ( queries == NULL || numQueries <= 0 ) {
+		return;
+	}
+
+	const bool trackStats = queryFrameActive && cm_showQueryStats.GetBool();
+	const uint64 startTime = trackStats ? Sys_Microseconds() : 0;
+	const bool ranParallel = queryJobManager.RotationQueries( *this, queries, numQueries,
+		!cm_debugCollision.GetBool() );
+	if ( trackStats ) {
+		queryCount[CM_QUERY_ROTATION] += numQueries;
+		queryTimeMicroSec[CM_QUERY_ROTATION] += Sys_Microseconds() - startTime;
+		if ( ranParallel ) {
+			queryParallelBatchCount[CM_QUERY_ROTATION]++;
+			queryParallelJobCount[CM_QUERY_ROTATION] += numQueries;
+		}
 	}
 }
 

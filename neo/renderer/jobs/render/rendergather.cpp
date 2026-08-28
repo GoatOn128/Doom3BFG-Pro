@@ -47,6 +47,40 @@ static idSysMutex lateSurfaceTangentsMutex;
 
 /*
 ==================
+R_SetupViewWeaponProjection
+
+Keep the view weapon independent of the world FOV while retaining the active
+view's aspect ratio and any stereo/jitter offset already in its projection.
+The base FOV uses the same 16:9 convention as idGameLocal::CalcFov.
+==================
+*/
+static void R_SetupViewWeaponProjection( const viewDef_t * viewDef, const float baseFov, idRenderMatrix & weaponProjection ) {
+	weaponProjection = viewDef->projectionRenderMatrix;
+
+	const float worldFovX = idMath::ClampFloat( 1.0f, 179.0f, viewDef->renderView.fov_x );
+	const float worldFovY = idMath::ClampFloat( 1.0f, 179.0f, viewDef->renderView.fov_y );
+	const float weaponFov = idMath::ClampFloat( 1.0f, 179.0f, baseFov );
+	const float worldTanHalfX = idMath::Tan( DEG2RAD( worldFovX * 0.5f ) );
+	const float worldTanHalfY = idMath::Tan( DEG2RAD( worldFovY * 0.5f ) );
+	const float weaponTanHalfBase = idMath::Tan( DEG2RAD( weaponFov * 0.5f ) );
+
+	float weaponTanHalfX;
+	float weaponTanHalfY;
+	if ( idMath::Fabs( worldFovX - worldFovY ) < 0.01f ) {
+		// Square stereo views bypass aspect-ratio correction in CalcFov.
+		weaponTanHalfX = weaponTanHalfBase;
+		weaponTanHalfY = weaponTanHalfBase;
+	} else {
+		weaponTanHalfY = weaponTanHalfBase * ( 9.0f / 16.0f );
+		weaponTanHalfX = weaponTanHalfY * ( worldTanHalfX / worldTanHalfY );
+	}
+
+	weaponProjection[0][0] *= worldTanHalfX / weaponTanHalfX;
+	weaponProjection[1][1] *= worldTanHalfY / weaponTanHalfY;
+}
+
+/*
+==================
 R_SortViewEntities
 ==================
 */
@@ -478,7 +512,13 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 
 	idRenderMatrix viewMat;
 	idRenderMatrix::Transpose( *(idRenderMatrix *)vEntity->modelViewMatrix, viewMat );
-	idRenderMatrix::Multiply( viewDef->projectionRenderMatrix, viewMat, vEntity->mvp );
+	if ( renderEntity->weaponFov > 0.0f ) {
+		idRenderMatrix weaponProjection;
+		R_SetupViewWeaponProjection( viewDef, renderEntity->weaponFov, weaponProjection );
+		idRenderMatrix::Multiply( weaponProjection, viewMat, vEntity->mvp );
+	} else {
+		idRenderMatrix::Multiply( viewDef->projectionRenderMatrix, viewMat, vEntity->mvp );
+	}
 	if ( renderEntity->weaponDepthHack ) {
 		idRenderMatrix::ApplyDepthHack( vEntity->mvp );
 	}

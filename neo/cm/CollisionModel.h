@@ -86,6 +86,34 @@ typedef int cmHandle_t;
 
 struct idPositionedCollisionModel;
 
+// Heterogeneous immutable-model queries used by frame-level collision batches.
+// Unlike TranslationModels/RotationModels, every entry may use a different
+// trace shape and transform.  The result pointer must remain valid until the
+// call returns.
+struct idCollisionTranslationQuery {
+	trace_t *			result;
+	idVec3				start;
+	idVec3				end;
+	const idTraceModel *	traceModel;
+	idMat3				traceModelAxis;
+	int					contentsMask;
+	cmHandle_t			model;
+	idVec3				modelOrigin;
+	idMat3				modelAxis;
+};
+
+struct idCollisionRotationQuery {
+	trace_t *			result;
+	idVec3				start;
+	idRotation			rotation;
+	const idTraceModel *	traceModel;
+	idMat3				traceModelAxis;
+	int					contentsMask;
+	cmHandle_t			model;
+	idVec3				modelOrigin;
+	idMat3				modelAxis;
+};
+
 class idCollisionModelManager {
 public:
 	virtual					~idCollisionModelManager() {}
@@ -143,6 +171,8 @@ public:
 								const idVec3 &start, const idVec3 &end, const idTraceModel *trm,
 								const idMat3 &trmAxis, int contentMask,
 								const idPositionedCollisionModel *positionedModels ) = 0;
+	virtual void			TranslationQueries( idCollisionTranslationQuery *queries,
+								const int numQueries ) = 0;
 	// Rotates a trace model and reports the first collision if any.
 	virtual void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
@@ -154,6 +184,8 @@ public:
 								const idVec3 &start, const idRotation &rotation, const idTraceModel *trm,
 								const idMat3 &trmAxis, int contentMask,
 								const idPositionedCollisionModel *positionedModels ) = 0;
+	virtual void			RotationQueries( idCollisionRotationQuery *queries,
+								const int numQueries ) = 0;
 	// Returns the contents touched by the trace model or 0 if the trace model is in free space.
 	virtual int				Contents( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,

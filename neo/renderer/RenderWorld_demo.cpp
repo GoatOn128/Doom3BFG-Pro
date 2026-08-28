@@ -617,6 +617,7 @@ ReadRenderEntity
 void	idRenderWorldLocal::ReadRenderEntity() {
 	renderEntity_t		ent;
 	int				index, i;
+	memset( &ent, 0, sizeof( ent ) );
 
 	common->ReadDemo()->ReadInt( index );
 	if ( index < 0 ) {
