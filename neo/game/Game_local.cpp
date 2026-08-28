@@ -1496,6 +1496,7 @@ idGameLocal::MapShutdown
 */
 void idGameLocal::MapShutdown() {
 	Printf( "--------- Game Map Shutdown ----------\n" );
+	AF_ShutdownDeferredPhysics();
 	
 	gamestate = GAMESTATE_SHUTDOWN;
 
@@ -2298,6 +2299,7 @@ void idGameLocal::RunFrame( idUserCmdMgr & cmdMgr, gameReturn_t & ret ) {
 	}
 
 	idCollisionQueryFrameScope collisionQueryFrame( collisionModelManager );
+	AF_FinishDeferredPhysics();
 
 	SyncPlayersWithLobbyUsers( false );
 	ServerSendNetworkSyncCvars();
@@ -2481,6 +2483,10 @@ void idGameLocal::RunFrame( idUserCmdMgr & cmdMgr, gameReturn_t & ret ) {
 		EndTraceRecording();
 		g_recordTrace.SetBool( false );
 	}
+
+	// Run AF-local constraint solves while the rest of the engine builds and
+	// renders this frame. Their predicted states are finalized next game frame.
+	AF_SubmitDeferredPhysics();
 }
 
 /*

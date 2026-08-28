@@ -35,9 +35,9 @@ If you have questions concerning this license or the applicable additional terms
 //
 //===============================================================
 
-float	idMatX::temp[MATX_MAX_TEMP+4];
-float *	idMatX::tempPtr = (float *) ( ( (int) idMatX::temp + 15 ) & ~15 );
-int		idMatX::tempIndex = 0;
+thread_local float	idMatX::temp[MATX_MAX_TEMP+4];
+thread_local float *	idMatX::tempPtr = (float *) ( ( (int) idMatX::temp + 15 ) & ~15 );
+thread_local int		idMatX::tempIndex = 0;
 
 
 /*

@@ -16,6 +16,12 @@ idCVar cm_parallelCollision( "cm_parallelCollision", "1", CVAR_GAME | CVAR_BOOL,
 	"run independent positioned collision-model queries on worker threads" );
 idCVar cm_parallelCollisionMinModels( "cm_parallelCollisionMinModels", "4", CVAR_GAME | CVAR_INTEGER,
 	"minimum positioned collision models required before collision jobs are submitted", 2, 64 );
+idCVar cm_asyncWorldCollision( "cm_asyncWorldCollision", "1", CVAR_GAME | CVAR_BOOL,
+	"overlap sufficiently expensive world collision queries with game broadphase work" );
+idCVar cm_asyncWorldCollisionMinTranslation( "cm_asyncWorldCollisionMinTranslation", "64", CVAR_GAME | CVAR_FLOAT,
+	"minimum translation distance before an individual world query is submitted to a worker", 0.0f, 4096.0f );
+idCVar cm_asyncWorldCollisionMinRotation( "cm_asyncWorldCollisionMinRotation", "15", CVAR_GAME | CVAR_FLOAT,
+	"minimum rotation angle before an individual world query is submitted to a worker", 0.0f, 180.0f );
 
 static const int CM_MAX_BATCHED_COLLISION_MODELS = 4096;
 
@@ -81,7 +87,10 @@ bool idCollisionQueryJobManager::BeginTranslation( idCollisionModelManagerLocal 
 	job.parms.model = model;
 	job.parms.modelOrigin = modelOrigin;
 	job.parms.modelAxis = modelAxis;
-	return BeginJob( CM_ExecuteQueryJob, &job, allowParallel );
+	const float minDistance = cm_asyncWorldCollisionMinTranslation.GetFloat();
+	const bool asyncWorthwhile = cm_asyncWorldCollision.GetBool() &&
+		( end - start ).LengthSqr() >= minDistance * minDistance;
+	return BeginJob( CM_ExecuteQueryJob, &job, allowParallel && asyncWorthwhile );
 }
 
 bool idCollisionQueryJobManager::BeginRotation( idCollisionModelManagerLocal &manager,
@@ -102,7 +111,9 @@ bool idCollisionQueryJobManager::BeginRotation( idCollisionModelManagerLocal &ma
 	job.parms.model = model;
 	job.parms.modelOrigin = modelOrigin;
 	job.parms.modelAxis = modelAxis;
-	return BeginJob( CM_ExecuteQueryJob, &job, allowParallel );
+	const bool asyncWorthwhile = cm_asyncWorldCollision.GetBool() &&
+		idMath::Fabs( rotation.GetAngle() ) >= cm_asyncWorldCollisionMinRotation.GetFloat();
+	return BeginJob( CM_ExecuteQueryJob, &job, allowParallel && asyncWorthwhile );
 }
 
 bool idCollisionQueryJobManager::ExecuteJobs( void ( *function )( void * ), void *jobs,

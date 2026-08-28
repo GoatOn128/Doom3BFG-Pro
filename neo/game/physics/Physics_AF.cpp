@@ -54,13 +54,94 @@ const float SUSPEND_ANGULAR_ACCELERATION	= 30.0f;
 const idVec6 vec6_lcp_epsilon				= idVec6( LCP_EPSILON, LCP_EPSILON, LCP_EPSILON,
 													 LCP_EPSILON, LCP_EPSILON, LCP_EPSILON );
 
-#define AF_TIMINGS
+// Define AF_TIMINGS locally when detailed solver diagnostics are needed. The
+// shared timers are intentionally disabled for parallel AF solves.
+// #define AF_TIMINGS
 
 #ifdef AF_TIMINGS
 static int lastTimerReset = 0;
 static int numArticulatedFigures = 0;
 static idTimer timer_total, timer_pc, timer_ac, timer_collision, timer_lcp;
 #endif
+
+idCVar af_deferredSolver( "af_deferredSolver", "1", CVAR_GAME | CVAR_BOOL,
+	"run active articulated-figure constraint solves after game thinking and consume them next frame" );
+idCVar af_deferredSolverMinBodies( "af_deferredSolverMinBodies", "4", CVAR_GAME | CVAR_INTEGER,
+	"minimum AF body count for a frame-deferred worker solve", 1, 64 );
+
+static const int AF_MAX_DEFERRED_SOLVERS = 4096;
+static idParallelJobList *afDeferredJobList = NULL;
+static idList< idPhysics_AF *, TAG_PHYSICS > afDeferredPrepared;
+static idList< idPhysics_AF *, TAG_PHYSICS > afDeferredRunning;
+
+static void AF_DeferredSolverJob( void *data ) {
+	static_cast<idPhysics_AF *>( data )->RunDeferredSolver();
+}
+
+REGISTER_PARALLEL_JOB( AF_DeferredSolverJob, "AF_DeferredSolverJob" );
+
+static void AF_RemoveDeferred( idList< idPhysics_AF *, TAG_PHYSICS > &list, idPhysics_AF *physics ) {
+	const int index = list.FindIndex( physics );
+	if ( index >= 0 ) {
+		list.RemoveIndexFast( index );
+	}
+}
+
+void AF_FinishDeferredPhysics() {
+	if ( afDeferredJobList != NULL && afDeferredJobList->IsSubmitted() ) {
+		afDeferredJobList->Wait();
+	}
+
+	for ( int i = 0; i < afDeferredRunning.Num(); ++i ) {
+		afDeferredRunning[i]->FinishDeferredSolver();
+	}
+	afDeferredRunning.SetNum( 0 );
+}
+
+void AF_SubmitDeferredPhysics() {
+	if ( afDeferredPrepared.Num() == 0 ) {
+		return;
+	}
+
+	assert( afDeferredRunning.Num() == 0 );
+	afDeferredRunning = afDeferredPrepared;
+	afDeferredPrepared.SetNum( 0 );
+
+	if ( parallelJobManager == NULL ) {
+		for ( int i = 0; i < afDeferredRunning.Num(); ++i ) {
+			afDeferredRunning[i]->RunDeferredSolver();
+		}
+		return;
+	}
+
+	if ( afDeferredJobList == NULL ) {
+		afDeferredJobList = parallelJobManager->AllocJobList( JOBLIST_UTILITY,
+			JOBLIST_PRIORITY_MEDIUM, AF_MAX_DEFERRED_SOLVERS, 0, NULL );
+	}
+	assert( !afDeferredJobList->IsSubmitted() );
+	for ( int i = 0; i < afDeferredRunning.Num(); ++i ) {
+		afDeferredJobList->AddJob( AF_DeferredSolverJob, afDeferredRunning[i] );
+	}
+	afDeferredJobList->Submit();
+}
+
+void AF_ShutdownDeferredPhysics() {
+	if ( afDeferredJobList != NULL && afDeferredJobList->IsSubmitted() ) {
+		afDeferredJobList->Wait();
+	}
+	while ( afDeferredPrepared.Num() > 0 ) {
+		afDeferredPrepared[afDeferredPrepared.Num() - 1]->CancelDeferredSolver();
+	}
+	while ( afDeferredRunning.Num() > 0 ) {
+		afDeferredRunning[afDeferredRunning.Num() - 1]->CancelDeferredSolver();
+	}
+	afDeferredPrepared.Clear();
+	afDeferredRunning.Clear();
+	if ( afDeferredJobList != NULL && parallelJobManager != NULL ) {
+		parallelJobManager->FreeJobList( afDeferredJobList );
+	}
+	afDeferredJobList = NULL;
+}
 
 
 
@@ -6214,11 +6295,116 @@ const idBounds &idPhysics_AF::GetAbsBounds( int id ) const {
 
 /*
 ================
+idPhysics_AF::RunDeferredSolver
+
+Runs only AF-local math. It deliberately avoids the clip tree, renderer and
+entity callbacks so separate articulated figures can execute concurrently.
+================
+*/
+void idPhysics_AF::RunDeferredSolver() {
+	SCOPED_PROFILE_EVENT( "AF Deferred Solver" );
+
+	deferredSolverPrepared = false;
+	deferredSolverRunning = true;
+
+	const idVec6 pushVelocity = current.pushVelocity;
+	AddPushVelocity( -pushVelocity );
+
+	EvaluateConstraints( deferredTimeStep );
+	ApplyFriction( deferredTimeStep, deferredEndTimeMSec );
+	AddFrameConstraints();
+	PrimaryFactor();
+	PrimaryForces( deferredTimeStep );
+	AuxiliaryForces( deferredTimeStep );
+	Evolve( deferredTimeStep );
+	ClearExternalForce();
+	RemoveFrameConstraints();
+
+	// Restore the externally visible current velocities. The evolved state must
+	// receive the same pusher velocity the synchronous path adds after swapping.
+	AddPushVelocity( pushVelocity );
+	if ( pushVelocity != vec6_origin ) {
+		for ( int i = 0; i < bodies.Num(); ++i ) {
+			bodies[i]->next->spatialVelocity += pushVelocity;
+		}
+	}
+}
+
+/*
+================
+idPhysics_AF::FinishDeferredSolver
+
+Consumes the previous frame's predicted state at a main-thread boundary.
+Collision queries and callbacks remain here because they touch mutable game
+state and cannot safely execute in the AF worker job.
+================
+*/
+void idPhysics_AF::FinishDeferredSolver() {
+	if ( !deferredSolverRunning ) {
+		return;
+	}
+
+	SCOPED_PROFILE_EVENT( "AF Deferred Finalize" );
+
+	DebugDraw();
+	ApplyContactForces();
+	CheckForCollisions( deferredTimeStep );
+	SwapStates();
+
+	if ( selfCollision && !af_skipSelfCollision.GetBool() ) {
+		DisableClip();
+	}
+
+	if ( ApplyCollisions( deferredTimeStep ) ) {
+		current.atRest = gameLocal.time;
+		comeToRest = true;
+	}
+
+	if ( comeToRest && TestIfAtRest( deferredTimeStep ) ) {
+		Rest();
+	} else {
+		ActivateContactEntities();
+	}
+
+	AddGravity();
+	current.pushVelocity.Zero();
+
+	if ( IsOutsideWorld() ) {
+		gameLocal.Warning( "articulated figure moved outside world bounds for entity '%s' type '%s' at (%s)",
+			self->name.c_str(), self->GetType()->classname, bodies[0]->current->worldOrigin.ToString(0) );
+		Rest();
+	}
+
+	deferredSolverRunning = false;
+	deferredResultReady = true;
+}
+
+void idPhysics_AF::CancelDeferredSolver() {
+	if ( deferredSolverRunning && afDeferredJobList != NULL && afDeferredJobList->IsSubmitted() ) {
+		afDeferredJobList->Wait();
+	}
+	AF_RemoveDeferred( afDeferredPrepared, this );
+	AF_RemoveDeferred( afDeferredRunning, this );
+	deferredSolverPrepared = false;
+	deferredSolverRunning = false;
+	deferredResultReady = false;
+}
+
+/*
+================
 idPhysics_AF::Evaluate
 ================
 */
 bool idPhysics_AF::Evaluate( int timeStepMSec, int endTimeMSec ) {
 	float timeStep;
+	const bool completedDeferredStep = deferredResultReady;
+	deferredResultReady = false;
+
+	// Non-player AF entities normally evaluate once per frame. Guard unusual
+	// re-entry so a prepared state is never mutated before its worker consumes it.
+	if ( deferredSolverPrepared || deferredSolverRunning ) {
+		return completedDeferredStep;
+	}
 
 	if ( timeScaleRampStart < MS2SEC( endTimeMSec ) && timeScaleRampEnd > MS2SEC( endTimeMSec ) ) {
 		timeStep = MS2SEC( timeStepMSec ) * ( MS2SEC( endTimeMSec ) - timeScaleRampStart ) / ( timeScaleRampEnd - timeScaleRampStart );
@@ -6252,7 +6438,13 @@ bool idPhysics_AF::Evaluate( int timeStepMSec, int endTimeMSec ) {
 	// if the simulation is suspended because the figure is at rest
 	if ( current.atRest >= 0 || timeStep <= 0.0f ) {
 		DebugDraw();
-		return false;
+		return completedDeferredStep;
+	}
+
+	// If pipelining was disabled after a deferred step completed, expose that
+	// result this frame and resume synchronous simulation on the next one.
+	if ( completedDeferredStep && !af_deferredSolver.GetBool() ) {
+		return true;
 	}
 
 	// move the af velocity into the frame of a pusher
@@ -6271,6 +6463,19 @@ bool idPhysics_AF::Evaluate( int timeStepMSec, int endTimeMSec ) {
 
 	// setup contact constraints
 	SetupContactConstraints();
+
+	if ( af_deferredSolver.GetBool() && parallelJobManager != NULL && self != NULL &&
+		self->IsType( idAFEntity_WithAttachedHead::Type ) &&
+		bodies.Num() >= af_deferredSolverMinBodies.GetInteger() ) {
+		// Contact generation above expects pusher-relative velocity just like the
+		// synchronous path. Restore public state until the end-of-frame job starts.
+		AddPushVelocity( current.pushVelocity );
+		deferredTimeStep = timeStep;
+		deferredEndTimeMSec = endTimeMSec;
+		deferredSolverPrepared = true;
+		afDeferredPrepared.Append( this );
+		return completedDeferredStep;
+	}
 
 #ifdef AF_TIMINGS
 	timer_collision.Stop();
@@ -6646,6 +6851,11 @@ idPhysics_AF::idPhysics_AF() {
 	noImpact = false;
 	worldConstraintsLocked = false;
 	forcePushable = false;
+	deferredSolverPrepared = false;
+	deferredSolverRunning = false;
+	deferredResultReady = false;
+	deferredTimeStep = 0.0f;
+	deferredEndTimeMSec = 0;
 
 #ifdef AF_TIMINGS
 	lastTimerReset = 0;
@@ -6659,6 +6869,8 @@ idPhysics_AF::~idPhysics_AF
 */
 idPhysics_AF::~idPhysics_AF() {
 	int i;
+
+	CancelDeferredSolver();
 
 	trees.DeleteContents( true );
 

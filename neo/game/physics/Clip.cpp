@@ -823,30 +823,92 @@ void idClip::Shutdown() {
 idClip::ClipModelsTouchingBounds_r
 ====================
 */
-typedef struct listParms_s {
-	static const int VISITED_HASH_SIZE = MAX_GENTITIES * 2;
+static const int CLIP_VISITED_HASH_SIZE = MAX_GENTITIES * 2;
+static const int CLIP_VISITED_SCRATCH_SLOTS = 2;
 
+struct clipVisitedEntry_t {
+	idClipModel *	clipModel;
+	unsigned int	generation;
+};
+
+struct clipVisitedState_t {
+	clipVisitedEntry_t entries[CLIP_VISITED_HASH_SIZE];
+	unsigned int	generation;
+	bool			inUse;
+
+	clipVisitedState_t() : generation( 0 ), inUse( false ) {
+		memset( entries, 0, sizeof( entries ) );
+	}
+
+	void Begin() {
+		generation++;
+		if ( generation == 0 ) {
+			memset( entries, 0, sizeof( entries ) );
+			generation = 1;
+		}
+		inUse = true;
+	}
+};
+
+static thread_local clipVisitedState_t clipVisitedStates[CLIP_VISITED_SCRATCH_SLOTS];
+
+class clipVisitedScope_t {
+public:
+	clipVisitedScope_t() : state( NULL ), temporary( false ) {
+		for ( int i = 0; i < CLIP_VISITED_SCRATCH_SLOTS; ++i ) {
+			if ( !clipVisitedStates[i].inUse ) {
+				state = &clipVisitedStates[i];
+				break;
+			}
+		}
+		if ( state == NULL ) {
+			state = new ( TAG_PHYSICS ) clipVisitedState_t;
+			temporary = true;
+		}
+		state->Begin();
+	}
+
+	~clipVisitedScope_t() {
+		if ( temporary ) {
+			delete state;
+		} else {
+			state->inUse = false;
+		}
+	}
+
+	clipVisitedState_t *GetState() const {
+		return state;
+	}
+
+private:
+	clipVisitedState_t *state;
+	bool				temporary;
+};
+
+typedef struct listParms_s {
 	idBounds		bounds;
 	int				contentMask;
 	idClipModel	**	list;
 	int				count;
 	int				maxCount;
-	idClipModel	*	visited[VISITED_HASH_SIZE];
+	clipVisitedState_t *visited;
 } listParms_t;
 
 static bool MarkClipModelVisited( listParms_t &parms, idClipModel *clipModel ) {
 	const size_t value = reinterpret_cast<size_t>( clipModel );
 	unsigned int index = static_cast<unsigned int>( ( value >> 4 ) ^ ( value >> 15 ) ^ ( value >> 25 ) ) &
-		( listParms_t::VISITED_HASH_SIZE - 1 );
-	for ( int probe = 0; probe < listParms_t::VISITED_HASH_SIZE; ++probe ) {
-		if ( parms.visited[index] == clipModel ) {
+		( CLIP_VISITED_HASH_SIZE - 1 );
+	for ( int probe = 0; probe < CLIP_VISITED_HASH_SIZE; ++probe ) {
+		clipVisitedEntry_t &entry = parms.visited->entries[index];
+		if ( entry.generation == parms.visited->generation && entry.clipModel == clipModel ) {
 			return false;
 		}
-		if ( parms.visited[index] == NULL ) {
-			parms.visited[index] = clipModel;
+		if ( entry.generation != parms.visited->generation ) {
+			entry.clipModel = clipModel;
+			entry.generation = parms.visited->generation;
 			return true;
 		}
-		index = ( index + 1 ) & ( listParms_t::VISITED_HASH_SIZE - 1 );
+		index = ( index + 1 ) & ( CLIP_VISITED_HASH_SIZE - 1 );
 	}
 	gameLocal.Warning( "idClip::ClipModelsTouchingBounds_r: visited hash full" );
 	return false;
@@ -909,6 +971,7 @@ idClip::ClipModelsTouchingBounds
 ================
 */
 int idClip::ClipModelsTouchingBounds( const idBounds &bounds, int contentMask, idClipModel **clipModelList, int maxCount ) const {
+	clipVisitedScope_t visitedScope;
 	listParms_t parms;
 
 	if (	bounds[0][0] > bounds[1][0] ||
@@ -925,7 +988,7 @@ int idClip::ClipModelsTouchingBounds( const idBounds &bounds, int contentMask, i
 	parms.list = clipModelList;
 	parms.count = 0;
 	parms.maxCount = maxCount;
-	memset( parms.visited, 0, sizeof( parms.visited ) );
+	parms.visited = visitedScope.GetState();
 
 	ClipModelsTouchingBounds_r( clipSectors, parms );
 

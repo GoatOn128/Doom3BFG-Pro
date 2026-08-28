@@ -35,9 +35,9 @@ If you have questions concerning this license or the applicable additional terms
 //
 //===============================================================
 
-float	idVecX::temp[VECX_MAX_TEMP+4];
-float *	idVecX::tempPtr = (float *) ( ( (int) idVecX::temp + 15 ) & ~15 );
-int		idVecX::tempIndex = 0;
+thread_local float	idVecX::temp[VECX_MAX_TEMP+4];
+thread_local float *	idVecX::tempPtr = (float *) ( ( (int) idVecX::temp + 15 ) & ~15 );
+thread_local int		idVecX::tempIndex = 0;
 
 /*
 =============
