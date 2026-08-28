@@ -56,7 +56,6 @@ class idPlayer;
 class idCamera;
 class idWorldspawn;
 class idTestModel;
-class idAAS;
 class idAI;
 class idSmokeParticles;
 class idEntityFx;
@@ -90,7 +89,7 @@ void gameError( const char *fmt, ... );
 
 #include "anim/Anim.h"
 
-#include "ai/AAS.h"
+#include "../gamelib/aas2/aas2.h"
 
 #include "physics/Clip.h"
 #include "physics/Push.h"

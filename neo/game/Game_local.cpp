@@ -43,7 +43,6 @@ idSoundSystem *				soundSystem = NULL;
 idRenderModelManager *		renderModelManager = NULL;
 idUserInterfaceManager *	uiManager = NULL;
 idDeclManager *				declManager = NULL;
-idAASFileManager *			AASFileManager = NULL;
 idCollisionModelManager *	collisionModelManager = NULL;
 idCVar *					idCVar::staticVars = NULL;
 
@@ -133,7 +132,6 @@ extern "C" gameExport_t *GetGameAPI( gameImport_t *import ) {
 		renderModelManager			= import->renderModelManager;
 		uiManager					= import->uiManager;
 		declManager					= import->declManager;
-		AASFileManager				= import->AASFileManager;
 		collisionModelManager		= import->collisionModelManager;
 	}
 
@@ -173,7 +171,6 @@ void TestGameAPI() {
 	testImport.renderModelManager		= ::renderModelManager;
 	testImport.uiManager				= ::uiManager;
 	testImport.declManager				= ::declManager;
-	testImport.AASFileManager			= ::AASFileManager;
 	testImport.collisionModelManager	= ::collisionModelManager;
 
 	testExport = *GetGameAPI( &testImport );
@@ -3036,7 +3033,8 @@ void idGameLocal::RunDebugInfo() {
 			obstaclePath_t path;
 
 			seekPos = player->GetPhysics()->GetOrigin() + player->viewAxis[0] * 200.0f;
-			idAI::FindPathAroundObstacles( player->GetPhysics(), aas, NULL, player->GetPhysics()->GetOrigin(), seekPos, path );
+			idAI::FindPathAroundObstacles( player->GetPhysics(), aas, NULL, player->GetPhysics()->GetOrigin(), seekPos,
+				player->GetPhysics()->GetLinearVelocity(), path );
 		}
 	}
 

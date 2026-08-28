@@ -263,15 +263,22 @@ typedef struct cm_queryPrimitiveState_s {
 
 class cm_queryCache_t {
 public:
-	cm_queryCache_t() : currentGeneration( 1 ) {
+	cm_queryCache_t() :
+		overflowAllocator( true ),
+		overflowHash( OVERFLOW_HASH_SIZE, OVERFLOW_HASH_SIZE ),
+		currentGeneration( 1 ) {
 		memset( states, 0, sizeof( states ) );
 		overflow.SetGranularity( 64 );
 	}
 
 	ID_INLINE void Reset() {
-		// Retain rare broad-query overflow storage for the next query on this
-		// worker; SetNum( 0 ) resets logical contents without freeing capacity.
+		// Return broad-query states to the block allocator. The blocks and pointer
+		// list capacity remain resident on this worker for subsequent queries.
+		for ( int i = 0; i < overflow.Num(); ++i ) {
+			overflowAllocator.Free( overflow[i] );
+		}
 		overflow.SetNum( 0 );
+		overflowHash.Clear();
 		++currentGeneration;
 		if ( currentGeneration == 0 ) {
 			memset( states, 0, sizeof( states ) );
@@ -284,7 +291,10 @@ public:
 		const unsigned int hash = static_cast<unsigned int>( ( value >> 4 ) ^ ( value >> 15 ) ^ ( value >> 25 ) );
 		unsigned int index = hash & ( INLINE_STATE_COUNT - 1 );
 
-		for ( unsigned int probe = 0; probe < INLINE_STATE_COUNT; ++probe ) {
+		// Keep the common case allocation-free, but never walk the entire table.
+		// Once it becomes crowded, a full linear probe on every primitive turns a
+		// broad AF trace into quadratic work.
+		for ( unsigned int probe = 0; probe < MAX_INLINE_PROBES; ++probe ) {
 			cm_queryPrimitiveState_t &state = states[index];
 			if ( state.generation == currentGeneration && state.primitive == primitive ) {
 				return state;
@@ -300,24 +310,31 @@ public:
 			index = ( index + 1 ) & ( INLINE_STATE_COUNT - 1 );
 		}
 
-		// Extremely broad traces can exceed the inline table.  Preserve exact
-		// behavior in that case instead of dropping cache entries.
-		for ( int i = 0; i < overflow.Num(); ++i ) {
-			if ( overflow[i].primitive == primitive ) {
-				return overflow[i];
+		// Broad traces use a chained hash and block-allocated states. State
+		// addresses remain stable even when the pointer list/hash grows, which is
+		// required because callers can retain a reference across more lookups.
+		for ( int i = overflowHash.First( static_cast<int>( hash ) ); i != idHashIndex::NULL_INDEX; i = overflowHash.Next( i ) ) {
+			if ( overflow[i]->primitive == primitive ) {
+				return *overflow[i];
 			}
 		}
-		cm_queryPrimitiveState_t state;
-		memset( &state, 0, sizeof( state ) );
-		state.primitive = primitive;
-		state.generation = currentGeneration;
-		return overflow.Alloc() = state;
+
+		cm_queryPrimitiveState_t *state = overflowAllocator.Alloc();
+		state->primitive = primitive;
+		state->generation = currentGeneration;
+		const int stateIndex = overflow.Append( state );
+		overflowHash.Add( static_cast<int>( hash ), stateIndex );
+		return *state;
 	}
 
 private:
 	static const unsigned int INLINE_STATE_COUNT = 2048;
+	static const unsigned int MAX_INLINE_PROBES = 16;
+	static const int OVERFLOW_HASH_SIZE = 4096;
 	cm_queryPrimitiveState_t states[INLINE_STATE_COUNT];
-	idList< cm_queryPrimitiveState_t, TAG_COLLISION > overflow;
+	idBlockAlloc< cm_queryPrimitiveState_t, 256, TAG_COLLISION > overflowAllocator;
+	idList< cm_queryPrimitiveState_t *, TAG_COLLISION > overflow;
+	idHashIndex overflowHash;
 	unsigned int currentGeneration;
 };
 

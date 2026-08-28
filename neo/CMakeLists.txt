@@ -121,7 +121,9 @@ darklight_common_target(game)
 target_compile_definitions(game PRIVATE __DOOM__ _D3XP CTF)
 
 file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/aas/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/aas2file/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/gamelib/aas2/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/compilers/aas2build/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/cm/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/framework/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.cpp"
