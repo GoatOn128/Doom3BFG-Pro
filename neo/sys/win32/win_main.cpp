@@ -47,6 +47,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../sys_local.h"
 #include "win_local.h"
 #include "../../renderer/tr_local.h"
+#include "../../tools/idstudio/StudioPublic.h"
 
 idCVar Win32Vars_t::sys_arch( "sys_arch", "", CVAR_SYSTEM | CVAR_INIT, "" );
 idCVar Win32Vars_t::sys_cpustring( "sys_cpustring", "detect", CVAR_SYSTEM | CVAR_INIT, "" );
@@ -1541,8 +1542,19 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		// set exceptions, even if some crappy syscall changes them!
 		Sys_FPU_EnableExceptions( TEST_FPU_EXCEPTIONS );
 
-		// run the game
-		common->Frame();
+		// idStudio owns the Windows message loop while its frame is visible.
+		// This mirrors the original in-process DoomEdit/idStudio host model.
+		if ( com_editors & EDITOR_RADIANT ) {
+			// The Engine document is the live game render window.  Advance and
+			// present normal engine frames only while that pane is selected; the
+			// editing documents retain the traditional editor-only loop.
+			if ( RadiantEngineViewActive() ) {
+				common->Frame();
+			}
+			RadiantRun();
+		} else {
+			common->Frame();
+		}
 	}
 
 	// never gets here

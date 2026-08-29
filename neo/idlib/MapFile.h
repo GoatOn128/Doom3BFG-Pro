@@ -45,6 +45,7 @@ If you have questions concerning this license or the applicable additional terms
 
 const int OLD_MAP_VERSION					= 1;
 const int CURRENT_MAP_VERSION				= 2;
+const int IDSTUDIO_MAP_VERSION				= 3;
 const int DEFAULT_CURVE_SUBDIVISION			= 4;
 const float DEFAULT_CURVE_MAX_ERROR			= 4.0f;
 const float DEFAULT_CURVE_MAX_ERROR_CD		= 24.0f;
@@ -54,16 +55,37 @@ const float DEFAULT_CURVE_MAX_LENGTH_CD		= -1.0f;
 
 class idMapPrimitive {
 public:
-	enum { TYPE_INVALID = -1, TYPE_BRUSH, TYPE_PATCH };
+	enum { TYPE_INVALID = -1, TYPE_BRUSH, TYPE_PATCH, TYPE_REFERENCE };
 
 	idDict					epairs;
+	idList<idStr>			groups;
 
 							idMapPrimitive() { type = TYPE_INVALID; }
 	virtual					~idMapPrimitive() { }
 	int						GetType() const { return type; }
+	void					AddGroup( const char *name );
+	void					WriteGroups( idFile *fp, const char *indent ) const;
 
 protected:
 	int						type;
+};
+
+class idMapReference : public idMapPrimitive {
+public:
+							idMapReference() { type = TYPE_REFERENCE; }
+	static idMapReference *Parse( idLexer &src );
+	bool					Write( idFile *fp, int primitiveNum ) const;
+	unsigned int			GetGeometryCRC() const;
+	const char *			GetMapName() const { return mapName; }
+	void					SetMapName( const char *name ) { mapName = name; mapName.BackSlashesToSlashes(); }
+
+private:
+	idStr					mapName;
+};
+
+struct idMapEditorState {
+	idStr					name;
+	unsigned int			state;
 };
 
 
@@ -164,6 +186,8 @@ class idMapEntity {
 
 public:
 	idDict					epairs;
+	idList<idStr>			groups;
+	idList<idStr>			layers;
 
 public:
 							idMapEntity() { epairs.SetHashSize( 64 ); }
@@ -213,6 +237,12 @@ public:
 	void					RemoveAllEntities();
 	void					RemovePrimitiveData();
 	bool					HasPrimitiveData() { return hasPrimitiveData; }
+	const idList<idMapEditorState> &GetGroupStates() const { return groupStates; }
+	const idList<idMapEditorState> &GetLayerStates() const { return layerStates; }
+	const idList<idMapEditorState> &GetGroupColors() const { return groupColors; }
+	idList<idMapEditorState> &EditGroupStates() { return groupStates; }
+	idList<idMapEditorState> &EditLayerStates() { return layerStates; }
+	idList<idMapEditorState> &EditGroupColors() { return groupColors; }
 
 protected:
 	float					version;
@@ -221,9 +251,14 @@ protected:
 	idList<idMapEntity *, TAG_IDLIB_LIST_MAP>	entities;
 	idStr					name;
 	bool					hasPrimitiveData;
+	idList<idMapEditorState>	groupStates;
+	idList<idMapEditorState>	layerStates;
+	idList<idMapEditorState>	groupColors;
 
 private:
 	void					SetGeometryCRC();
+	bool					UsesIdStudioFormat() const;
+	static void			WriteStateBlock( idFile *fp, const char *name, const idList<idMapEditorState> &states, bool colors );
 };
 
 ID_INLINE idMapFile::idMapFile() {

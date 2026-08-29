@@ -58,29 +58,92 @@ ID_INLINE void		Mem_Free( void *ptr ) { Mem_Free16( ptr ); }
 void *		Mem_ClearedAlloc( const int size, const memTag_t tag );
 char *		Mem_CopyString( const char *in );
 
+#if defined( IDSTUDIO )
+// Legacy editor allocation entry points did not carry BFG memory tags.
+ID_INLINE void * Mem_ClearedAlloc( const int size ) {
+	return Mem_ClearedAlloc( size, TAG_RENDER_TOOLS );
+}
+ID_INLINE void * Mem_Alloc16( const int size ) {
+	return Mem_Alloc16( size, TAG_RENDER_TOOLS );
+}
+#endif
+
+/*
+MFC and the engine share the process-wide C++ allocation operators when the
+editor is linked statically.  MFC's startup objects allocate through the CRT
+before WinMain and later release those blocks through the executable's global
+delete operators.  Routing global delete to Mem_Free16 in that configuration
+mixes malloc with _aligned_free and corrupts the CRT heap during static
+initialization.
+
+Keep process-wide C++ allocations on the CRT heap while preserving the engine's
+historic 16-byte alignment.  A header immediately before engine C++ allocations
+records their CRT base pointer.  Global delete recognizes that header and frees
+the base; unmarked pointers are MFC/CRT allocations and are freed directly.
+Memory tags are currently informational (Mem_Alloc16 does not record them).
+*/
+struct idCppAllocationHeader {
+	void *	base;
+	size_t	cookie;
+};
+
+ID_INLINE void * Mem_AllocCpp( size_t size ) {
+	const size_t alignment = 16;
+	const size_t allocationSize = ( size != 0 ? size : 1 ) + sizeof( idCppAllocationHeader ) + alignment - 1;
+	void * const base = malloc( allocationSize );
+	if ( base == NULL ) {
+		return NULL;
+	}
+	const size_t alignedAddress = ( reinterpret_cast<size_t>( base ) + sizeof( idCppAllocationHeader ) + alignment - 1 ) & ~( alignment - 1 );
+	idCppAllocationHeader * const header = reinterpret_cast<idCppAllocationHeader *>( alignedAddress ) - 1;
+	header->base = base;
+	header->cookie = reinterpret_cast<size_t>( base ) ^ alignedAddress ^ static_cast<size_t>( 0xD14C0DEu );
+	return reinterpret_cast<void *>( alignedAddress );
+}
+
+ID_INLINE void Mem_FreeCpp( void *ptr ) {
+	if ( ptr == NULL ) {
+		return;
+	}
+	const size_t address = reinterpret_cast<size_t>( ptr );
+	const idCppAllocationHeader * const header = reinterpret_cast<const idCppAllocationHeader *>( ptr ) - 1;
+	const size_t baseAddress = reinterpret_cast<size_t>( header->base );
+	const size_t offset = address - baseAddress;
+	const size_t expectedCookie = baseAddress ^ address ^ static_cast<size_t>( 0xD14C0DEu );
+	if ( header->cookie == expectedCookie && offset >= sizeof( idCppAllocationHeader ) && offset <= sizeof( idCppAllocationHeader ) + 15 ) {
+		free( header->base );
+		return;
+	}
+	free( ptr );
+}
+
 ID_INLINE void *operator new( size_t s ) {
-	return Mem_Alloc( s, TAG_NEW );
+	return Mem_AllocCpp( s );
 }
 ID_INLINE void operator delete( void *p ) {
-	Mem_Free( p );
+	Mem_FreeCpp( p );
 }
 ID_INLINE void *operator new[]( size_t s ) {
-	return Mem_Alloc( s, TAG_NEW );
+	return Mem_AllocCpp( s );
 }
 ID_INLINE void operator delete[]( void *p ) {
-	Mem_Free( p );
+	Mem_FreeCpp( p );
 }
 ID_INLINE void *operator new( size_t s, memTag_t tag ) {
-	return Mem_Alloc( s, tag );
+	(void)tag;
+	return Mem_AllocCpp( s );
 }
 ID_INLINE void operator delete( void *p, memTag_t tag ) {
-	Mem_Free( p );
+	(void)tag;
+	Mem_FreeCpp( p );
 }
 ID_INLINE void *operator new[]( size_t s, memTag_t tag ) {
-	return Mem_Alloc( s, tag );
+	(void)tag;
+	return Mem_AllocCpp( s );
 }
 ID_INLINE void operator delete[]( void *p, memTag_t tag ) {
-	Mem_Free( p );
+	(void)tag;
+	Mem_FreeCpp( p );
 }
 
 // Define replacements for the PS3 library's aligned new operator.

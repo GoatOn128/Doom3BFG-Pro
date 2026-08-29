@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.25)
 
 project(Darklight LANGUAGES C CXX RC)
 
+# The original DoomEdit/idStudio tools are MFC applications hosted by the
+# engine process.  Link the static MFC runtime so the console can activate the
+# editor without a second executable or an MFC redistributable dependency.
+set(CMAKE_MFC_FLAG 1)
+
 if(NOT WIN32 OR NOT MSVC)
     message(FATAL_ERROR "Darklight currently supports 32-bit Windows builds with MSVC only.")
 endif()
@@ -144,6 +149,13 @@ file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/sys/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")
+
+file(GLOB IDSTUDIO_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/comafx/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/idstudio/*.cpp")
+list(APPEND DARKLIGHT_SOURCES ${IDSTUDIO_SOURCES})
+set_source_files_properties(${IDSTUDIO_SOURCES} PROPERTIES
+    COMPILE_DEFINITIONS IDSTUDIO)
 # The reconstructed JXR codec uses std::clamp internally. Keep the legacy
 # engine at C++14 and opt only these isolated translation units into C++17.
 file(GLOB BAREJXR_SOURCES CONFIGURE_DEPENDS
@@ -156,10 +168,13 @@ list(REMOVE_ITEM DARKLIGHT_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_stats.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/GameWindow.cpp")
 list(APPEND DARKLIGHT_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/doom.rc")
+    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/doom.rc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Common.rc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Radiant.rc")
 add_executable(Darklight WIN32 ${DARKLIGHT_SOURCES})
 darklight_common_target(Darklight)
 target_compile_definitions(Darklight PRIVATE __DOOM__)
+set_property(TARGET Darklight PROPERTY VS_GLOBAL_UseOfMfc "Static")
 
 target_link_directories(Darklight PRIVATE "${DXSDK_DIR}/Lib/x86")
 target_link_libraries(Darklight PRIVATE
@@ -175,6 +190,13 @@ target_link_libraries(Darklight PRIVATE
     DxErr
     glu32
     iphlpapi
+    comctl32
+    comdlg32
+    shell32
+    shlwapi
+    ole32
+    oleaut32
+    uuid
     odbc32
     odbccp32
     opengl32
@@ -184,6 +206,7 @@ target_link_libraries(Darklight PRIVATE
 
 target_link_options(Darklight PRIVATE
     /LARGEADDRESSAWARE
+    /MANIFEST:NO
     /STACK:16777216,16777216)
 
 set_target_properties(Darklight PROPERTIES

@@ -112,6 +112,11 @@ typedef enum {
 	EDITOR_MATERIAL				= BIT(12)
 } toolFlag_t;
 
+// Active in-process editor state.  These names are part of the DoomEdit and
+// idStudio integration contract used throughout the imported tool code.
+extern int			com_editors;
+extern idCVar		com_editorActive;
+
 #define STRTABLE_ID				"#str_"
 #define STRTABLE_ID_LENGTH		5
 
@@ -304,5 +309,9 @@ public:
 };
 
 extern idCommon *		common;
+
+// Registered-window messages used by the integrated idStudio map compiler UI.
+static const char DMAP_MSGID[] = "DMAPOutput";
+static const char DMAP_DONE[] = "DMAPDone";
 
 #endif /* !__COMMON_H__ */

@@ -283,6 +283,13 @@ public:
 	// so new scenes and GUIs can be built up in parallel with the rendering.
 	virtual void			RenderCommandBuffers( const emptyCommand_t * commandBuffers ) = 0;
 
+	// Submit one editor render world immediately to the DC/context made current
+	// by the tool window.  The generated commands are not retained in the host
+	// game's frame, so an embedded editor view does not render a second time in
+	// the Engine document.
+	virtual void			RenderEditorView( idRenderWorld * world, const renderView_t * renderView,
+							int width, int height ) = 0;
+
 	// aviDemo uses this.
 	// Will automatically tile render large screen shots if necessary
 	// Samples is the number of jittered frames for anti-aliasing
@@ -315,6 +322,17 @@ public:
 
 	// consoles switch stereo 3D eye views each 60 hz frame
 	virtual int				GetFrameCount() const = 0;
+
+	// Compatibility façade for the in-process DoomEdit renderer.  BFG split
+	// the old BeginFrame/EndFrame operations into crop and command-buffer
+	// submission; idStudio views only need the cropped viewport here because
+	// the host frame performs submission.
+	void					BeginFrame( int width, int height ) { CropRenderSize( width, height ); }
+	void					EndFrame( int * frontEndMsec, int * backEndMsec ) {
+		if ( frontEndMsec != NULL ) { *frontEndMsec = 0; }
+		if ( backEndMsec != NULL ) { *backEndMsec = 0; }
+		UnCrop();
+	}
 };
 
 extern idRenderSystem *			renderSystem;

@@ -56,6 +56,111 @@ ID_INLINE unsigned int StringCRC( const char *str ) {
 	return crc;
 }
 
+static bool MapStringListContains( const idList<idStr> &list, const char *value ) {
+	for ( int i = 0; i < list.Num(); ++i ) {
+		if ( idStr::Icmp( list[i], value ) == 0 ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool ParseMapStringBlock( idLexer &src, idList<idStr> &values ) {
+	if ( !src.ExpectTokenString( "{" ) ) {
+		return false;
+	}
+	idToken token;
+	while ( src.ReadToken( &token ) ) {
+		if ( token == "}" ) {
+			return true;
+		}
+		if ( token.type == TT_STRING && !MapStringListContains( values, token ) ) {
+			values.Append( token );
+		}
+	}
+	return false;
+}
+
+static bool ParseMapStateBlock( idLexer &src, idList<idMapEditorState> &states, bool colors ) {
+	if ( !src.ExpectTokenString( "{" ) ) {
+		return false;
+	}
+	idToken token;
+	while ( src.ReadToken( &token ) ) {
+		if ( token == "}" ) {
+			return true;
+		}
+		if ( token.type != TT_STRING ) {
+			return false;
+		}
+		idMapEditorState state;
+		state.name = token;
+		if ( colors ) {
+			unsigned int packed = 0;
+			for ( int channel = 0; channel < 4; ++channel ) {
+				int value = static_cast<int>( src.ParseFloat() * 255.0f + 0.5f );
+				value = value < 0 ? 0 : ( value > 255 ? 255 : value );
+				packed |= static_cast<unsigned int>( value ) << ( channel * 8 );
+			}
+			state.state = packed;
+		} else {
+			state.state = static_cast<unsigned int>( src.ParseInt() );
+		}
+		states.Append( state );
+	}
+	return false;
+}
+
+void idMapPrimitive::AddGroup( const char *name ) {
+	if ( name != NULL && name[0] != '\0' && !MapStringListContains( groups, name ) ) {
+		groups.Append( name );
+	}
+}
+
+void idMapPrimitive::WriteGroups( idFile *fp, const char *indent ) const {
+	if ( fp == NULL || groups.Num() == 0 ) {
+		return;
+	}
+	for ( int i = 0; i < groups.Num(); ++i ) {
+		if ( i == 0 ) {
+			fp->WriteFloatString( "%sgroups {\n", indent );
+		}
+		fp->WriteFloatString( "%s \"%s\"\n", indent, groups[i].c_str() );
+	}
+	fp->WriteFloatString( "%s}\n", indent );
+}
+
+idMapReference *idMapReference::Parse( idLexer &src ) {
+	if ( !src.ExpectTokenString( "{" ) ) {
+		return NULL;
+	}
+	idToken token;
+	if ( !src.ExpectTokenType( TT_STRING, 0, &token ) ) {
+		return NULL;
+	}
+	idMapReference *reference = new (TAG_IDLIB) idMapReference;
+	reference->SetMapName( token );
+	if ( !src.ExpectTokenString( "}" ) || !src.ExpectTokenString( "}" ) ) {
+		delete reference;
+		return NULL;
+	}
+	return reference;
+}
+
+bool idMapReference::Write( idFile *fp, int primitiveNum ) const {
+	if ( fp == NULL || mapName.IsEmpty() ) {
+		return false;
+	}
+	fp->WriteFloatString( "// reference %d\n{\n", primitiveNum );
+	WriteGroups( fp, " " );
+	fp->WriteFloatString( " reference {\n  \"%s\"\n }\n}\n", mapName.c_str() );
+	return true;
+}
+
+unsigned int idMapReference::GetGeometryCRC() const {
+	return StringCRC( mapName );
+}
+
 /*
 =================
 ComputeAxisBase
@@ -225,11 +330,13 @@ bool idMapPatch::Write( idFile *fp, int primitiveNum, const idVec3 &origin ) con
 	int i, j;
 	const idDrawVert *v;
 
+	fp->WriteFloatString( "// primitive %d\n{\n", primitiveNum );
+	WriteGroups( fp, " " );
 	if ( GetExplicitlySubdivided() ) {
-		fp->WriteFloatString( "// primitive %d\n{\n patchDef3\n {\n", primitiveNum );
+		fp->WriteFloatString( " patchDef3\n {\n" );
 		fp->WriteFloatString( "  \"%s\"\n  ( %d %d %d %d 0 0 0 )\n", GetMaterial(), GetWidth(), GetHeight(), GetHorzSubdivisions(), GetVertSubdivisions());
 	} else {
-		fp->WriteFloatString( "// primitive %d\n{\n patchDef2\n {\n", primitiveNum );
+		fp->WriteFloatString( " patchDef2\n {\n" );
 		fp->WriteFloatString( "  \"%s\"\n  ( %d %d 0 0 0 )\n", GetMaterial(), GetWidth(), GetHeight());
 	}
 
@@ -491,7 +598,9 @@ bool idMapBrush::Write( idFile *fp, int primitiveNum, const idVec3 &origin ) con
 	int i;
 	idMapBrushSide *side;
 
-	fp->WriteFloatString( "// primitive %d\n{\n brushDef3\n {\n", primitiveNum );
+	fp->WriteFloatString( "// primitive %d\n{\n", primitiveNum );
+	WriteGroups( fp, " " );
+	fp->WriteFloatString( " brushDef3\n {\n" );
 
 	// write brush epairs
 	for ( i = 0; i < epairs.GetNumKeyVals(); i++) {
@@ -545,6 +654,7 @@ idMapEntity *idMapEntity::Parse( idLexer &src, bool worldSpawn, float version ) 
 	idMapEntity *mapEnt;
 	idMapPatch *mapPatch;
 	idMapBrush *mapBrush;
+	idMapReference *mapReference;
 	bool worldent;
 	idVec3 origin;
 	double v1, v2, v3;
@@ -582,6 +692,14 @@ idMapEntity *idMapEntity::Parse( idLexer &src, bool worldSpawn, float version ) 
 				return NULL;
 			}
 
+			idList<idStr> primitiveGroups;
+			if ( version >= IDSTUDIO_MAP_VERSION && token == "groups" ) {
+				if ( !ParseMapStringBlock( src, primitiveGroups ) || !src.ReadToken( &token ) ) {
+					delete mapEnt;
+					return NULL;
+				}
+			}
+
 			if ( worldent ) {
 				origin.Zero();
 			}
@@ -592,6 +710,9 @@ idMapEntity *idMapEntity::Parse( idLexer &src, bool worldSpawn, float version ) 
 				if ( !mapBrush ) {
 					return NULL;
 				}
+				for ( int groupIndex = 0; groupIndex < primitiveGroups.Num(); ++groupIndex ) {
+					mapBrush->AddGroup( primitiveGroups[groupIndex] );
+				}
 				mapEnt->AddPrimitive( mapBrush );
 			}
 			// if is it a patch: patchDef2, patchDef3
@@ -600,7 +721,21 @@ idMapEntity *idMapEntity::Parse( idLexer &src, bool worldSpawn, float version ) 
 				if ( !mapPatch ) {
 					return NULL;
 				}
+				for ( int groupIndex = 0; groupIndex < primitiveGroups.Num(); ++groupIndex ) {
+					mapPatch->AddGroup( primitiveGroups[groupIndex] );
+				}
 				mapEnt->AddPrimitive( mapPatch );
+			}
+			else if ( version >= IDSTUDIO_MAP_VERSION && !token.Icmp( "reference" ) ) {
+				mapReference = idMapReference::Parse( src );
+				if ( !mapReference ) {
+					delete mapEnt;
+					return NULL;
+				}
+				for ( int groupIndex = 0; groupIndex < primitiveGroups.Num(); ++groupIndex ) {
+					mapReference->AddGroup( primitiveGroups[groupIndex] );
+				}
+				mapEnt->AddPrimitive( mapReference );
 			}
 			// assume it's a brush in Q3 or older style
 			else {
@@ -610,6 +745,16 @@ idMapEntity *idMapEntity::Parse( idLexer &src, bool worldSpawn, float version ) 
 					return NULL;
 				}
 				mapEnt->AddPrimitive( mapBrush );
+			}
+		} else if ( version >= IDSTUDIO_MAP_VERSION && token == "layers" ) {
+			if ( !ParseMapStringBlock( src, mapEnt->layers ) ) {
+				delete mapEnt;
+				return NULL;
+			}
+		} else if ( version >= IDSTUDIO_MAP_VERSION && token == "groups" ) {
+			if ( !ParseMapStringBlock( src, mapEnt->groups ) ) {
+				delete mapEnt;
+				return NULL;
 			}
 		} else {
 			idStr key, value;
@@ -654,6 +799,20 @@ bool idMapEntity::Write( idFile *fp, int entityNum ) const {
 	idVec3 origin;
 
 	fp->WriteFloatString( "// entity %d\n{\n", entityNum );
+	if ( groups.Num() > 0 ) {
+		fp->WriteFloatString( "groups {\n" );
+		for ( i = 0; i < groups.Num(); ++i ) {
+			fp->WriteFloatString( " \"%s\"\n", groups[i].c_str() );
+		}
+		fp->WriteFloatString( "}\n" );
+	}
+	if ( layers.Num() > 0 ) {
+		fp->WriteFloatString( "layers {\n" );
+		for ( i = 0; i < layers.Num(); ++i ) {
+			fp->WriteFloatString( " \"%s\"\n", layers[i].c_str() );
+		}
+		fp->WriteFloatString( "}\n" );
+	}
 
 	// write entity epairs
 	for ( i = 0; i < epairs.GetNumKeyVals(); i++) {
@@ -672,6 +831,9 @@ bool idMapEntity::Write( idFile *fp, int entityNum ) const {
 				break;
 			case idMapPrimitive::TYPE_PATCH:
 				static_cast<idMapPatch*>(mapPrim)->Write( fp, i, origin );
+				break;
+			case idMapPrimitive::TYPE_REFERENCE:
+				static_cast<idMapReference*>(mapPrim)->Write( fp, i );
 				break;
 		}
 	}
@@ -711,6 +873,9 @@ unsigned int idMapEntity::GetGeometryCRC() const {
 			case idMapPrimitive::TYPE_PATCH:
 				crc ^= static_cast<idMapPatch*>(mapPrim)->GetGeometryCRC();
 				break;
+			case idMapPrimitive::TYPE_REFERENCE:
+				crc ^= static_cast<idMapReference*>(mapPrim)->GetGeometryCRC();
+				break;
 		}
 	}
 
@@ -727,15 +892,20 @@ bool idMapFile::Parse( const char *filename, bool ignoreRegion, bool osPath ) {
 	idLexer src( LEXFL_NOSTRINGCONCAT | LEXFL_NOSTRINGESCAPECHARS | LEXFL_ALLOWPATHNAMES );
 	idToken token;
 	idStr fullName;
+	idStr sourceExtension;
 	idMapEntity *mapEnt;
 	int i, j, k;
 
 	name = filename;
+	name.ExtractFileExtension( sourceExtension );
 	name.StripFileExtension();
 	fullName = name;
 	hasPrimitiveData = false;
 
-	if ( !ignoreRegion ) {
+	if ( !sourceExtension.Icmp( "refmap" ) ) {
+		fullName = filename;
+		src.LoadFile( fullName, osPath );
+	} else if ( !ignoreRegion ) {
 		// try loading a .reg file first
 		fullName.SetFileExtension( "reg" );
 		src.LoadFile( fullName, osPath );
@@ -754,6 +924,9 @@ bool idMapFile::Parse( const char *filename, bool ignoreRegion, bool osPath ) {
 	version = OLD_MAP_VERSION;
 	fileTime = src.GetFileTime();
 	entities.DeleteContents( true );
+	groupStates.Clear();
+	layerStates.Clear();
+	groupColors.Clear();
 
 	if ( src.CheckTokenString( "Version" ) ) {
 		src.ReadTokenOnLine( &token );
@@ -761,6 +934,30 @@ bool idMapFile::Parse( const char *filename, bool ignoreRegion, bool osPath ) {
 	}
 
 	while( 1 ) {
+		if ( version >= IDSTUDIO_MAP_VERSION ) {
+			idList<idMapEditorState> *states = NULL;
+			bool colors = false;
+			if ( src.CheckTokenString( "groupstates" ) ) {
+				states = &groupStates;
+			} else if ( src.CheckTokenString( "layerstates" ) ) {
+				states = &layerStates;
+			} else if ( src.CheckTokenString( "groupcolors" ) ) {
+				states = &groupColors;
+				colors = true;
+			}
+			if ( states != NULL ) {
+				if ( !ParseMapStateBlock( src, *states, colors ) ) {
+					return false;
+				}
+				continue;
+			}
+		}
+		if ( version >= IDSTUDIO_MAP_VERSION && src.CheckTokenString( "entity" ) ) {
+			if ( !src.ReadToken( &token ) || token.type != TT_NUMBER ) {
+				src.Error( "idMapFile::Parse: expected entity number" );
+				return false;
+			}
+		}
 		mapEnt = idMapEntity::Parse( src, ( entities.Num() == 0 ), version );
 		if ( !mapEnt ) {
 			break;
@@ -799,6 +996,8 @@ bool idMapFile::Parse( const char *filename, bool ignoreRegion, bool osPath ) {
 							static_cast<idMapPatch *>(mapPrimitive)->SetMaterial( material );
 							break;
 						}
+						case idMapPrimitive::TYPE_REFERENCE:
+							break;
 					}
 				}
 			}
@@ -857,15 +1056,58 @@ bool idMapFile::Write( const char *fileName, const char *ext, bool fromBasePath 
 		return false;
 	}
 
-	fp->WriteFloatString( "Version %f\n", (float) CURRENT_MAP_VERSION );
+	const bool idStudioFormat = UsesIdStudioFormat();
+	fp->WriteFloatString( "Version %f\n", idStudioFormat ? (float) IDSTUDIO_MAP_VERSION : (float) CURRENT_MAP_VERSION );
 
 	for ( i = 0; i < entities.Num(); i++ ) {
 		entities[i]->Write( fp, i );
+	}
+	if ( idStudioFormat ) {
+		WriteStateBlock( fp, "groupstates", groupStates, false );
+		WriteStateBlock( fp, "layerstates", layerStates, false );
+		WriteStateBlock( fp, "groupcolors", groupColors, true );
 	}
 
 	idLib::fileSystem->CloseFile( fp );
 
 	return true;
+}
+
+bool idMapFile::UsesIdStudioFormat() const {
+	if ( groupStates.Num() > 0 || layerStates.Num() > 0 || groupColors.Num() > 0 ) {
+		return true;
+	}
+	for ( int entityIndex = 0; entityIndex < entities.Num(); ++entityIndex ) {
+		const idMapEntity *entity = entities[entityIndex];
+		if ( entity->groups.Num() > 0 || entity->layers.Num() > 0 ) {
+			return true;
+		}
+		for ( int primitiveIndex = 0; primitiveIndex < entity->GetNumPrimitives(); ++primitiveIndex ) {
+			const idMapPrimitive *primitive = entity->GetPrimitive( primitiveIndex );
+			if ( primitive->GetType() == idMapPrimitive::TYPE_REFERENCE || primitive->groups.Num() > 0 ) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void idMapFile::WriteStateBlock( idFile *fp, const char *name, const idList<idMapEditorState> &states, bool colors ) {
+	if ( fp == NULL || states.Num() == 0 ) {
+		return;
+	}
+	fp->WriteFloatString( "%s {\n", name );
+	for ( int i = 0; i < states.Num(); ++i ) {
+		if ( colors ) {
+			const unsigned int value = states[i].state;
+			fp->WriteFloatString( " \"%s\" %f %f %f %f\n", states[i].name.c_str(),
+				( ( value >> 0 ) & 255 ) / 255.0f, ( ( value >> 8 ) & 255 ) / 255.0f,
+				( ( value >> 16 ) & 255 ) / 255.0f, ( ( value >> 24 ) & 255 ) / 255.0f );
+		} else {
+			fp->WriteFloatString( " \"%s\" %u\n", states[i].name.c_str(), states[i].state );
+		}
+	}
+	fp->WriteFloatString( "}\n" );
 }
 
 /*
