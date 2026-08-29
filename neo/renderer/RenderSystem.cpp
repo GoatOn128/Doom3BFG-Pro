@@ -144,6 +144,36 @@ void idRenderSystemLocal::RenderCommandBuffers( const emptyCommand_t * const cmd
 }
 
 /*
+====================
+idRenderSystemLocal::RenderEditorView
+
+The in-process editor owns a child DC but shares the renderer and GL context
+with the game.  Build and execute only the commands appended by this view,
+then unlink them so common->Frame does not replay the camera into the Engine
+window later in the same frame.
+====================
+*/
+void idRenderSystemLocal::RenderEditorView( idRenderWorld * world, const renderView_t * renderView,
+		int width, int height ) {
+	if ( world == NULL || renderView == NULL || width < 1 || height < 1 ||
+		!R_IsInitialized() || frameData == NULL ) return;
+
+	emptyCommand_t * const previousTail = frameData->cmdTail;
+	CropRenderSize( width, height );
+	world->RenderScene( renderView );
+	UnCrop();
+
+	emptyCommand_t * const editorCommands = reinterpret_cast<emptyCommand_t *>( previousTail->next );
+	if ( editorCommands != NULL ) RenderCommandBuffers( editorCommands );
+
+	// R_GetCommandBuffer linked the editor list after previousTail.  Its frame
+	// allocations remain valid until the normal swap, but they are deliberately
+	// no longer reachable from the host command list.
+	previousTail->next = NULL;
+	frameData->cmdTail = previousTail;
+}
+
+/*
 ============
 R_GetCommandBuffer
 

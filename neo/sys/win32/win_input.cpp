@@ -31,6 +31,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../sys_session_local.h"
 
 #include "win_local.h"
+#include "../../tools/idstudio/StudioPublic.h"
 
 #define DINPUT_BUFFERSIZE           256
 
@@ -260,6 +261,14 @@ bool IN_InitDIMouse() {
 IN_ActivateMouse
 ==========================
 */
+static void IN_ConstrainCursorToRenderWindow() {
+	if ( win32.hWnd == NULL || !::IsWindow( win32.hWnd ) ) return;
+	RECT clip;
+	if ( !::GetClientRect( win32.hWnd, &clip ) ) return;
+	::MapWindowPoints( win32.hWnd, NULL, reinterpret_cast<POINT *>( &clip ), 2 );
+	::ClipCursor( &clip );
+}
+
 void IN_ActivateMouse() {
 	int i;
 	HRESULT hr;
@@ -283,6 +292,7 @@ void IN_ActivateMouse() {
 
 	// set the cooperativity level.
 	hr = win32.g_pMouse->SetCooperativeLevel( win32.hWnd, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+	if ( com_editors & EDITOR_RADIANT ) IN_ConstrainCursorToRenderWindow();
 }
 
 /*
@@ -298,6 +308,7 @@ void IN_DeactivateMouse() {
 	}
 
 	win32.g_pMouse->Unacquire();
+	::ClipCursor( NULL );
 
 	for ( i = 0; i < 10; i++ ) {
 		if ( ::ShowCursor( true ) >= 0 ) {
@@ -385,6 +396,15 @@ void IN_Frame() {
 	if ( !win32.in_mouse.GetBool() ) {
 		shouldGrab = false;
 	}
+	// The child render HWND is the confinement rectangle while Engine owns
+	// focus. Both the in-game console and idStudio's Console pane are editing
+	// surfaces, so either one must release DirectInput immediately.
+	if ( ( com_editors & EDITOR_RADIANT ) && ( console->Active() || RadiantConsolePaneOpen() ) ) {
+		shouldGrab = false;
+	}
+	if ( ( com_editors & EDITOR_RADIANT ) && !RadiantEngineViewActive() ) {
+		shouldGrab = false;
+	}
 	// if fullscreen, we always want the mouse
 	if ( !win32.cdsFullscreen ) {
 		if ( win32.mouseReleased ) {
@@ -415,6 +435,9 @@ void IN_Frame() {
 			}
 #endif
 		}
+	}
+	if ( shouldGrab && win32.mouseGrabbed && ( com_editors & EDITOR_RADIANT ) ) {
+		IN_ConstrainCursorToRenderWindow();
 	}
 }
 

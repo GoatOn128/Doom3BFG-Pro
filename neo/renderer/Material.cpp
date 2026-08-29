@@ -195,8 +195,30 @@ void idMaterial::FreeData() {
 idMaterial::GetEditorImage
 ==============
 */
+static bool R_EditorImageSourceExists( const char *name ) {
+	if ( name == NULL || name[0] == '\0' ) return false;
+	idStrStatic< MAX_OSPATH > generatedName = name;
+	idImage::GetGeneratedName( generatedName, TD_DEFAULT, CF_2D );
+	idBinaryImage binaryImage( generatedName );
+	bimageFile_t header;
+	if ( binaryImage.LoadGeneratedFileHeader( header ) ) return true;
+
+	// Development installs may retain a legacy TGA/JPG or image-program source
+	// without a generated BFG image. Probe it without loading pixel data.
+	ID_TIME_T sourceTime = FILE_NOT_FOUND_TIMESTAMP;
+	R_LoadImageProgram( name, NULL, NULL, NULL, &sourceTime );
+	return sourceTime != FILE_NOT_FOUND_TIMESTAMP;
+}
+
 idImage *idMaterial::GetEditorImage() const {
 	if ( editorImage ) {
+		// VMTR runtime eviction retains only the smallest mip. World Camera binds
+		// editor images directly, so it needs the full generated image restored.
+		if ( editorImage->IsVirtualTextureFallback() ) {
+			editorImage->ClearVirtualTextureFallback();
+			editorImage->PurgeImage();
+			editorImage->ActuallyLoadImage( false );
+		}
 		return editorImage;
 	}
 
@@ -218,12 +240,29 @@ idImage *idMaterial::GetEditorImage() const {
 			editorImage = globalImages->defaultImage;
 		}
 	} else {
-		// look for an explicit one
-		editorImage = globalImages->ImageFromFile( editorImageName, TF_DEFAULT, TR_REPEAT, TD_DEFAULT );
+		// Doom 3 qer_editorimage declarations often name legacy sources which
+		// are absent from DOOM 2016/BFG data. idStudio uses the diffuse material
+		// stage when the explicit editor image has no source or generated image.
+		if ( R_EditorImageSourceExists( editorImageName ) ) {
+			editorImage = globalImages->ImageFromFile( editorImageName, TF_DEFAULT, TR_REPEAT, TD_DEFAULT );
+		} else if ( numStages && stages ) {
+			for ( int i = 0; i < numStages; ++i ) {
+				if ( stages[i].lighting == SL_DIFFUSE && stages[i].texture.image != NULL ) {
+					editorImage = stages[i].texture.image;
+					break;
+				}
+			}
+			if ( editorImage == NULL ) editorImage = stages[0].texture.image;
+		}
 	}
 
 	if ( !editorImage ) {
 		editorImage = globalImages->defaultImage;
+	}
+	if ( editorImage->IsVirtualTextureFallback() ) {
+		editorImage->ClearVirtualTextureFallback();
+		editorImage->PurgeImage();
+		editorImage->ActuallyLoadImage( false );
 	}
 
 	return editorImage;

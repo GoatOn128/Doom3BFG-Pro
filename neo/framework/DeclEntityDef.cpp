@@ -120,7 +120,13 @@ bool idDeclEntityDef::Parse( const char *text, const int textLength, bool allowB
 		dict.SetDefaults( &defList[ i ]->dict );
 	}
 
-	game->CacheDictionaryMedia( &dict );
+	// idStudio force-parses every entityDef to build its class browser.  Doing
+	// gameplay media precaching here would synchronously load every referenced
+	// render and collision model before the editor frame can finish opening.
+	// Map startup explicitly caches the merged spawn dictionaries it uses.
+	if ( ( com_editors & EDITOR_RADIANT ) == 0 ) {
+		game->CacheDictionaryMedia( &dict );
+	}
 
 	return true;
 }
