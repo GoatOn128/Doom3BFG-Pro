@@ -250,8 +250,38 @@ LONG WINAPI MainWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam ) {
 				// that will be done next time through the main loop
 			}
 			break;
+		case WM_MOUSEACTIVATE:
+			// The render HWND is a child document while idStudio is open, so it no
+			// longer receives the top-level WA_ACTIVATE transition that historically
+			// enabled the input frame.  A click in Engine must explicitly transfer
+			// keyboard focus and reactivate game input.
+			if ( com_editors & EDITOR_RADIANT ) {
+				::SetFocus( hWnd );
+				win32.activeApp = true;
+				Sys_GrabMouseCursor( true );
+				soundSystem->SetMute( false );
+				return MA_ACTIVATE;
+			}
+			break;
+		case WM_SETFOCUS:
+			if ( com_editors & EDITOR_RADIANT ) {
+				win32.activeApp = true;
+				idKeyInput::ClearStates();
+				Sys_GrabMouseCursor( true );
+				soundSystem->SetMute( false );
+			}
+			break;
+		case WM_KILLFOCUS:
+			if ( com_editors & EDITOR_RADIANT ) {
+				win32.activeApp = false;
+				Sys_GrabMouseCursor( false );
+				idKeyInput::ClearStates();
+			}
+			break;
 		case WM_TIMER: {
-			if ( win32.win_timerUpdate.GetBool() ) {
+			// idStudio's main loop already advances the Engine document once. The
+			// legacy drag/resize timer must not enter a second common->Frame.
+			if ( win32.win_timerUpdate.GetBool() && !( com_editors & EDITOR_RADIANT ) ) {
 				common->Frame();
 			}
 			break;

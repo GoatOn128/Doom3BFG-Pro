@@ -9,6 +9,12 @@
 //
 #include <winres.h>
 
+#ifndef RT_MANIFEST
+#define RT_MANIFEST 24
+#endif
+
+1 RT_MANIFEST "doom.manifest"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -53,6 +59,7 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON1               ICON                    "res\\doom.ico"
+10086                   ICON                    "res\\idstudio.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

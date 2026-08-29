@@ -35,6 +35,9 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #define GAME_NAME						"DOOM 3: BFG Edition"		// appears on window titles and errors
+#define EDITOR_WINDOWTEXT			"idStudio"
+#define EDITOR_DEFAULT_PROJECT			"doom.qe4"
+#define EDITOR_REGISTRY_KEY				"Darklight\\idStudio"
 #define SAVE_PATH						"\\id Software\\DOOM 3 BFG"
 
 #define ENGINE_VERSION					"D3BFG 1"	// printed in console

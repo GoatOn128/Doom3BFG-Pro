@@ -157,6 +157,15 @@ void idCommonLocal::VPrintf( const char *fmt, va_list args ) {
 	// The Tech 5 console owns a thread-safe print queue.  Feed it before the
 	// worker-thread early out so renderer and streaming jobs are visible.
 	console->Print( msg );
+#if defined( _WIN32 )
+	// idStudio drains this thread-safe queue from its MFC pump.  Queue before
+	// the worker-thread return so tool output is complete and never touches a
+	// Windows control from a renderer or streaming thread.
+	if ( ( com_editors & EDITOR_RADIANT ) != 0 ) {
+		extern void RadiantPrint( const char *text );
+		RadiantPrint( msg );
+	}
+#endif
 	if ( !idLib::IsMainThread() ) {
 		OutputDebugString( msg );
 		return;
