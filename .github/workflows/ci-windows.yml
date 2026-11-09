@@ -49,6 +49,30 @@ jobs:
         shell: pwsh
         run: python .github/scripts/digest.py
 
+      - name: report
+        if: failure()
+        shell: pwsh
+        env:
+          LEG: windows-x86-${{ matrix.configuration }}
+        run: |
+          # job logs are admin-only on this repo, so the failure reasons
+          # are surfaced as annotations too: they are readable without auth
+          $frag = "digest-fragment-$env:LEG.md"
+          if (-not (Test-Path $frag)) { exit 0 }
+          $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+          $count = 0
+          foreach ($l in Get-Content $frag) {
+            if ($count -ge 10) { break }
+            $t = $l.Trim()
+            if ($t.Length -lt 8) { continue }
+            if ($t -notmatch 'cmake error|fatal error|error [A-Z]+[0-9]|Build FAILED|FAILED') { continue }
+            if (-not $seen.Add($t)) { continue }
+            $msg = ($t -replace '%', '%25') -replace '\\', '%5C'
+            if ($msg.Length -gt 350) { $msg = $msg.Substring(0, 350) }
+            Write-Host "::error title=error $($count + 1) ($env:LEG)::$msg"
+            $count++
+          }
+
       - name: upload logs
         if: always()
         uses: actions/upload-artifact@v4
