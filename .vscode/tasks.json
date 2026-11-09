@@ -4,7 +4,7 @@
         {
             "label": "Configure (Visual Studio Win32)",
             "type": "shell",
-            "command": "cmake --preset visual-studio",
+            "command": "cmake -S neo -B out -A Win32",
             "options": { "cwd": "${workspaceFolder}" },
             "group": "build",
             "problemMatcher": []
@@ -12,7 +12,7 @@
         {
             "label": "Build (Win32 debug)",
             "type": "shell",
-            "command": "cmake --build --preset visual-studio-debug",
+            "command": "cmake --build out --config Debug --parallel",
             "options": { "cwd": "${workspaceFolder}" },
             "group": { "kind": "build", "isDefault": true },
             "dependsOn": "Configure (Visual Studio Win32)",
@@ -21,7 +21,7 @@
         {
             "label": "Build (Win32 release)",
             "type": "shell",
-            "command": "cmake --build --preset visual-studio-release",
+            "command": "cmake --build out --config Release --parallel",
             "options": { "cwd": "${workspaceFolder}" },
             "group": "build",
             "dependsOn": "Configure (Visual Studio Win32)",
@@ -30,7 +30,7 @@
         {
             "label": "Clean (Win32)",
             "type": "shell",
-            "command": "cmake --build --preset visual-studio-debug --target clean",
+            "command": "cmake --build out --config Debug --target clean",
             "options": { "cwd": "${workspaceFolder}" },
             "problemMatcher": []
         }

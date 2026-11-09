@@ -6,43 +6,42 @@
     ],
     "settings": {
         "terminal.integrated.profiles.windows": {
-            "VS 2026 Developer Command Prompt (x64)": {
+            "VS Developer Command Prompt (x86)": {
                 "path": "${env:windir}\\System32\\cmd.exe",
                 "args": [
                     "/k",
-                    "call .\\.vscode\\scripts\\VS2026DevCmd.cmd"
+                    "call .\\.vscode\\scripts\\VSDevCmd.cmd"
                 ],
                 "icon": "terminal-cmd"
             }
         },
         "terminal.integrated.cwd": "${workspaceFolder}",
-        "terminal.integrated.defaultProfile.windows": "VS 2026 Developer Command Prompt (x64)",
+        "terminal.integrated.defaultProfile.windows": "VS Developer Command Prompt (x86)",
         "terminal.integrated.scrollback": 10000,
         "terminal.integrated.enablePersistentSessions": true,
         "search.exclude": {
+            "**/out": true,
             "**/build": true,
-            "**/bin": true,
-            "**/.scons_cache": true
+            "**/bin": true
         },
         "files.watcherExclude": {
+            "**/out/**": true,
             "**/build/**": true,
-            "**/bin/**": true,
-            "**/.scons_cache/**": true
+            "**/bin/**": true
         },
-        "C_Cpp.default.cStandard": "c11",
-        "C_Cpp.default.cppStandard": "c++17",
+        "C_Cpp.default.cStandard": "c99",
+        "C_Cpp.default.cppStandard": "c++14",
         "C_Cpp.errorSquiggles": "enabled",
         "C_Cpp.intelliSenseEngine": "default",
         "editor.formatOnSave": false
     },
     "extensions": {
         "recommendations": [
-            "vadimcn.vscode-lldb",
             "ms-vscode.cpptools",
-            "ms-vscode.powershell",
+            "ms-vscode.cmake-tools",
+            "vadimcn.vscode-lldb",
             "editorconfig.editorconfig",
-            "usernamehw.errorlens",
-            "ms-vscode.hexeditor"
+            "usernamehw.errorlens"
         ]
     }
 }

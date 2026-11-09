@@ -1,6 +1,6 @@
 {
     "terminal.integrated.profiles.windows": {
-        "VS 2022 Developer Command Prompt (x86)": {
+        "VS Developer Command Prompt (x86)": {
             "path": "${env:windir}\\System32\\cmd.exe",
             "args": [
                 "/k",
@@ -16,11 +16,10 @@
     "files.watcherExclude": {
         "**/out/**": true,
         "**/build/**": true,
-        "**/bin/**": true,
-        "**/main/**": true
+        "**/bin/**": true
     },
-    "C_Cpp.default.cStandard": "c11",
-    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.cStandard": "c99",
+    "C_Cpp.default.cppStandard": "c++14",
     "C_Cpp.errorSquiggles": "enabled",
     "C_Cpp.intelliSenseEngine": "default",
     "editor.formatOnSave": false
