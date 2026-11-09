@@ -128,6 +128,7 @@ extern PFNGLGETPROGRAMIVPROC				qglGetProgramiv;
 extern PFNGLGETPROGRAMINFOLOGPROC			qglGetProgramInfoLog;
 extern PFNGLPROGRAMPARAMETERIPROC			qglProgramParameteri;
 extern PFNGLBINDATTRIBLOCATIONPROC			qglBindAttribLocation;
+extern PFNGLBINDFRAGDATALOCATIONPROC		qglBindFragDataLocation;
 extern PFNGLGETUNIFORMLOCATIONPROC			qglGetUniformLocation;
 extern PFNGLUNIFORM1IPROC					qglUniform1i;
 extern PFNGLUNIFORM4FVPROC					qglUniform4fv;

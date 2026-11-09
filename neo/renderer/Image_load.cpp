@@ -945,6 +945,19 @@ void idImage::SetSamplerState( textureFilter_t tf, textureRepeat_t tr ) {
 	}
 	filter = tf;
 	repeat = tr;
-	qglBindTexture( ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D, texnum );
+	// Same bind-to-edit hazard as SubImageUpload: bind on the logical current
+	// unit and sync its cache instead of whatever unit happens to be active.
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0_ARB;
+	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	qglActiveTextureARB( GL_TEXTURE0_ARB + texUnit );
+	const GLenum samplerTarget = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	qglBindTexture( samplerTarget, texnum );
+	if ( samplerTarget == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
 	SetTexParameters();
+	qglActiveTextureARB( previousActiveTexture );
 }

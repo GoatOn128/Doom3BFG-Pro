@@ -85,7 +85,22 @@ void idImage::SubImageUpload( int mipLevel, int x, int y, int z, int width, int 
 		uploadTarget = GL_TEXTURE_2D;
 	}
 
+	// Legacy bind-to-edit path: qglBindTexture targets whichever unit the GL
+	// context has active, while the renderer tracks per-unit bindings through
+	// BindMultiTextureEXT. Bind on the logical current unit and keep its cache
+	// in sync like CopyFramebuffer does, so an upload can never leave a stale
+	// binding behind on another unit (that made refraction glass sample the
+	// wrong texture).
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0_ARB;
+	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	qglActiveTextureARB( GL_TEXTURE0_ARB + texUnit );
 	qglBindTexture( target, texnum );
+	if ( target == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
 
 	if ( pixelPitch != 0 ) {
 		qglPixelStorei( GL_UNPACK_ROW_LENGTH, pixelPitch );
@@ -121,6 +136,7 @@ void idImage::SubImageUpload( int mipLevel, int x, int y, int z, int width, int 
 	if ( pixelPitch != 0 ) {
 		qglPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
 	}
+	qglActiveTextureARB( previousActiveTexture );
 }
 
 /*
