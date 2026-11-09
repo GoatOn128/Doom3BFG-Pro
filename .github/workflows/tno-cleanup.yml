@@ -1,0 +1,31 @@
+name: tno-cleanup
+
+# One-shot removal of the TNO decompiled renderprogs data from
+# base/renderprogs. m1 converts the BFG shaders onto the new
+# renderprog path instead, so the synced TNO progs are not needed.
+
+on:
+  push:
+    branches: [m1-renderprogs]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: contains(github.event.head_commit.message, '[cleanup-tno]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Remove the TNO renderprogs data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q --ignore-unmatch 'base/renderprogs/*.vglsl' 'base/renderprogs/*.pglsl' 'base/renderprogs/*.parms' 'base/renderprogs/global_tno.inc' 'docs/m1-parm-inventory.md' '.github/scripts/renderprog_inventory.py'
+          if git diff --cached --quiet; then echo "nothing to remove"; exit 0; fi
+          git commit -q -m "Remove the TNO decompiled renderprogs data"
+          git push origin HEAD:m1-renderprogs

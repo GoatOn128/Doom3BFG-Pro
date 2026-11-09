@@ -69,6 +69,7 @@ idRenderProgManager::Init()
 void idRenderProgManager::Init() {
 	common->Printf( "----- Initializing Render Shaders -----\n" );
 
+	idRenderProgParms::Init();
 
 	for ( int i = 0; i < MAX_BUILTINS; i++ ) {
 		builtinShaders[i] = -1;
@@ -191,6 +192,7 @@ idRenderProgManager::Shutdown()
 */
 void idRenderProgManager::Shutdown() {
 	KillAllShaders();
+	idRenderProgParms::Shutdown();
 }
 
 /*
