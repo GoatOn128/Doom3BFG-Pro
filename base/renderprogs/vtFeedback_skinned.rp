@@ -1,5 +1,4 @@
-/*
-===========================================================================
+/*===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
@@ -28,7 +27,6 @@ If you have questions concerning this license or the applicable additional terms
 
 renderprog vtFeedback_skinned {
 	hlsl_vp {
-		#include "global.inc"
 
 		uniform matrices_ubo { float4 matrices[408]; };
 
@@ -79,7 +77,6 @@ renderprog vtFeedback_skinned {
 		}
 	}
 	hlsl_fp {
-		#include "global.inc"
 
 		uniform float4 rpUser0 : register(c128); // VMTR atlas scale.xy and bias.zw
 		uniform float4 rpUser1 : register(c129); // source, virtual width, feedback-to-view scale x/y
