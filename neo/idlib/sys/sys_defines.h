@@ -48,7 +48,6 @@ If you have questions concerning this license or the applicable additional terms
 #if defined(_WIN32)
 	// _WIN32 always defined
 	// _WIN64 also defined for x64 target
-/*
 	#if !defined( _MANAGED )
 		#if !defined( _WIN64 )
 			#define ID_WIN_X86_ASM
@@ -68,7 +67,6 @@ If you have questions concerning this license or the applicable additional terms
 			#define ID_WIN_X86_SSE3_INTRIN
 		#endif
 	#endif
-*/
 
 	#define ID_PC
 	#define ID_PC_WIN
@@ -90,19 +88,11 @@ If you have questions concerning this license or the applicable additional terms
 
 #ifdef ID_PC_WIN
 
-#define	CPUSTRING						"x86"
-
-#define	BUILD_STRING					"win-" CPUSTRING
-#define BUILD_OS_ID						0
-
+#define ID_PC_WIN_8						( _WIN32_WINNT >= _WIN32_WINNT_WIN8 )
 #define ALIGN16( x )					__declspec(align(16)) x
 #define ALIGNTYPE16						__declspec(align(16))
 #define ALIGNTYPE128					__declspec(align(128))
 #define FORMAT_PRINTF( x )
-
-#define PATHSEPARATOR_STR				"\\"
-#define PATHSEPARATOR_CHAR				'\\'
-#define NEWLINE							"\r\n"
 
 #define ID_INLINE						inline
 #define ID_FORCE_INLINE					__forceinline

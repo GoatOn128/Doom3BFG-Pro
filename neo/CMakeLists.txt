@@ -1,222 +1,539 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(Darklight LANGUAGES C CXX RC)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-# The original DoomEdit/idStudio tools are MFC applications hosted by the
-# engine process.  Link the static MFC runtime so the console can activate the
-# editor without a second executable or an MFC redistributable dependency.
-set(CMAKE_MFC_FLAG 1)
+project(Darklight DESCRIPTION "Darklight" LANGUAGES C CXX )
 
-if(NOT WIN32 OR NOT MSVC)
-    message(FATAL_ERROR "Darklight currently supports 32-bit Windows builds with MSVC only.")
+if(WIN32)
+	enable_language(RC)
 endif()
 
-if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
-    message(FATAL_ERROR "Darklight is a 32-bit application. Configure CMake with -A Win32.")
-endif()
+include(CheckIPOSupported)
+include(FindWindowsSDK)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-set(DARKLIGHT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
-set(DARKLIGHT_OUTPUT_DIR "${DARKLIGHT_ROOT}" CACHE PATH
-    "Directory in which the Darklight executable is written")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(DEFINED ENV{DXSDK_DIR})
-    file(TO_CMAKE_PATH "$ENV{DXSDK_DIR}" DXSDK_DIR)
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type for single-configuration generators" FORCE)
+endif()
+
+if(UNIX)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
+# Build options
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	set(_darklight_idstudio_default OFF)
 else()
-    set(DXSDK_DIR "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)")
+	set(_darklight_idstudio_default OFF)
 endif()
 
-if(NOT EXISTS "${DXSDK_DIR}/Include/XAudio2.h")
-    message(FATAL_ERROR
-        "The June 2010 DirectX SDK was not found at '${DXSDK_DIR}'. "
-        "Install it or set the DXSDK_DIR environment variable.")
+option(DARKLIGHT_BUILD_EXECUTABLE "Build the Darklight application" ON)
+option(DARKLIGHT_BUILD_IDSTUDIO "Build the MFC-based idStudio integration (Windows/MSVC only)" ${_darklight_idstudio_default})
+option(DARKLIGHT_LEGACY_32BIT_TIME_T "Use the old 32-bit time_t ABI on 32-bit Windows builds only" OFF)
+option(DARKLIGHT_ENABLE_LTO "Enable link-time optimization when the compiler supports it" OFF)
+option(DARKLIGHT_WARNINGS_AS_ERRORS "Treat project warnings as errors" OFF)
+option(DARKLIGHT_MSVC_STATIC_RUNTIME "Link the static MSVC runtime (/MT)" ON)
+
+if(MSVC)
+	if(DARKLIGHT_MSVC_STATIC_RUNTIME)
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	else()
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:Debug>")
+	endif()
 endif()
 
-function(darklight_common_target target)
-    target_include_directories(${target} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${DXSDK_DIR}/Include")
-    target_compile_definitions(${target} PRIVATE
-        _CRT_SECURE_NO_DEPRECATE
-        _CRT_NONSTDC_NO_DEPRECATE
-        _USE_32BIT_TIME_T)
-    target_compile_options(${target} PRIVATE
-        /MP
-        /W3
-        /wd4244
-        /wd4267
-        /wd4305
-        /wd4996)
+set(DARKLIGHT_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Directory used for executable output")
+set(DARKLIGHT_DXSDK_DIR "" CACHE PATH "DirectX SDK (June 2010) root directory; may also be set with DXSDK_DIR")
+
+if(DARKLIGHT_BUILD_IDSTUDIO AND NOT (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))
+	message(FATAL_ERROR
+		"DARKLIGHT_BUILD_IDSTUDIO requires Windows and the MSVC toolchain. "
+		"Configure with -DDARKLIGHT_BUILD_IDSTUDIO=OFF for other platforms.")
+endif()
+
+if(DARKLIGHT_LEGACY_32BIT_TIME_T)
+	if(NOT WIN32 OR CMAKE_SIZEOF_VOID_P EQUAL 8)
+		message(FATAL_ERROR "DARKLIGHT_LEGACY_32BIT_TIME_T is only valid for 32-bit Windows builds.")
+	endif()
+	message(WARNING "The legacy 32-bit time_t ABI is enabled. Prefer the default 64-bit time_t wherever possible.")
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(DARKLIGHT_ARCH "x64")
+else()
+	set(DARKLIGHT_ARCH "x86")
+endif()
+
+if(WIN32)
+	set(DARKLIGHT_PLATFORM "windows")
+elseif(APPLE)
+	set(DARKLIGHT_PLATFORM "macos")
+elseif(UNIX)
+	set(DARKLIGHT_PLATFORM "linux")
+else()
+	set(DARKLIGHT_PLATFORM "unknown")
+endif()
+
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" DARKLIGHT_PROCESSOR)
+
+if(DARKLIGHT_PROCESSOR MATCHES "^(aarch64|arm64)$"
+	OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+	set(DARKLIGHT_CPU "arm64")
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+	set(DARKLIGHT_CPU "x64")
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+	set(DARKLIGHT_CPU "x86")
+else()
+	message(FATAL_ERROR "Unsupported target architecture.")
+endif()
+
+# Set the platform-specific build information.
+set(PLATFORM_DEFINES "CPUSTRING=\"${DARKLIGHT_CPU}\"")
+
+if(WIN32)
+	set(DARKLIGHT_BUILD_OS_ID 0)
+
+	list(APPEND PLATFORM_DEFINES
+		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
+		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
+		"PATHSEPARATOR_STR=\"\\\\\""
+		"PATHSEPARATOR_CHAR='\\\\'"
+		"NEWLINE=\"\\r\\n\"")
+elseif(APPLE)
+	set(DARKLIGHT_BUILD_OS_ID 2)
+
+	list(APPEND PLATFORM_DEFINES
+		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
+		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
+		"PATHSEPARATOR_STR=\"/\""
+		"PATHSEPARATOR_CHAR='/'"
+		"NEWLINE=\"\\n\"")
+elseif(UNIX)
+	set(DARKLIGHT_BUILD_OS_ID 1)
+
+	list(APPEND PLATFORM_DEFINES
+		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
+		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
+		"PATHSEPARATOR_STR=\"/\""
+		"PATHSEPARATOR_CHAR='/'"
+		"NEWLINE=\"\\n\"")
+else()
+	message(FATAL_ERROR "Unsupported target operating system.")
+endif()
+
+# Shared target helpers
+set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER  "")
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+function(darklight_set_output_directories target)
+	set_target_properties(${target} PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${DARKLIGHT_OUTPUT_DIR}"
+		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+		ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+
+	foreach(_configuration Debug Release RelWithDebInfo MinSizeRel)
+		string(TOUPPER "${_configuration}" _configuration_upper)
+		set_target_properties(${target} PROPERTIES
+			"RUNTIME_OUTPUT_DIRECTORY_${_configuration_upper}" "${DARKLIGHT_OUTPUT_DIR}"
+			"LIBRARY_OUTPUT_DIRECTORY_${_configuration_upper}" "${CMAKE_BINARY_DIR}/lib"
+			"ARCHIVE_OUTPUT_DIRECTORY_${_configuration_upper}" "${CMAKE_BINARY_DIR}/lib")
+	endforeach()
 endfunction()
 
-file(GLOB_RECURSE IDLIB_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/idlib/*.cpp")
-add_library(idlib STATIC ${IDLIB_SOURCES})
-darklight_common_target(idlib)
-target_compile_definitions(idlib PRIVATE __IDLIB__)
+function(darklight_configure_target target)
+	target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/idlib")
 
-file(GLOB EXTERNAL_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/framework/zlib/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/*.cpp")
-list(REMOVE_ITEM EXTERNAL_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/framework/zlib/example.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/framework/zlib/minigzip.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jcapistd.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jctrans.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jload.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jmemansi.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jmemdos.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jmemname.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6/jpegtran.cpp")
-add_library(external STATIC ${EXTERNAL_SOURCES})
-darklight_common_target(external)
-target_include_directories(external PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jpeg-6")
+	if(WIN32)
+		target_compile_definitions(${target} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+	endif()
 
-# Microsoft JPEG XR reference encoder.  Virtual-texture pages store the JPEG XR
-# image-plane stream without the ordinary container/image header, so the engine
-# wrapper uses the low-level streaming API directly.
-set(JXRLIB_ENCODER_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/adapthuff.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/image.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strcodec.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strPredQuant.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/strTransform.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys/perfTimerANSI.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/encode.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/segenc.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strenc.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strFwdTransform.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode/strPredQuantEnc.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/decode.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/postprocess.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/segdec.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strdec.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strInvTransform.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode/strPredQuantDec.c")
-add_library(jxrlib_encoder STATIC ${JXRLIB_ENCODER_SOURCES})
-target_include_directories(jxrlib_encoder PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/common/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/sys"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/encode"
-    "${CMAKE_CURRENT_SOURCE_DIR}/extern/jxrlib/image/decode")
-target_compile_definitions(jxrlib_encoder PRIVATE
-    __ANSI__
-    DISABLE_PERF_MEASUREMENT
-    _CRT_SECURE_NO_DEPRECATE)
-target_compile_options(jxrlib_encoder PRIVATE
-    /W0
-    /wd4996)
+	if(DARKLIGHT_LEGACY_32BIT_TIME_T)
+		target_compile_definitions(${target} PRIVATE _USE_32BIT_TIME_T)
+	endif()
 
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/game/*.cpp")
-list(REMOVE_ITEM GAME_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/game/EndLevel.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/game/gamesys/Callbacks.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/game/menus/MenuWidget_DevList.cpp")
-# Game classes and events register themselves through static initializers and
-# are looked up by name from DoomScript.  An ordinary static archive lets the
-# linker discard translation units (such as AI_Vagary.cpp) that have no native
-# symbol reference, so include every game object in the executable.
-add_library(game OBJECT ${GAME_SOURCES})
-darklight_common_target(game)
-target_compile_definitions(game PRIVATE __DOOM__ _D3XP CTF)
+	target_compile_definitions(${target} PRIVATE __DOOM__ ${PLATFORM_DEFINES})
 
+	if(MSVC)
+		target_compile_options(${target} PRIVATE
+			/MP
+			/W3
+			/wd4244
+			/wd4267
+			/wd4305
+			/wd4996
+		)
+		target_compile_definitions(${target} PRIVATE
+			_CRT_SECURE_NO_DEPRECATE
+			_CRT_NONSTDC_NO_DEPRECATE
+		)
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+		target_compile_options(${target} PRIVATE
+			-Wall
+			-Wextra
+			-Wno-unused-parameter
+			-Wno-missing-field-initializers
+		)
+	endif()
+
+	if(DARKLIGHT_WARNINGS_AS_ERRORS)
+		if(MSVC)
+			target_compile_options(${target} PRIVATE /WX)
+		else()
+			target_compile_options(${target} PRIVATE -Werror)
+		endif()
+	endif()
+	
+	if (NOT ARGN)
+		target_precompile_headers(${target} PRIVATE "${CMAKE_SOURCE_DIR}/idlib/precompiled.h")
+	endif()
+
+	darklight_set_output_directories(${target})
+endfunction()
+
+function(darklight_set_folder target folder)
+	set_target_properties(${target} PROPERTIES FOLDER "${folder}")
+endfunction()
+
+function(darklight_collect_sources output_variable)
+	file(GLOB_RECURSE _collected CONFIGURE_DEPENDS ${ARGN})
+	list(REMOVE_DUPLICATES _collected)
+	set(${output_variable} "${_collected}" PARENT_SCOPE)
+endfunction()
+
+# Third-party libraries
+add_subdirectory(extern)
+
+# Engine libraries
+add_subdirectory(idlib)
+add_subdirectory(game)
+
+# Engine sources
 file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/aas/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/cm/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/framework/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/Color/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageminlod/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pagesort/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageupdate/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/baredct/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barehdp/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sound/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sound/XAudio2/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/swf/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")
+	"${CMAKE_CURRENT_SOURCE_DIR}/cm/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/cm/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/framework/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/framework/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/Color/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/Color/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageminlod/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageminlod/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pagesort/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pagesort/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageupdate/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/pageupdate/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/baredct/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/baredct/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barehdp/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barehdp/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sound/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sound/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/swf/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/swf/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sys/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/sys/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/ui/*.h")
 
-file(GLOB IDSTUDIO_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/tools/comafx/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/tools/idstudio/*.cpp")
-list(APPEND DARKLIGHT_SOURCES ${IDSTUDIO_SOURCES})
-set_source_files_properties(${IDSTUDIO_SOURCES} PROPERTIES
-    COMPILE_DEFINITIONS IDSTUDIO)
-# The reconstructed JXR codec uses std::clamp internally. Keep the legacy
-# engine at C++14 and opt only these isolated translation units into C++17.
-file(GLOB BAREJXR_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp")
-set_source_files_properties(${BAREJXR_SOURCES} PROPERTIES COMPILE_OPTIONS "/std:c++17")
 list(REMOVE_ITEM DARKLIGHT_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/framework/Session.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/renderer/BoundsTrack.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_gamma.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_stats.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/ui/GameWindow.cpp")
-list(APPEND DARKLIGHT_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/doom.rc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Common.rc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Radiant.rc")
-add_executable(Darklight WIN32 ${DARKLIGHT_SOURCES})
-darklight_common_target(Darklight)
-target_compile_definitions(Darklight PRIVATE __DOOM__)
-set_property(TARGET Darklight PROPERTY VS_GLOBAL_UseOfMfc "Static")
+	"${CMAKE_CURRENT_SOURCE_DIR}/framework/Session.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/BoundsTrack.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/ui/GameWindow.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/ui/GameWindow.h")
 
-target_link_directories(Darklight PRIVATE "${DXSDK_DIR}/Lib/x86")
-target_link_libraries(Darklight PRIVATE
-    idlib
-    game
-    external
-    jxrlib_encoder
-    xinput
-    dbghelp
-    dinput8
-    dsound
-    dxguid
-    DxErr
-    glu32
-    iphlpapi
-    comctl32
-    comdlg32
-    shell32
-    shlwapi
-    ole32
-    oleaut32
-    uuid
-    odbc32
-    odbccp32
-    opengl32
-    winmm
-    wsock32
-    x3daudio)
+# Add only the system layer for the selected platform. These directories are
+# optional so a partially ported platform can be brought up incrementally.
+if(WIN32)
+	darklight_collect_sources(DARKLIGHT_PLATFORM_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/*.h")
 
-target_link_options(Darklight PRIVATE
-    /LARGEADDRESSAWARE
-    /MANIFEST:NO
-    /STACK:16777216,16777216)
+	list(REMOVE_ITEM DARKLIGHT_PLATFORM_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_snd.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_stats.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_stats.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/win_gamma.cpp")
+elseif(APPLE)
+	darklight_collect_sources(DARKLIGHT_PLATFORM_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/osx/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/osx/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/macos/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/macos/*.h")
+elseif(UNIX)
+	darklight_collect_sources(DARKLIGHT_PLATFORM_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/posix/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/linux/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sys/linux/*.h")
+endif()
+list(APPEND DARKLIGHT_SOURCES ${DARKLIGHT_PLATFORM_SOURCES})
 
-set_target_properties(Darklight PROPERTIES
-    OUTPUT_NAME "Darklight"
-    RUNTIME_OUTPUT_DIRECTORY "${DARKLIGHT_OUTPUT_DIR}")
+# Select the audio backend without pulling Windows headers into other builds.
+set(DARKLIGHT_USE_OPENAL_BACKEND OFF)
+if(WIN32)
+	file(GLOB AUDIO_BACKEND_SOURCES CONFIGURE_DEPENDS
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/XAudio2/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/XAudio2/*.h")
 
-foreach(configuration Debug Release RelWithDebInfo MinSizeRel)
-    string(TOUPPER "${configuration}" configuration_upper)
-    set_target_properties(Darklight PROPERTIES
-        "RUNTIME_OUTPUT_DIRECTORY_${configuration_upper}" "${DARKLIGHT_OUTPUT_DIR}")
-endforeach()
+	list(APPEND DARKLIGHT_SOURCES ${AUDIO_BACKEND_SOURCES})
+elseif(APPLE)
+	darklight_collect_sources(DARKLIGHT_OPENAL_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/OpenAL/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/OpenAL/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/AL/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/AL/*.h")
 
-set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT Darklight)
+	darklight_collect_sources(DARKLIGHT_COREAUDIO_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/CoreAudio/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/CoreAudio/*.h")
+
+	list(APPEND DARKLIGHT_SOURCES
+		${DARKLIGHT_OPENAL_SOURCES}
+		${DARKLIGHT_COREAUDIO_SOURCES})
+
+	if(DARKLIGHT_OPENAL_SOURCES)
+		set(DARKLIGHT_USE_OPENAL_BACKEND ON)
+	endif()
+elseif(UNIX)
+	darklight_collect_sources(DARKLIGHT_OPENAL_SOURCES
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/OpenAL/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/OpenAL/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/AL/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/sound/AL/*.h")
+
+	list(APPEND DARKLIGHT_SOURCES ${DARKLIGHT_OPENAL_SOURCES})
+
+	if(DARKLIGHT_OPENAL_SOURCES)
+		set(DARKLIGHT_USE_OPENAL_BACKEND ON)
+	endif()
+endif()
+
+# idStudio uses MFC, MFC is limited to MSVC only.
+if(DARKLIGHT_BUILD_IDSTUDIO)
+	file(GLOB IDSTUDIO_SOURCES CONFIGURE_DEPENDS
+		"${CMAKE_CURRENT_SOURCE_DIR}/tools/comafx/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/tools/comafx/*.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/tools/idstudio/*.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/tools/idstudio/*.h")
+	if(NOT IDSTUDIO_SOURCES)
+		message(FATAL_ERROR "DARKLIGHT_BUILD_IDSTUDIO is enabled, but no idStudio sources were found.")
+	endif()
+	list(APPEND DARKLIGHT_SOURCES ${IDSTUDIO_SOURCES})
+	set_source_files_properties(${IDSTUDIO_SOURCES} PROPERTIES COMPILE_DEFINITIONS IDSTUDIO)
+endif()
+
+# barejxr uses std::clamp until we make the engine compiles under C++17
+# This would be compile has C++17 for now
+file(GLOB BAREJXR_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/transcode/image/barejxr/*.cpp")
+if(BAREJXR_SOURCES)
+	if(MSVC)
+		set_source_files_properties(${BAREJXR_SOURCES} PROPERTIES COMPILE_OPTIONS "/std:c++17")
+	else()
+		set_source_files_properties(${BAREJXR_SOURCES} PROPERTIES COMPILE_OPTIONS "-std=gnu++17")
+	endif()
+	set_source_files_properties(${BAREJXR_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE)
+endif()
+
+if(WIN32)
+	list(APPEND DARKLIGHT_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/doom.rc")
+		
+	if(DARKLIGHT_BUILD_IDSTUDIO)
+		list(APPEND DARKLIGHT_SOURCES
+			"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Common.rc"
+			"${CMAKE_CURRENT_SOURCE_DIR}/sys/win32/rc/Radiant.rc")	
+	endif()
+endif()
+
+list(REMOVE_DUPLICATES DARKLIGHT_SOURCES)
+
+source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${DARKLIGHT_SOURCES})
+
+if(DARKLIGHT_BUILD_EXECUTABLE)
+	if(NOT DARKLIGHT_SOURCES)
+		message(FATAL_ERROR "No application source files were found.")
+	endif()
+
+	# Do not enable MFC for the whole engine.
+	if(DARKLIGHT_BUILD_IDSTUDIO)
+		set(_darklight_saved_mfc_flag "${CMAKE_MFC_FLAG}")
+		set(CMAKE_MFC_FLAG 1)
+	endif()
+
+	if(WIN32)
+		add_executable(Darklight WIN32 ${DARKLIGHT_SOURCES})
+	else()
+		add_executable(Darklight ${DARKLIGHT_SOURCES})
+	endif()
+
+	if(DARKLIGHT_BUILD_IDSTUDIO)
+		set(CMAKE_MFC_FLAG "${_darklight_saved_mfc_flag}")
+		set_property(TARGET Darklight PROPERTY VS_GLOBAL_UseOfMfc "Static")
+	endif()
+
+	darklight_configure_target(Darklight)
+	darklight_set_folder(Darklight "exes")
+
+	target_include_directories(Darklight PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/jpeg-6")
+
+	target_link_libraries(Darklight PRIVATE
+		idlib
+		game
+		external
+		jxrlib_encoder)
+
+	find_package(Threads REQUIRED)
+	target_link_libraries(Darklight PRIVATE Threads::Threads)
+
+	if(CMAKE_DL_LIBS)
+		target_link_libraries(Darklight PRIVATE ${CMAKE_DL_LIBS})
+	endif()
+
+	find_package(OpenGL REQUIRED)
+	target_link_libraries(Darklight PRIVATE OpenGL::GL)
+
+	if(DARKLIGHT_USE_OPENAL_BACKEND)
+		find_package(OpenAL REQUIRED)
+		target_link_libraries(Darklight PRIVATE OpenAL::OpenAL)
+	endif()
+
+	if(WIN32)	# Windows libraries
+		target_compile_definitions(Darklight PRIVATE
+			WIN32_LEAN_AND_MEAN
+			NOMINMAX)
+
+		target_link_libraries(Darklight PRIVATE
+			dbghelp
+			glu32
+			iphlpapi
+			comctl32
+			comdlg32
+			shell32
+			shlwapi
+			ole32
+			oleaut32
+			uuid
+			odbc32
+			odbccp32
+			winmm
+			ws2_32
+			user32
+			gdi32
+			advapi32)
+
+			# Find Windows SDK
+			find_package(WindowsSDK REQUIRED)
+			get_windowssdk_library_dirs("${WINDOWSSDK_LATEST_DIR}" WINSDK_LIB_DIRS)
+
+			set(WINSDK_LIB_DIR "")
+			foreach(_dir ${WINSDK_LIB_DIRS})
+				if(EXISTS "${_dir}/dinput8.lib")
+					set(WINSDK_LIB_DIR "${_dir}")
+					break()
+				endif()
+			endforeach()
+	
+			target_link_directories(Darklight PRIVATE ${WINSDK_LIB_DIR})
+
+			target_link_libraries(Darklight PRIVATE
+				xinput
+				dinput8
+				dsound
+				dxguid
+				x3daudio
+				xaudio2)
+
+			if(MSVC)
+				target_link_options(Darklight PRIVATE /LARGEADDRESSAWARE /MANIFEST:NO "/STACK:16777216,16777216")
+			elseif(MINGW AND DARKLIGHT_ARCH STREQUAL "x86")
+				target_link_options(Darklight PRIVATE -Wl,--large-address-aware)
+			endif()
+	elseif(APPLE) # macOS system libraries
+		foreach(_framework Cocoa IOKit CoreFoundation CoreAudio AudioToolbox)
+			find_library(_darklight_${_framework}_framework ${_framework})
+			if(_darklight_${_framework}_framework)
+				target_link_libraries(Darklight PRIVATE "${_darklight_${_framework}_framework}")
+			endif()
+		endforeach()
+	elseif(UNIX) # Linux and *nix system libraries
+		target_link_libraries(Darklight PRIVATE m)
+
+		find_package(X11 QUIET)
+		if(X11_FOUND)
+			if(TARGET X11::X11)
+				target_link_libraries(Darklight PRIVATE X11::X11)
+			else()
+				target_include_directories(Darklight PRIVATE ${X11_INCLUDE_DIR})
+				target_link_libraries(Darklight PRIVATE ${X11_LIBRARIES})
+			endif()
+
+			foreach(_x11_target
+				X11::Xrandr
+				X11::Xi
+				X11::Xinerama
+				X11::Xcursor
+				X11::Xxf86vm
+				X11::Xext
+				X11::Xrender)
+				if(TARGET ${_x11_target})
+					target_link_libraries(Darklight PRIVATE ${_x11_target})
+				endif()
+			endforeach()
+		endif()
+	endif()
+
+	set_target_properties(Darklight PROPERTIES
+		OUTPUT_NAME Darklight
+		VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
+	install(TARGETS Darklight
+		RUNTIME DESTINATION bin
+		BUNDLE DESTINATION .)
+endif()
+
+# Link-time optimization
+if(DARKLIGHT_ENABLE_LTO)
+	check_ipo_supported(RESULT _darklight_ipo_supported OUTPUT _darklight_ipo_error)
+	if(_darklight_ipo_supported)
+		foreach(_target idlib game jxrlib_encoder Darklight)
+			if(TARGET ${_target})
+				set_property(TARGET ${_target} PROPERTY
+					INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+			endif()
+		endforeach()
+	else()
+		message(WARNING "Link-time optimization is not available with this toolchain: ${_darklight_ipo_error}")
+	endif()
+endif()
+
+message(STATUS "Platform: ${DARKLIGHT_PLATFORM}")
+message(STATUS "Architecture: ${DARKLIGHT_ARCH}")
+message(STATUS "C compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "idStudio Integration: ${DARKLIGHT_BUILD_IDSTUDIO}")
+message(STATUS "Executable output: ${DARKLIGHT_OUTPUT_DIR}")

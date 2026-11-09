@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "WolfSP (Win32 debug)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/WolfSP.exe",
+            "args": [
+                "+set",
+                "r_fullscreen",
+                "0"
+            ],
+            "cwd": "${workspaceFolder}/bin",
+            "preLaunchTask": "Build (Win32 debug)",
+            "console": "integratedTerminal"
+        }
+    ]
+}
