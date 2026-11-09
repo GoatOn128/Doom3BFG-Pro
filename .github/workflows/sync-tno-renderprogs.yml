@@ -1,52 +1,44 @@
-name: sync-tno-renderprogs
+name: cleanup-tno-renderprogs
+
+# One-shot cleanup for the TNO decompiled renderprogs that the old sync
+# workflow copied into base/renderprogs. The TNO progs are not used
+# anymore: m1 converts the BFG shaders onto the new renderprog path
+# instead. The job deletes the data with a GITHUB_TOKEN push and then
+# tries to delete this workflow file; if that push is rejected the
+# inert file stays behind.
 
 on:
   push:
-    branches: ['m1-renderprogs']
+    branches: [m1-renderprogs]
 
-concurrency:
-  group: sync-tno-renderprogs-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-  sync:
-    name: copy-tno-renderprogs
+  cleanup:
+    if: contains(github.event.head_commit.message, '[cleanup-tno-renderprogs]')
     runs-on: ubuntu-latest
-    # only the push that carries the tag copies data; every other push
-    # to the branch leaves this job skipped
-    if: contains(github.event.head_commit.message, '[sync-renderprogs]')
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
-      - name: copy
+      - name: Remove the synced TNO renderprogs
         run: |
-          set -e
-          src=references/wolftno/base/renderprogs
-          dst=base/renderprogs
-          mkdir -p "$dst"
-          # the TNO shaders include "global.inc", but base/renderprogs
-          # already holds the BFG Cg-era global.inc that the old loader
-          # still reads; the TNO copy ships as global_tno.inc until the
-          # old loader is retired in the switchover phase
-          find "$src" -maxdepth 1 -type f ! -name 'global.inc' -exec cp '{}' "$dst/" \;
-          cp "$src/global.inc" "$dst/global_tno.inc"
-
-      - name: inventory
-        run: python3 .github/scripts/renderprog_inventory.py
-
-      - name: publish
-        env:
-          HEAD_BRANCH: ${{ github.ref_name }}
-        run: |
-          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add base/renderprogs docs/m1-parm-inventory.md
-          git diff --cached --quiet && exit 0
-          git commit -m "Copy the TNO decompiled renderprogs into base [skip ci]"
-          if ! out=$(git push 2>&1); then
-            git pull --rebase -X theirs origin "$HEAD_BRANCH"
-            git push
+          git rm -q --ignore-unmatch             'base/renderprogs/*.vglsl'             'base/renderprogs/*.pglsl'             'base/renderprogs/*.parms'             'base/renderprogs/global_tno.inc'             'docs/m1-parm-inventory.md'             '.github/scripts/renderprog_inventory.py'
+          git commit -q -m "Remove the TNO decompiled renderprogs data [cleanup-tno-renderprogs]"
+          if ! git push origin HEAD:m1-renderprogs; then
+            echo "::error::failed to push the data removal commit"
+            exit 1
+          fi
+
+      - name: Remove this workflow file
+        run: |
+          git rm -q '.github/workflows/sync-tno-renderprogs.yml'
+          git commit -q -m "Remove the one-shot cleanup workflow [cleanup-tno-renderprogs]"
+          if ! git push origin HEAD:m1-renderprogs; then
+            echo "::warning::workflow file push rejected, leaving the inert workflow in place"
           fi
