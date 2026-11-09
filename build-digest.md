@@ -1,6 +1,6 @@
 # Build digest
 
-commit: fac0ade64048
+commit: 56dd7ab52185
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
