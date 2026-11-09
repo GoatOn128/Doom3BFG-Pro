@@ -1,122 +1,96 @@
+/*
+===========================================================================
+
+Doom 3 BFG Edition GPL Source Code
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+
+Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
+
 renderprog texture_color_texgen {
 	hlsl_vp {
-/*
-===========================================================================
+		#include "global.inc"
 
-Doom 3 BFG Edition GPL Source Code
-Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+		struct VS_IN {
+			float4 position : POSITION;
+			float2 texcoord : TEXCOORD0;
+			float4 normal : NORMAL;
+			float4 tangent : TANGENT;
+			float4 color : COLOR0;
+		};
 
-This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+		struct VS_OUT {
+			float4 position : POSITION;
+			float4 texcoord0 : TEXCOORD0;
+			float4 color : COLOR0;
+		};
 
-Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+		void main( VS_IN vertex, out VS_OUT result ) {
+			result.position.x = dot4( vertex.position, rpMVPmatrixX );
+			result.position.y = dot4( vertex.position, rpMVPmatrixY );
+			result.position.z = dot4( vertex.position, rpMVPmatrixZ );
+			result.position.w = dot4( vertex.position, rpMVPmatrixW );
 
-Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+			float4 tc0;
+			tc0.x = dot4( vertex.position, rpTexGen0S );
+			tc0.y = dot4( vertex.position, rpTexGen0T );
 
-You should have received a copy of the GNU General Public License
-along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+			tc0.z = 0.0f;
+			tc0.w = dot4( vertex.position, rpTexGen0Q ); 
 
-In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+			// multiply the texture matrix in
+			result.texcoord0.x = dot4( tc0, rpTextureMatrixS );
+			result.texcoord0.y = dot4( tc0, rpTextureMatrixT );
+			result.texcoord0.zw = tc0.zw;
 
-If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
-
-===========================================================================
-*/
-
-#include "global.inc"
-
-struct VS_IN {
-	float4 position : POSITION;
-	float2 texcoord : TEXCOORD0;
-	float4 normal : NORMAL;
-	float4 tangent : TANGENT;
-	float4 color : COLOR0;
-};
-
-struct VS_OUT {
-	float4 position : POSITION;
-	float4 texcoord0 : TEXCOORD0;
-	float4 color : COLOR0;
-};
-
-void main( VS_IN vertex, out VS_OUT result ) {
-	result.position.x = dot4( vertex.position, rpMVPmatrixX );
-	result.position.y = dot4( vertex.position, rpMVPmatrixY );
-	result.position.z = dot4( vertex.position, rpMVPmatrixZ );
-	result.position.w = dot4( vertex.position, rpMVPmatrixW );
-
-	float4 tc0;
-	tc0.x = dot4( vertex.position, rpTexGen0S );
-	tc0.y = dot4( vertex.position, rpTexGen0T );
-
-	tc0.z = 0.0f;
-	tc0.w = dot4( vertex.position, rpTexGen0Q ); 
-
-	// multiply the texture matrix in
-	result.texcoord0.x = dot4( tc0, rpTextureMatrixS );
-	result.texcoord0.y = dot4( tc0, rpTextureMatrixT );
-	result.texcoord0.zw = tc0.zw;
-
-	// compute vertex modulation
-	float4 vertexColor = ( swizzleColor( vertex.color ) * rpVertexColorModulate ) + rpVertexColorAdd;
-	result.color =  vertexColor * rpColor;
-}	}
+			// compute vertex modulation
+			float4 vertexColor = ( swizzleColor( vertex.color ) * rpVertexColorModulate ) + rpVertexColorAdd;
+			result.color =  vertexColor * rpColor;
+		}
+	}
 	hlsl_fp {
-/*
-===========================================================================
+		#include "global.inc"
 
-Doom 3 BFG Edition GPL Source Code
-Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+		uniform sampler2D samp0 : register(s0);
 
-This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+		struct PS_IN {
+			float4 position : VPOS;
+			float4 texcoord0 : TEXCOORD0_centroid;
+			float4 color : COLOR0;
+		};
 
-Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+		struct PS_OUT {
+			float4 color : COLOR;
+		};
 
-Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+		void main( PS_IN fragment, out PS_OUT result ) {
 
-You should have received a copy of the GNU General Public License
-along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+			// we always do a projective texture lookup so that we can support texgen
+			// materials without a separate shader. Basic materials will have texture
+			// coordinates with w = 1 which will result in a NOP projection when tex2Dproj
+			// gets called.
+			float4 texSample = idtex2Dproj( samp0, fragment.texcoord0 );
 
-In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
-
-If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
-
-===========================================================================
-*/
-
-#include "global.inc"
-
-uniform sampler2D samp0 : register(s0);
-
-struct PS_IN {
-	float4 position : VPOS;
-	float4 texcoord0 : TEXCOORD0_centroid;
-	float4 color : COLOR0;
-};
-
-struct PS_OUT {
-	float4 color : COLOR;
-};
-
-void main( PS_IN fragment, out PS_OUT result ) {
-
-	// we always do a projective texture lookup so that we can support texgen
-	// materials without a separate shader. Basic materials will have texture
-	// coordinates with w = 1 which will result in a NOP projection when tex2Dproj
-	// gets called.
-	float4 texSample = idtex2Dproj( samp0, fragment.texcoord0 );
-
-	result.color = texSample * fragment.color;
-}	}
+			result.color = texSample * fragment.color;
+		}
+	}
 }
