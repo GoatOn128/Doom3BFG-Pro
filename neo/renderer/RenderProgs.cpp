@@ -257,7 +257,18 @@ void idRenderProgManager::LoadVertexShader( int index ) {
 	if ( vertexShaders[index].progId != INVALID_PROGID ) {
 		return; // Already loaded
 	}
-	vertexShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_VERTEX_SHADER, vertexShaders[index].name, vertexShaders[index].uniforms );
+	// read the shader source text from the renderprogs folder
+	idStr inFile;
+	inFile.Format( "renderprogs\\%s", vertexShaders[index].name.c_str() );
+	inFile.StripFileExtension();
+	inFile += ".vertex";
+	ID_TIME_T timeStamp = 0;
+	void * buffer = NULL;
+	if ( fileSystem->ReadFile( inFile.c_str(), &buffer, &timeStamp ) <= 0 ) {
+		return;
+	}
+	vertexShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_VERTEX_SHADER, vertexShaders[index].name, vertexShaders[index].uniforms, ( const char * ) buffer, timeStamp );
+	Mem_Free( buffer );
 }
 
 /*
@@ -269,7 +280,18 @@ void idRenderProgManager::LoadFragmentShader( int index ) {
 	if ( fragmentShaders[index].progId != INVALID_PROGID ) {
 		return; // Already loaded
 	}
-	fragmentShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_FRAGMENT_SHADER, fragmentShaders[index].name, fragmentShaders[index].uniforms );
+	// read the shader source text from the renderprogs folder
+	idStr inFile;
+	inFile.Format( "renderprogs\\%s", fragmentShaders[index].name.c_str() );
+	inFile.StripFileExtension();
+	inFile += ".pixel";
+	ID_TIME_T timeStamp = 0;
+	void * buffer = NULL;
+	if ( fileSystem->ReadFile( inFile.c_str(), &buffer, &timeStamp ) <= 0 ) {
+		return;
+	}
+	fragmentShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_FRAGMENT_SHADER, fragmentShaders[index].name, fragmentShaders[index].uniforms, ( const char * ) buffer, timeStamp );
+	Mem_Free( buffer );
 }
 
 /*

@@ -917,7 +917,7 @@ idStr ConvertCG2GLSL( const idStr & in, const char * name, bool isVertexProgram,
 idRenderProgManager::LoadGLSLShader
 ================================================================================================
 */
-GLuint idRenderProgManager::LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms ) {
+GLuint idRenderProgManager::LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms, const char * programHLSL, const ID_TIME_T sourceTimeStamp ) {
 
 	idStr inFile;
 	idStr outFileHLSL;
@@ -943,32 +943,24 @@ GLuint idRenderProgManager::LoadGLSLShader( GLenum target, const char * name, id
 		outFileUniforms += "_vertex.uniforms";
 	}
 
-	// first check whether we already have a valid GLSL file and compare it to the hlsl timestamp;
-	ID_TIME_T hlslTimeStamp;
-	int hlslFileLength = fileSystem->ReadFile( inFile.c_str(), NULL, &hlslTimeStamp );
-
+	// first check whether we already have a valid GLSL file and compare it to the source timestamp
 	ID_TIME_T glslTimeStamp;
 	int glslFileLength = fileSystem->ReadFile( outFileGLSL.c_str(), NULL, &glslTimeStamp );
 
-	// if the glsl file doesn't exist or we have a newer HLSL file we need to recreate the glsl file.
+	// if the glsl file doesn't exist or we have a newer source we need to recreate the glsl file.
 	idStr programGLSL;
 	idStr programUniforms;
-	if ( ( glslFileLength <= 0 ) || ( hlslTimeStamp > glslTimeStamp ) ) {
-		if ( hlslFileLength <= 0 ) {
-			// hlsl file doesn't even exist bail out
+	if ( ( glslFileLength <= 0 ) || ( sourceTimeStamp > glslTimeStamp ) ) {
+		if ( programHLSL == NULL || programHLSL[0] == '\0' ) {
+			// no shader source text, bail out
 			return false;
 		}
 
-		void * hlslFileBuffer = NULL;
-		int len = fileSystem->ReadFile( inFile.c_str(), &hlslFileBuffer );
-		if ( len <= 0 ) {
-			return false;
-		}
-		idStr hlslCode( ( const char* ) hlslFileBuffer );
-		idStr programHLSL = StripDeadCode( hlslCode, inFile );
-		programGLSL = ConvertCG2GLSL( programHLSL, inFile, target == GL_VERTEX_SHADER, programUniforms );
+		idStr hlslCode( programHLSL );
+		idStr strippedHLSL = StripDeadCode( hlslCode, inFile );
+		programGLSL = ConvertCG2GLSL( strippedHLSL, inFile, target == GL_VERTEX_SHADER, programUniforms );
 
-		fileSystem->WriteFile( outFileHLSL, programHLSL.c_str(), programHLSL.Length(), "fs_basepath" );
+		fileSystem->WriteFile( outFileHLSL, strippedHLSL.c_str(), strippedHLSL.Length(), "fs_basepath" );
 		fileSystem->WriteFile( outFileGLSL, programGLSL.c_str(), programGLSL.Length(), "fs_basepath" );
 		if ( r_useUniformArrays.GetBool() ) {
 			fileSystem->WriteFile( outFileUniforms, programUniforms.c_str(), programUniforms.Length(), "fs_basepath" );

@@ -258,7 +258,7 @@ protected:
 
 	GLuint	LoadShader( GLenum target, const char * name, const char * startToken );
 	bool	CompileGLSL( GLenum target, const char * name );
-	GLuint	LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms );
+	GLuint	LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms, const char * programHLSL, const ID_TIME_T sourceTimeStamp );
 	void	LoadGLSLProgram( const int programIndex, const int vertexShaderIndex, const int fragmentShaderIndex );
 
 	static const GLuint INVALID_PROGID = 0xFFFFFFFF;
