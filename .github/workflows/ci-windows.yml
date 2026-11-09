@@ -55,22 +55,41 @@ jobs:
         env:
           LEG: windows-x86-${{ matrix.configuration }}
         run: |
-          # job logs are admin-only on this repo, so the failure reasons
-          # are surfaced as annotations too: they are readable without auth
-          $frag = "digest-fragment-$env:LEG.md"
-          if (-not (Test-Path $frag)) { exit 0 }
+          # job logs are admin-only, so the failure reasons are surfaced
+          # as annotations: they are readable without auth. build.log is
+          # read directly because the digest regex can miss error kinds.
+          $lines = @()
+          if (Test-Path build.log) { $lines = Get-Content build.log }
+          $clean = { param($s) (($s -replace '%', '%25') -replace "\r|\n", ' ') }
           $seen = New-Object 'System.Collections.Generic.HashSet[string]'
           $count = 0
-          foreach ($l in Get-Content $frag) {
-            if ($count -ge 10) { break }
+          foreach ($l in $lines) {
+            if ($count -ge 8) { break }
             $t = $l.Trim()
             if ($t.Length -lt 8) { continue }
-            if ($t -notmatch 'cmake error|fatal error|error [A-Z]+[0-9]|Build FAILED|FAILED') { continue }
+            if ($t -notmatch 'cmake error|fatal error|error [A-Z]+[0-9]|command line error|build failed|FAILED') { continue }
             if (-not $seen.Add($t)) { continue }
-            $msg = ($t -replace '%', '%25') -replace '\\', '%5C'
-            if ($msg.Length -gt 350) { $msg = $msg.Substring(0, 350) }
+            $msg = & $clean $t
+            if ($msg.Length -gt 400) { $msg = $msg.Substring(0, 400) }
             Write-Host "::error title=error $($count + 1) ($env:LEG)::$msg"
             $count++
+          }
+          # always also post the log tail: failures that print no
+          # recognized error line (crashes, aborts) stay visible this way
+          $tail = [array]($lines | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -Last 24)
+          if ($tail.Count -gt 0) {
+            $chunks = [Math]::Ceiling($tail.Count / 8)
+            for ($c = 0; $c -lt $chunks; $c++) {
+              $part = @()
+              for ($k = $c * 8; $k -lt [Math]::Min($c * 8 + 8, $tail.Count); $k++) {
+                $l = $tail[$k].Trim()
+                if ($l.Length -gt 110) { $l = $l.Substring(0, 110) }
+                $part += $l
+              }
+              $msg = & $clean ($part -join ' | ')
+              if ($msg.Length -gt 900) { $msg = $msg.Substring(0, 900) }
+              Write-Host "::error title=log tail $($c + 1) ($env:LEG)::$msg"
+            }
           }
 
       - name: upload logs
