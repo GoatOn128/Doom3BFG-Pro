@@ -1,0 +1,17 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform samplerCube samp_envmap;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 tc;
+	tc.xyz = vofi_TexCoord0.xyz;
+	tc.w = _fa_[0 ].x;
+	out_FragColor0 = texCUBElod( samp_envmap, tc );
+}

@@ -1,0 +1,675 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [29];
+uniform sampler2D samp_dither256map;
+uniform sampler2D samp_skinsssmap;
+uniform sampler2DMS samp_viewtargetms;
+uniform sampler2D samp_viewtarget;
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_viewcolormap;
+uniform sampler2D samp_minlodmap;
+uniform sampler2D samp_pagetablemap;
+uniform sampler2D samp_physicalmappingsmap;
+uniform sampler2D samp_physicalpagesmap0;
+uniform sampler2D samp_physicalpagesmap1;
+uniform sampler2D samp_physicalpagesmap2;
+uniform sampler2D samp_skinroughnessmap;
+uniform sampler2D samp_skinroughnessmap2;
+uniform sampler2D samp_selfshadowmap;
+uniform sampler2D samp_beckmannmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord4;
+
+out vec4 out_FragColor0;
+
+void main() {
+	{ if ( _fa_[0 ].x < 1.0 ) {
+			vec2 texcoord = gl_FragCoord.xy * ( 1.0 / 256.0 );
+			float dither = _fa_[0 ].y * tex2D( samp_dither256map, texcoord ).x + _fa_[0 ].z;
+			clip( _fa_[0 ].x - 0.2 - dither * 0.6 );
+		}
+	};
+	vec3 color;
+	{
+		float sssStrength = tex2D( samp_skinsssmap, vofi_TexCoord0.xy ).x;
+		float sssKernelWidth = _fa_[1 ].x;
+		float sssKernelWidthD = _fa_[1 ].x * 1000.0;
+		float sssKernelScale = 1.0 / 3.0;
+		vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[2 ] );
+		vec2 sssStep = _fa_[3 ].xy * sssStrength * sssKernelWidth * sssKernelScale;
+		vec4 centerColor; if ( _fa_[4 ].x > 1.0 ) {
+			centerColor = tex2DMSFetch( samp_viewtargetms, ivec2( texcoord / _fa_[2 ].zw ), 0 );
+			if ( _fa_[3 ].y > 0.5 ) {
+				centerColor = max( centerColor, tex2DMSFetch( samp_viewtargetms, ivec2( texcoord / _fa_[2 ].zw ), 1 ) );
+				centerColor = max( centerColor, tex2DMSFetch( samp_viewtargetms, ivec2( texcoord / _fa_[2 ].zw ), 2 ) );
+				centerColor = max( centerColor, tex2DMSFetch( samp_viewtargetms, ivec2( texcoord / _fa_[2 ].zw ), 3 ) );
+			}
+		} else {
+			centerColor = tex2D( samp_viewtarget, texcoord );
+		}
+		float centerDepth = tex2Ddepth( samp_viewdepthmap, texcoord );
+		vec2 kernelStep = sssStep / centerDepth; if ( _fa_[4 ].x > 1.0 ) {
+			color = centerColor.xyz * vec3( 0.536343, 0.624624, 0.748867 );
+			{
+				vec2 offset = texcoord + kernelStep * -2;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.00317394, 0.000134823, 0.00000377269 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -1.53125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0100386, 0.000914679, 0.000275702 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -1.125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0144609, 0.00317269, 0.00106399 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.78125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0216301, 0.00794618, 0.00376991 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.5;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0347317, 0.0151085, 0.00871983 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.28125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0571056, 0.0287432, 0.0172844 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0582416, 0.0659959, 0.0411329 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.03125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0324462, 0.0656718, 0.0532821 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.03125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0324462, 0.0656718, 0.0532821 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0582416, 0.0659959, 0.0411329 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.28125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0571056, 0.0287432, 0.0172844 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.5;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0347317, 0.0151085, 0.00871983 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.78125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0216301, 0.00794618, 0.00376991 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 1.125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0144609, 0.00317269, 0.00106399 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 1.53125;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0100386, 0.000914679, 0.000275702 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 2;
+				vec4 sampleColor = tex2DMSFetch( samp_viewtargetms, ivec2( offset / _fa_[2 ].zw ), 0 );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.00317394, 0.000134823, 0.00000377269 );
+				};
+			};
+		} else
+		{
+			color = centerColor.xyz * vec3( 0.536343, 0.624624, 0.748867 );
+			{
+				vec2 offset = texcoord + kernelStep * -2;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.00317394, 0.000134823, 0.00000377269 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -1.53125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0100386, 0.000914679, 0.000275702 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -1.125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0144609, 0.00317269, 0.00106399 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.78125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0216301, 0.00794618, 0.00376991 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.5;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0347317, 0.0151085, 0.00871983 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.28125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0571056, 0.0287432, 0.0172844 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0582416, 0.0659959, 0.0411329 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * -0.03125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0324462, 0.0656718, 0.0532821 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.03125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0324462, 0.0656718, 0.0532821 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0582416, 0.0659959, 0.0411329 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.28125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0571056, 0.0287432, 0.0172844 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.5;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0347317, 0.0151085, 0.00871983 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 0.78125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0216301, 0.00794618, 0.00376991 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 1.125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0144609, 0.00317269, 0.00106399 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 1.53125;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.0100386, 0.000914679, 0.000275702 );
+				};
+			};
+			{
+				vec2 offset = texcoord + kernelStep * 2;
+				vec4 sampleColor = tex2D( samp_viewtarget, offset );
+				{
+					float sampleMask = 1.0 - saturate( tex2D( samp_viewcolormap, offset ).x );
+					float sampleDepth = tex2Ddepth( samp_viewdepthmap, offset );
+					float mask = saturate( sssKernelWidthD * abs( centerDepth - sampleDepth ) + sampleMask );
+					color.xyz += mix( sampleColor.xyz, centerColor.xyz, mask ) * vec3( 0.00317394, 0.000134823, 0.00000377269 );
+				};
+			};
+		}
+		color = mix( centerColor.xyz, color, _fa_[3 ].w );
+	};
+	{ if ( _fa_[5 ].x != 0 && _fa_[3 ].y != 0.0 ) {
+			color.xyz = pow3( abs( color.xyz ), 2.2 );
+			vec4 sampleYCoCg;
+			vec4 sampleSpecular;
+			vec4 sampleNormal;
+			vec4 feedback;
+			vec3 surfaceDiffuse;
+			vec3 surfaceSpecular;
+			vec3 globalNormal;
+			{
+				vec4 texCoords = vofi_TexCoord0; if ( _fa_[6 ].x > 0 ) {
+					vec2 offset = ( texCoords.zw - fract( texCoords.xy ) ) * _fa_[7 ].xy;
+					texCoords.xy = fract( texCoords.xy ) * _fa_[7 ].xy + _fa_[7 ].zw;
+					texCoords.zw = texCoords.xy + offset;
+				}
+				float anisoLOD;
+				float sampleLOD;
+				{
+					float widthInTexels = _fa_[8 ].z;
+					float maxAnisoLog2 = _fa_[9 ].z;
+					vec2 texelCoords = texCoords.xy * widthInTexels;
+					vec2 dx = dFdx( texelCoords );
+					vec2 dy = dFdy( texelCoords );
+					float px = dot2( dx, dx );
+					float py = dot2( dy, dy );
+					float maxLod = 0.0;
+					float minLod = 0.0;
+					if ( px > 0.0 && py > 0.0 ) {
+						maxLod = 0.5 * log2( max( px, py ) );
+						minLod = 0.5 * log2( min( px, py ) );
+					}
+					anisoLOD = maxLod - min( maxAnisoLog2, maxLod - minLod );
+				};
+				{
+					sampleLOD = anisoLOD;
+					if ( _fa_[10 ].x != 0.0 ) {
+						float minLod = tex2D( samp_minlodmap, texCoords.xy ).x * 16 - ( 0.49 + _fa_[11 ].x );
+						sampleLOD = max( anisoLOD, minLod );
+					}
+				};
+				{
+					vec3 physCoords;
+					{
+						vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD - 0.5 );
+						vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+						vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+						physCoords.xy = texCoords.xy * xform.x + xform.zw;
+						physCoords.z = xform.y;
+					};
+					{
+						sampleSpecular = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+						sampleYCoCg = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+						sampleNormal = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+					};
+					if ( _fa_[10 ].y != 0.0 ) {
+						vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+						{
+							vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD + 0.5 );
+							vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+							vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+							physCoords.xy = texCoords.xy * xform.x + xform.zw;
+							physCoords.z = xform.y;
+						};
+						{
+							sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+							sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+							sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+						};
+						float trilinearFraction = fract( sampleLOD + _fa_[10 ].z );
+						sampleSpecular = mix( sampleSpecular, sampleSpecular2, trilinearFraction );
+						sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, trilinearFraction );
+						sampleNormal = mix( sampleNormal, sampleNormal2, trilinearFraction );
+					}
+				};
+				vec2 feedbackTexCoord = texCoords.xy; if ( _fa_[12 ].x > 0.0 ) {
+					vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+					{
+						vec3 physCoords;
+						{
+							vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD - 0.5 );
+							vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+							vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+							physCoords.xy = texCoords.zw * xform.x + xform.zw;
+							physCoords.z = xform.y;
+						};
+						{
+							sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+							sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+							sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+						};
+						if ( _fa_[10 ].y != 0.0 ) {
+							vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+							{
+								vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD + 0.5 );
+								vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+								vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+								physCoords.xy = texCoords.zw * xform.x + xform.zw;
+								physCoords.z = xform.y;
+							};
+							{
+								sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+								sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+								sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+							};
+							float trilinearFraction = fract( sampleLOD + _fa_[10 ].z );
+							sampleSpecular2 = mix( sampleSpecular2, sampleSpecular2, trilinearFraction );
+							sampleYCoCg2 = mix( sampleYCoCg2, sampleYCoCg2, trilinearFraction );
+							sampleNormal2 = mix( sampleNormal2, sampleNormal2, trilinearFraction );
+						}
+					};
+					sampleSpecular = mix( sampleSpecular, sampleSpecular2, vofi_TexCoord1.w );
+					sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, vofi_TexCoord1.w );
+					sampleNormal = mix( sampleNormal, sampleNormal2, vofi_TexCoord1.w );
+					vec2 fp = gl_FragCoord.xy * _fa_[13 ].zw;
+					vec2 xy = fract( fp ) - 0.5;
+					feedbackTexCoord = ( xy.x * xy.y < 0.0 ) ? texCoords.xy : texCoords.zw;
+				}
+				{
+					float pageSource = _fa_[8 ].x;
+					float widthInPages = _fa_[8 ].y;
+					float feedbackBias = _fa_[9 ].y;
+					feedback.xy = feedbackTexCoord * widthInPages;
+					feedback.z = max( 0.0, anisoLOD ) + feedbackBias;
+					feedback.w = pageSource;
+				};
+				{
+					feedback = floor( feedback ) / 256.0;
+					vec2 xy_low = fract( feedback.xy + 0.5 / 256.0 );
+					vec2 xy_high = floor( feedback.xy ) / 256.0;
+					vec4 pack;
+					pack.xy = xy_low;
+					pack.z = xy_high.y * 16.0 + 0.5 / 256 + xy_high.x;
+					pack.w = feedback.w * 16.0 + 0.5 / 256 + feedback.z;
+					feedback = pack;
+				};
+			};
+			{
+				surfaceSpecular = sampleSpecular.xyz * 8.0 / ( sampleNormal.z * 255.0 + 8.0 );
+			};
+			{
+				vec3 localNormal;
+				{
+					localNormal = sampleNormal.wyz - 0.5;
+					localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+				};
+				{
+					globalNormal.x = dot3( localNormal, vofi_TexCoord1.xyz );
+					globalNormal.y = dot3( localNormal, vofi_TexCoord2.xyz );
+					globalNormal.z = dot3( localNormal, vofi_TexCoord3.xyz );
+					globalNormal = normalize( globalNormal );
+				};
+			};
+			float specRoughness1 = tex2D( samp_skinroughnessmap, vofi_TexCoord0.xy ).x;
+			float specRoughness2 = tex2D( samp_skinroughnessmap2, vofi_TexCoord0.xy ).x;
+			float specRoughness = mix( specRoughness1, specRoughness2, vofi_TexCoord1.w );
+			vec3 specular; if ( _fa_[14 ].x > 0 ) {
+				{
+					vec3 globalPosition = vofi_TexCoord4.xyz + _fa_[15 ].xyz;
+					vec3 selfShadow;
+					vec3 thickness;
+					float ao;
+					{ if( _fa_[14 ].y > 0 ) {
+							vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[2 ] );
+							vec4 encoded = tex2D( samp_selfshadowmap, texcoord );
+							encoded.xyz *= 2.0;
+							selfShadow = max( encoded.xyz - 1.0, vec3( 0.0 ) );
+							thickness = encoded.xyz + vec3( _fa_[16 ].y );
+							ao = 1.0 - _fa_[17 ].x * ( 1.0 - encoded.w );
+						} else {
+							selfShadow = vec3( 1.0 );
+							thickness = vec3( 100 );
+							ao = 1.0;
+						}
+					};
+					selfShadow.xyz = saturate( selfShadow.xyz + vec3( 0.0 ) );
+					vec3 light0Dir = _fa_[18 ].xyz - globalPosition;
+					vec3 light1Dir = _fa_[19 ].xyz - globalPosition;
+					vec3 light2Dir = _fa_[20 ].xyz - globalPosition;
+					vec3 light0DirNormalized = normalize( light0Dir );
+					vec3 light1DirNormalized = normalize( light1Dir );
+					vec3 light2DirNormalized = normalize( light2Dir );
+					float light0Dist = length( light0Dir );
+					float light1Dist = length( light1Dir );
+					float light2Dist = length( light2Dir );
+					float light0Attenuation = 1.0 - ( min( light0Dist, _fa_[21 ].w ) / max( _fa_[21 ].w, 0.001 ) );
+					float light1Attenuation = 1.0 - ( min( light1Dist, _fa_[22 ].w ) / max( _fa_[22 ].w, 0.001 ) );
+					float light2Attenuation = 1.0 - ( min( light2Dist, _fa_[23 ].w ) / max( _fa_[23 ].w, 0.001 ) );
+					vec3 light0Color = _fa_[21 ].xyz * light0Attenuation * saturate( selfShadow.x + _fa_[18 ].w );
+					vec3 light1Color = _fa_[22 ].xyz * light1Attenuation * saturate( selfShadow.y + _fa_[19 ].w );
+					vec3 light2Color = _fa_[23 ].xyz * light2Attenuation * saturate( selfShadow.z + _fa_[20 ].w );
+					vec3 fromViewer = vofi_TexCoord4.xyz;
+					vec3 fromViewerNormalized = normalize( fromViewer );
+					float ksk0;
+					float ksk1;
+					float ksk2;
+					{
+						vec3 halfVec = light0DirNormalized + -fromViewerNormalized;
+						vec3 halfVecNormalized = normalize( halfVec );
+						float ndoth = dot3( globalNormal, halfVecNormalized );
+						float ndotl = max( dot3( globalNormal, light0DirNormalized ), 0.0 );
+						float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+						float fresnel;
+						{
+							float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+							{
+								float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+								fresnel = expVal + 0.028 * ( 1.0 - expVal );
+							};
+						};
+						float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+						ksk0 = ndotl * _fa_[24 ].x * fresSpec;
+					};
+					{
+						vec3 halfVec = light1DirNormalized + -fromViewerNormalized;
+						vec3 halfVecNormalized = normalize( halfVec );
+						float ndoth = dot3( globalNormal, halfVecNormalized );
+						float ndotl = max( dot3( globalNormal, light1DirNormalized ), 0.0 );
+						float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+						float fresnel;
+						{
+							float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+							{
+								float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+								fresnel = expVal + 0.028 * ( 1.0 - expVal );
+							};
+						};
+						float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+						ksk1 = ndotl * _fa_[24 ].x * fresSpec;
+					};
+					{
+						vec3 halfVec = light2DirNormalized + -fromViewerNormalized;
+						vec3 halfVecNormalized = normalize( halfVec );
+						float ndoth = dot3( globalNormal, halfVecNormalized );
+						float ndotl = max( dot3( globalNormal, light2DirNormalized ), 0.0 );
+						float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+						float fresnel;
+						{
+							float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+							{
+								float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+								fresnel = expVal + 0.028 * ( 1.0 - expVal );
+							};
+						};
+						float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+						ksk2 = ndotl * _fa_[24 ].x * fresSpec;
+					};
+					vec3 specularLight = light0Color * ksk0 +
+					light1Color * ksk1 +
+					light2Color * ksk2;
+					{
+						specularLight.xyz *= _fa_[25 ].xyz * _fa_[26 ].xyz;
+					};;
+					specular.xyz = specularLight * surfaceSpecular.xyz;
+				};
+			} else {
+				{
+					vec3 fromViewer = vofi_TexCoord4.xyz;
+					vec3 fromViewerNormalized = normalize( fromViewer );
+					float ksk;
+					{
+						vec3 halfVec = _fa_[27 ].xyz + -fromViewerNormalized;
+						vec3 halfVecNormalized = normalize( halfVec );
+						float ndoth = dot3( globalNormal, halfVecNormalized );
+						float ndotl = max( dot3( globalNormal, _fa_[27 ].xyz ), 0.0 );
+						float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+						float fresnel;
+						{
+							float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+							{
+								float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+								fresnel = expVal + 0.028 * ( 1.0 - expVal );
+							};
+						};
+						float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+						ksk = ndotl * _fa_[24 ].x * fresSpec;
+					};
+					vec3 specularLight = _fa_[28 ].xyz * ksk;
+					{
+						specularLight.xyz *= _fa_[25 ].xyz * _fa_[26 ].xyz;
+					};;
+					specular.xyz = specularLight * surfaceSpecular.xyz;
+				};
+			}
+			color.xyz += specular;
+			color.xyz = pow3( color.xyz, 1.0 / 2.2 );
+		}
+	};
+	out_FragColor0.xyz = color;
+	out_FragColor0.w = 0.0;
+}

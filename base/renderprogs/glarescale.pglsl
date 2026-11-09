@@ -1,0 +1,23 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [3];
+uniform sampler2D samp_glaremap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	vec4 glareTex = h4tex2D( samp_glaremap, texcoord.xy );
+	glareTex *= _fa_[1 ].x;
+	glareTex.w = max( glareTex.x, glareTex.y );
+	glareTex.w = max( glareTex.w, glareTex.z );
+	glareTex.w = max( glareTex.w, 0.0001 );
+	glareTex.xyz = glareTex.xyz / glareTex.w;
+	glareTex.w = min( glareTex.w, _fa_[2 ].x );
+	out_FragColor0 = glareTex * glareTex.w;
+	out_FragColor0.w = 1.0;
+}

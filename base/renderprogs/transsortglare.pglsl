@@ -1,0 +1,31 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_transmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float interpolatedZOverW = gl_FragCoord.z;
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float scale = ComputeSoftParticleScale( samp_viewdepthmap, tc, interpolatedZOverW, vofi_TexCoord0.w );
+	vec4 final = ComputeAnimCrossFadeColor( samp_transmap, vofi_TexCoord0.xy, vofi_TexCoord1.xy, vofi_TexCoord1.z );
+	final.xyz = vec3( 1.0 ) - ( vec3( 1.0 ) - final.xyz ) * vec3( vofi_TexCoord2.z );
+	final.xyz *= vec3( vofi_TexCoord2.x );
+	final.w = saturate( final.w - ( 1.0 - scale ) );
+	final.w *= vofi_TexCoord2.y;
+	final *= vofi_Color;
+	final.xyz -= vec3( 1.0 );
+	float fogVal = vofi_TexCoord0.z;
+	final.xyz *= fogVal;
+	out_FragColor0 = final;
+}

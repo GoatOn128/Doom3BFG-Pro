@@ -1,0 +1,42 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2D samp_sparebumpmap;
+uniform sampler2D samp_sparebumpmap2;
+uniform sampler2D samp_transmap2;
+uniform sampler2D samp_spare1map;
+uniform sampler2D samp_transmap1;
+uniform sampler2D samp_spare2map;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec3 localNormal1 = tex2D( samp_sparebumpmap, vofi_TexCoord0.xy ).xyz;
+	vec3 localNormal3 = tex2D( samp_sparebumpmap2, vofi_TexCoord1.xy ).xyz;
+	vec3 localNormal2 = tex2D( samp_sparebumpmap2, vofi_TexCoord2.xy ).xyz;
+	vec3 localNormal4 = tex2D( samp_sparebumpmap2, vofi_TexCoord4.xy ).xyz;
+	localNormal1.xy = localNormal1.xy * 2.0 - 1.0;
+	localNormal2.xy = localNormal2.xy * 2.0 - 1.0;
+	localNormal3.xy = localNormal3.xy * 2.0 - 1.0;
+	localNormal4.xy = localNormal4.xy * 2.0 - 1.0;
+	vec2 texcoord = ( localNormal2.xy * 0.01 );
+	vec2 texcoord2 = ( localNormal4.xy * 0.01 );
+	vec4 mask1 = tex2D( samp_transmap2, vofi_TexCoord0.xy + texcoord );
+	vec4 mask2 = tex2D( samp_spare1map, vofi_TexCoord3.xy + ( texcoord2 * 0.75 ) + ( texcoord * 0.5 ));
+	vec4 mask = saturate(mask1+mask2);
+	vec4 overlay = tex2D( samp_transmap1, vofi_TexCoord0.xy + texcoord );
+	vec2 distort = normalize( localNormal1.xy + localNormal3.xy ) * 0.04;
+	vec4 refl = tex2D( samp_spare2map, vofi_TexCoord1.xy + distort );
+	vec4 color = refl * vofi_Color;
+	color = color * overlay + color * overlay;
+	color.w *= mask.y;
+	out_FragColor0 = color;
+}

@@ -1,0 +1,36 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [5];
+uniform sampler2D samp_hazeflaremap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float bdist0 = _fa_[1 ].z - 2.0 * abs( 0.5* _fa_[1 ].z - texcoord.x );
+	vec3 colorSum = vec3( 0.0 );
+	int numSamples = 32;
+	vec3 threshold = vec3( 0.2 );
+	float blurstep = 0.001 + 0.01 * _fa_[2 ].x;
+	vec2 tstep = vec2( blurstep, 0.0 );
+	texcoord -= tstep * (numSamples * 0.5);
+	for (int i = 0; i < numSamples; i++) {
+		vec3 color = vec3( 0.0 );
+		color += tex2D( samp_hazeflaremap, clamp( texcoord, _fa_[1 ].xy, _fa_[1 ].zw ) ).xyz;
+		float bdist = _fa_[1 ].z - 2.0 * abs( 0.5* _fa_[1 ].z - texcoord.x );
+		float centerMask = smoothstep(0, _fa_[1 ].z, ( _fa_[1 ].z - bdist));
+		color *= centerMask;
+		colorSum += color;
+		texcoord += tstep;
+	}
+	colorSum *= (1.0 / numSamples);
+	float border = 0.001 + 0.3 * _fa_[3 ].x;
+	float borderMask = smoothstep( 0, border, bdist0 );
+	colorSum *= mix( 1.0, borderMask, _fa_[4 ].x );
+	out_FragColor0.xyz = colorSum.xyz;
+	out_FragColor0.w = 1.0;
+}

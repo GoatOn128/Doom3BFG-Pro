@@ -1,0 +1,80 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [7];
+uniform sampler2D samp_sparebumpmap;
+uniform sampler2D samp_sparebumpmap2;
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_transmap;
+uniform samplerCube samp_envmap;
+uniform sampler2D samp_fresnelmap;
+uniform sampler2D samp_transmap1;
+uniform sampler2D samp_fademap;
+
+in vec4 vofi_TexCoord1;
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 bump;
+	bump.xy = tex2D( samp_sparebumpmap, vofi_TexCoord1.xy ).wy;
+	bump.zw = tex2D( samp_sparebumpmap2, vofi_TexCoord1.zw ).wy;
+	vec3 localNormal;
+	localNormal.xyz = vec3( ( bump.xy + bump.zw ) - 1.0, 0.0 );
+	localNormal.z = sqrt( 1.0 - min( dot3( localNormal, localNormal ), 1.0 ) );
+	localNormal = normalize( localNormal );
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float depth = tex2Ddepth( samp_viewdepthmap, tc );
+	float interpolatedZOverW = gl_FragCoord.z;
+	float r1 = 1.0 / ( 1.0 - depth );
+	float r2 = 1.0 / ( 1.0 - interpolatedZOverW );
+	float diff = r1 - r2;
+	float scale = saturate( diff * 0.2 * _fa_[1 ].x );
+	float shallowScale = saturate( diff * 0.9 * _fa_[1 ].y );
+	float foamScale = 1.0 - saturate( diff * _fa_[1 ].z );
+	float foamInner = saturate( diff * _fa_[1 ].w );
+	vec4 foam = tex2D( samp_transmap, vofi_TexCoord0.xy * 3.0 + ( bump.xy * 0.1 ) );
+	float foamAlpha = vofi_Color.z * 0.4;
+	foamAlpha += ( foam.x * foam.w ) * 0.3;
+	vec3 toViewer = normalize( vofi_TexCoord2.xyz );
+	float ndotv = dot( toViewer, localNormal );
+	vec3 vReflection = reflect( -toViewer.xyz, localNormal.xyz );
+	vec3 reflection = texCUBE( samp_envmap, vReflection.xyz ).xyz;
+	reflection *= 1.6;
+	reflection = pow( reflection, vec3( 1.5 ) );
+	float angle = max( ndotv, 0.0 );
+	float fresnel = 0.08 + 3.0 * tex2D( samp_fresnelmap, vec2( angle, 0.0 ) ).x;
+	fresnel = saturate( fresnel );
+	float fog = saturate( exp2( vofi_TexCoord2.w ) );
+	fog -= fresnel;
+	fog = saturate( fog );
+	vec3 tempFogColor = mix( _fa_[2 ].xyz, _fa_[3 ].xyz, fog );
+	vec3 final = tempFogColor.xyz * 1.5;
+	final = mix( final, foam.xyz, foamAlpha );
+	reflection *= fresnel;
+	reflection *= saturate( scale );
+	float reflectionScale = vofi_Color.y + _fa_[4 ].x;
+	reflection *= vofi_Color.y * _fa_[5 ].xyz;
+	reflection *= 1.0 - saturate( foamAlpha * 1.35 );
+	final += reflection;
+	scale += 0.0;
+	scale *= shallowScale;
+	foamScale *= foamInner;
+	vec4 edgeFoam = tex2D( samp_transmap1, vofi_TexCoord3.xy * 32.0 + ( bump.xy * 0.03 ) );
+	final = mix( final.xyz, edgeFoam.xyz, foamScale * edgeFoam.w );
+	scale = max( scale, foamScale * edgeFoam.w );
+	vec3 lightTest = vec3( 0.2, 0.5, 1.0 ) * scale;
+	lightTest *= ( 0.3 + ( fresnel * 3.0 ) );
+	lightTest = saturate( lightTest );
+	lightTest *= ( 1.0 - vofi_Color.x );
+	final += saturate( lightTest * ( foam.w ) + ( lightTest * 0.45 ) );
+	vec4 fadeMask = tex2D( samp_fademap, vofi_TexCoord3.zw );
+	out_FragColor0.xyz = final * reflectionScale * _fa_[6 ].xyz;
+	out_FragColor0.w = scale * vofi_Color.w * _fa_[6 ].w * fadeMask.r;
+}

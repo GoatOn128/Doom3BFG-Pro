@@ -1,0 +1,34 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [9];
+
+in vec4 in_Position;
+in vec2 in_TexCoord;
+in vec4 in_Normal;
+in vec4 in_Tangent;
+
+out vec4 vofi_TexCoord0;
+
+void main() {
+	{
+		vec4 localPosition = in_Position * _va_[0 ] + _va_[1 ];
+		gl_Position.x = dot4( localPosition, _va_[2 ] );
+		gl_Position.y = dot4( localPosition, _va_[3 ] );
+		gl_Position.z = dot4( localPosition, _va_[4 ] );
+		gl_Position.w = dot4( localPosition, _va_[5 ] );
+	};
+	vec4 texcoord0;
+	{
+		texcoord0 = ( in_TexCoord.xy * _va_[6 ].xy + _va_[6 ].zw ).xyxy;
+	};
+	float offset = ( in_Normal.x * _va_[7 ].x ) +
+	( in_Normal.y * _va_[7 ].y ) +
+	( in_Normal.z * _va_[7 ].z ) +
+	( in_Normal.w * _va_[7 ].w ) +
+	( in_Tangent.x * _va_[8 ].x ) +
+	( in_Tangent.y * _va_[8 ].y );
+	vofi_TexCoord0.xz = texcoord0.xz + vec2( offset );
+	vofi_TexCoord0.yw = texcoord0.yw;
+}

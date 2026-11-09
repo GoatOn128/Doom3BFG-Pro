@@ -1,0 +1,23 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [6];
+
+in vec4 in_Position;
+in vec4 in_Normal;
+
+
+void main() {
+	vec4 pos = in_Position;
+	vec3 normal = in_Normal.xyz * 2.0 - 1.0;
+	if ( dot3( normal, _va_[0 ] ) > 0.0 ) {
+		float dist = dot4( pos, _va_[1 ] );
+		float closing = dot3( _va_[0 ].xyz, _va_[1 ].xyz );
+		pos.xyz -= _va_[0 ].xyz * ( dist / closing );
+	}
+	gl_Position.x = dot4( pos, _va_[2 ] );
+	gl_Position.y = dot4( pos, _va_[3 ] );
+	gl_Position.z = dot4( pos, _va_[4 ] );
+	gl_Position.w = dot4( pos, _va_[5 ] );
+}

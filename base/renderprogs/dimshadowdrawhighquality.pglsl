@@ -1,0 +1,56 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [9];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_dither256map;
+uniform sampler2DShadow samp_dimshadowdepthmap;
+uniform sampler2D samp_viewcolormap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec3 window;
+	window.xy = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[1 ] );
+	window.z = tex2Ddepth( samp_viewdepthmap, texcoord );
+	vec4 wclip = vec4( window.xyz, 1.0 );
+	vec4 light;
+	light.x = dot4( wclip, _fa_[2 ] );
+	light.y = dot4( wclip, _fa_[3 ] );
+	light.z = dot4( wclip, _fa_[4 ] );
+	light.w = dot4( wclip, _fa_[5 ] );
+	light.xyz /= light.w;
+	light = ( light * 0.5 ) + 0.5;
+	light.z = min( light.z, 0.9999999 );
+	vec2 tc = gl_FragCoord.xy * vec2( 1.0/128, 1.0/128 ) + _fa_[6 ].xy;
+	vec2 dither = tex2D( samp_dither256map, tc ).xw;
+	float stepSize = _fa_[7 ].y;
+	vec3 center;
+	center.xy = light.xy + stepSize + dither * vec2( stepSize, stepSize );
+	center.z = light.z;
+	float shadow;
+	shadow = shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -2*stepSize, -2*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -1*stepSize, -2*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( 0*stepSize, -2*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -3*stepSize, -2*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -2*stepSize, -1*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -1*stepSize, -1*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( 0*stepSize, -1*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -3*stepSize, -1*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -2*stepSize, 0*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -1*stepSize, 0*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( 0*stepSize, 0*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -3*stepSize, 0*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -2*stepSize, -3*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -1*stepSize, -3*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( 0*stepSize, -3*stepSize, 0 ) );
+	shadow += shadow2Ddepth( samp_dimshadowdepthmap, center + vec3( -3*stepSize, -3*stepSize, 0 ) );
+	shadow *= 0.0625;
+	float acceptShadow = tex2D( samp_viewcolormap, texcoord ).w;
+	shadow = ( 1.0 - shadow ) * acceptShadow * _fa_[8 ].x;
+	out_FragColor0 = vec4( 0.0, 0.0, 0.0, shadow );
+}

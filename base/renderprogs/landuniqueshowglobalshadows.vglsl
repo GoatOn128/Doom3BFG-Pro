@@ -1,0 +1,56 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [11];
+
+in vec4 in_Position;
+in vec4 in_Normal;
+in vec4 in_Tangent;
+in vec2 in_TexCoord;
+
+out vec4 vofi_TexCoord0;
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord2;
+out vec4 vofi_TexCoord3;
+out vec4 vofi_TexCoord4;
+out vec4 vofi_TexCoord6;
+
+void main() {
+	vec4 position;
+	vec4 normal;
+	vec4 tangent;
+	{
+		position = in_Position * _va_[0 ] + _va_[1 ];
+		normal = in_Normal * 2.0 - 1.0;
+		tangent.xyz = in_Tangent.xyz * 2.0 - 1.0;
+		tangent.w = floor( in_Tangent.w * 255.1 / 128.0 ) * 2.0 - 1.0;
+	};
+	gl_Position.x = dot( position, _va_[2 ] );
+	gl_Position.y = dot( position, _va_[3 ] );
+	gl_Position.z = dot( position, _va_[4 ] );
+	gl_Position.w = dot( position, _va_[5 ] );
+	vec3 bitangent = cross( normal.xyz, tangent.xyz ) * tangent.w;
+	vofi_TexCoord0 = ( in_TexCoord.xy * _va_[6 ].xy + _va_[6 ].zw ).xyxy;
+	vofi_TexCoord1.x = dot3( tangent, _va_[7 ] );
+	vofi_TexCoord1.y = dot3( bitangent, _va_[7 ] );
+	vofi_TexCoord1.z = dot3( normal, _va_[7 ] );
+	vofi_TexCoord1.w = 0.0;
+	vofi_TexCoord2.x = dot3( tangent, _va_[8 ] );
+	vofi_TexCoord2.y = dot3( bitangent, _va_[8 ] );
+	vofi_TexCoord2.z = dot3( normal, _va_[8 ] );
+	vofi_TexCoord2.w = 0.0;
+	vofi_TexCoord3.x = dot3( tangent, _va_[9 ] );
+	vofi_TexCoord3.y = dot3( bitangent, _va_[9 ] );
+	vofi_TexCoord3.z = dot3( normal, _va_[9 ] );
+	vofi_TexCoord3.w = 0.0;
+	vofi_TexCoord4.x = dot4( position, _va_[7 ] );
+	vofi_TexCoord4.y = dot4( position, _va_[8 ] );
+	vofi_TexCoord4.z = dot4( position, _va_[9 ] );
+	vofi_TexCoord4.xyz -= _va_[10 ].xyz;
+	vofi_TexCoord4.w = 0.0;
+	vofi_TexCoord6.x = dot3( position, _va_[7 ] );
+	vofi_TexCoord6.y = dot3( position, _va_[8 ] );
+	vofi_TexCoord6.z = dot3( position, _va_[9 ] );
+	vofi_TexCoord6.w = 0.0;
+}

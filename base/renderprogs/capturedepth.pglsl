@@ -1,0 +1,15 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_targetdepth;
+
+in vec4 gl_FragCoord;
+
+out float out_FragDepth;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	out_FragDepth = tex2Ddepth( samp_targetdepth, texcoord );
+}

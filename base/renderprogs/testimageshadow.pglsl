@@ -1,0 +1,14 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2D samp_texturemapshadow;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	out_FragColor0 = vec4( tex2Ddepth_fast( samp_texturemapshadow, vofi_TexCoord0.xy ) );
+	out_FragColor0.w = 1.0;
+}

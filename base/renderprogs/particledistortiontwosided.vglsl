@@ -1,0 +1,37 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [13];
+
+in vec4 in_Position;
+in vec2 in_TexCoord;
+in vec4 in_Color;
+
+out vec4 vofi_TexCoord0;
+out vec4 vofi_Color;
+out vec4 vofi_TexCoord1;
+
+void main() {
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+	vec4 worldPosition;
+	worldPosition.x = dot4( in_Position, _va_[4 ] );
+	worldPosition.y = dot4( in_Position, _va_[5 ] );
+	worldPosition.z = dot4( in_Position, _va_[6 ] );
+	worldPosition.w = dot4( in_Position, _va_[7 ] );
+	float eyeDistance = abs( dot4( worldPosition, _va_[8 ] ) );
+	float nearFade = saturate( ( eyeDistance - _va_[9 ].x ) / ( _va_[9 ].y - _va_[9 ].x ) );
+	float farFade = saturate( ( eyeDistance - _va_[9 ].z ) / ( _va_[9 ].w - _va_[9 ].z ) );
+	float fade = nearFade * ( 1.0 - farFade );
+	vec4 tc = in_TexCoord.xyxy * _va_[10 ].x + _va_[10 ].y;
+	vofi_TexCoord0.xy = tc.xy;
+	vofi_TexCoord0.z = fade;
+	vofi_TexCoord0.w = 0.0;
+	vofi_TexCoord1.x = dot4( tc, _va_[11 ] );
+	vofi_TexCoord1.y = dot4( tc, _va_[12 ] );
+	vofi_TexCoord1.zw = vec2( 0.0 );
+	vofi_Color = swizzleColor( in_Color );
+}
