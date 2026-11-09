@@ -1,5 +1,4 @@
-/*
-===========================================================================
+/*===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
@@ -28,7 +27,6 @@ If you have questions concerning this license or the applicable additional terms
 
 renderprog fxaa {
 	hlsl_vp {
-		#include "global.inc"
 
 		struct VS_IN {
 			float4 position : POSITION;
@@ -49,10 +47,9 @@ renderprog fxaa {
 		}
 	}
 	hlsl_fp {
-		#include "global.inc"
-		#define FXAA_GREEN_AS_LUMA 1
-		#define FXAA_EARLY_EXIT 0
-		#include "Fxaa3_11.h"
+		// The original shader included Fxaa3_11.h here, but that file was never
+		// shipped with the PC renderer; the FXAA console path is not part of this
+		// engine, so the include is dropped.
 
 		uniform sampler2D samp0 : register(s0);
 		uniform sampler2D samp1 : register(s1); // exponent bias -1
