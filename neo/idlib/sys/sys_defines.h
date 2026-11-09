@@ -78,6 +78,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #define ID_OPENGL
 
+#include "platform.h"
+
 /*
 ================================================================================================
 

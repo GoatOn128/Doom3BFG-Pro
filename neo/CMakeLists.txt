@@ -31,7 +31,7 @@ endif()
 
 # Build options
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-	set(_darklight_idstudio_default OFF)
+	set(_darklight_idstudio_default ON)
 else()
 	set(_darklight_idstudio_default OFF)
 endif()
@@ -86,49 +86,52 @@ endif()
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" DARKLIGHT_PROCESSOR)
 
 if(DARKLIGHT_PROCESSOR MATCHES "^(aarch64|arm64)$"
-	OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+	OR CMAKE_GENERATOR_PLATFORM MATCHES "^[Aa][Rr][Mm]64$")
 	set(DARKLIGHT_CPU "arm64")
+
+elseif(DARKLIGHT_PROCESSOR MATCHES "^(arm|armv[0-9].*)$")
+	set(DARKLIGHT_CPU "arm")
+
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set(DARKLIGHT_CPU "x64")
+
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
 	set(DARKLIGHT_CPU "x86")
-else()
-	message(FATAL_ERROR "Unsupported target architecture.")
-endif()
 
-# Set the platform-specific build information.
-set(PLATFORM_DEFINES "CPUSTRING=\"${DARKLIGHT_CPU}\"")
+else()
+	message(FATAL_ERROR "Unable to determine target architecture.")
+endif()
 
 if(WIN32)
 	set(DARKLIGHT_BUILD_OS_ID 0)
 
-	list(APPEND PLATFORM_DEFINES
-		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
-		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
-		"PATHSEPARATOR_STR=\"\\\\\""
-		"PATHSEPARATOR_CHAR='\\\\'"
-		"NEWLINE=\"\\r\\n\"")
+	set(DARKLIGHT_PATHSEPARATOR_STR "\\\\")
+	set(DARKLIGHT_PATHSEPARATOR_CHAR "\\\\")
+	set(DARKLIGHT_NEWLINE "\\r\\n")
 elseif(APPLE)
 	set(DARKLIGHT_BUILD_OS_ID 2)
 
-	list(APPEND PLATFORM_DEFINES
-		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
-		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
-		"PATHSEPARATOR_STR=\"/\""
-		"PATHSEPARATOR_CHAR='/'"
-		"NEWLINE=\"\\n\"")
+	set(DARKLIGHT_PATHSEPARATOR_STR "/")
+	set(DARKLIGHT_PATHSEPARATOR_CHAR "/")
+	set(DARKLIGHT_NEWLINE "\\n")
 elseif(UNIX)
 	set(DARKLIGHT_BUILD_OS_ID 1)
 
-	list(APPEND PLATFORM_DEFINES
-		"BUILD_OS_ID=${DARKLIGHT_BUILD_OS_ID}"
-		"BUILD_STRING=\"${DARKLIGHT_PLATFORM}-${DARKLIGHT_CPU}$<$<CONFIG:Debug>:-debug>\""
-		"PATHSEPARATOR_STR=\"/\""
-		"PATHSEPARATOR_CHAR='/'"
-		"NEWLINE=\"\\n\"")
+	set(DARKLIGHT_PATHSEPARATOR_STR "/")
+	set(DARKLIGHT_PATHSEPARATOR_CHAR "/")
+	set(DARKLIGHT_NEWLINE "\\n")
 else()
 	message(FATAL_ERROR "Unsupported target operating system.")
 endif()
+
+configure_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform.h.in"
+	"${CMAKE_BINARY_DIR}/platform.h"
+	@ONLY)
+
+message(STATUS "Platform: ${DARKLIGHT_PLATFORM}")
+message(STATUS "Architecture: ${DARKLIGHT_CPU}")
+message(STATUS "OS ID: ${DARKLIGHT_BUILD_OS_ID}")
 
 # Shared target helpers
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER  "")
@@ -150,7 +153,7 @@ function(darklight_set_output_directories target)
 endfunction()
 
 function(darklight_configure_target target)
-	target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/idlib")
+	target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/idlib")
 
 	if(WIN32)
 		target_compile_definitions(${target} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -345,7 +348,6 @@ if(DARKLIGHT_BUILD_IDSTUDIO)
 		message(FATAL_ERROR "DARKLIGHT_BUILD_IDSTUDIO is enabled, but no idStudio sources were found.")
 	endif()
 	list(APPEND DARKLIGHT_SOURCES ${IDSTUDIO_SOURCES})
-	set_source_files_properties(${IDSTUDIO_SOURCES} PROPERTIES COMPILE_DEFINITIONS IDSTUDIO)
 endif()
 
 # barejxr uses std::clamp until we make the engine compiles under C++17
@@ -427,6 +429,10 @@ if(DARKLIGHT_BUILD_EXECUTABLE)
 			WIN32_LEAN_AND_MEAN
 			NOMINMAX)
 
+		if(DARKLIGHT_BUILD_IDSTUDIO)
+			target_compile_definitions(Darklight PRIVATE IDSTUDIO)
+		endif()
+
 		target_link_libraries(Darklight PRIVATE
 			dbghelp
 			glu32
@@ -465,7 +471,6 @@ if(DARKLIGHT_BUILD_EXECUTABLE)
 				dinput8
 				dsound
 				dxguid
-				x3daudio
 				xaudio2)
 
 			if(MSVC)
