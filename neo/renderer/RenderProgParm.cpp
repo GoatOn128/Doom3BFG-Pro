@@ -1,279 +1,144 @@
-/*
-===========================================================================
-
-Doom 3 BFG Edition GPL Source Code
-Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
-
-This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
-
-Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
-
-If you have questions concerning this license or the additional terms, you should contact id Software LLC at the address below.
-
-id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA
-
-===========================================================================
-*/
 #pragma hdrstop
 #include "../idlib/precompiled.h"
 
-#include "tr_local.h"
+#include "RenderProgParm.h"
 
-// Engine parm table. One entry per renderParm_t value, in exact enum
-// order, so a registry index and a renderParm_t value are the same
-// integer. Names are lowercase and follow the id Tech 5 style used by
-// the decl renderprog system.
-struct parmDescriptor_t {
-	const char *	name;
-	parmType_t		type;
+// The built-in vector parms, in register order. The index of each entry is
+// also its register in global.inc and its value in the renderParm_t enum in
+// RenderProgs.h; keep all three in sync.
+static const char * const s_renderParmNames[RENDERPROG_NUM_BUILTIN_PARMS] = {
+	"rpScreenCorrectionFactor",		// c0
+	"rpWindowCoord",				// c1
+	"rpDiffuseModifier",			// c2
+	"rpSpecularModifier",			// c3
+	"rpLocalLightOrigin",			// c4
+	"rpLocalViewOrigin",				// c5
+	"rpLightProjectionS",			// c6
+	"rpLightProjectionT",			// c7
+	"rpLightProjectionQ",			// c8
+	"rpLightFalloffS",				// c9
+	"rpBumpMatrixS",					// c10
+	"rpBumpMatrixT",					// c11
+	"rpDiffuseMatrixS",				// c12
+	"rpDiffuseMatrixT",				// c13
+	"rpSpecularMatrixS",				// c14
+	"rpSpecularMatrixT",				// c15
+	"rpVertexColorModulate",		// c16
+	"rpVertexColorAdd",				// c17
+	"rpColor",						// c18
+	"rpViewOrigin",					// c19
+	"rpGlobalEyePos",				// c20
+	"rpMVPmatrixX",					// c21
+	"rpMVPmatrixY",					// c22
+	"rpMVPmatrixZ",					// c23
+	"rpMVPmatrixW",					// c24
+	"rpModelMatrixX",				// c25
+	"rpModelMatrixY",				// c26
+	"rpModelMatrixZ",				// c27
+	"rpModelMatrixW",				// c28
+	"rpProjectionMatrixX",			// c29
+	"rpProjectionMatrixY",			// c30
+	"rpProjectionMatrixZ",			// c31
+	"rpProjectionMatrixW",			// c32
+	"rpModelViewMatrixX",			// c33
+	"rpModelViewMatrixY",			// c34
+	"rpModelViewMatrixZ",			// c35
+	"rpModelViewMatrixW",			// c36
+	"rpTextureMatrixS",				// c37
+	"rpTextureMatrixT",				// c38
+	"rpTexGen0S",					// c39
+	"rpTexGen0T",					// c40
+	"rpTexGen0Q",					// c41
+	"rpTexGen0Enabled",				// c42
+	"rpTexGen1S",					// c43
+	"rpTexGen1T",					// c44
+	"rpTexGen1Q",					// c45
+	"rpTexGen1Enabled",				// c46
+	"rpWobbleSkyX",					// c47
+	"rpWobbleSkyY",					// c48
+	"rpWobbleSkyZ",					// c49
+	"rpOverbright",					// c50
+	"rpEnableSkinning",				// c51
+	"rpAlphaTest",					// c52
+	"rpShadowMatrixX",				// c53
+	"rpShadowMatrixY",				// c54
+	"rpShadowMatrixZ",				// c55
+	"rpShadowMatrixW",				// c56
+	"rpShadowProjectionX",			// c57
+	"rpShadowProjectionY",			// c58
+	"rpShadowProjectionZ",			// c59
+	"rpShadowProjectionW",			// c60
+	"rpShadowParams"				// c61
 };
 
-static const parmDescriptor_t engineParms[] = {
-	{ "screencorrectionfactor",	PT_VECTOR },
-	{ "windowcoord",			PT_VECTOR },
-	{ "diffusemodifier",		PT_VECTOR },
-	{ "specularmodifier",		PT_VECTOR },
-	{ "locallightorigin",		PT_VECTOR },
-	{ "localvieworigin",		PT_VECTOR },
-	{ "lightprojections",		PT_VECTOR },
-	{ "lightprojectiont",		PT_VECTOR },
-	{ "lightprojectionq",		PT_VECTOR },
-	{ "lightfalloffs",			PT_VECTOR },
-	{ "bumpmatrixs",			PT_VECTOR },
-	{ "bumpmatrixt",			PT_VECTOR },
-	{ "diffusematrixs",			PT_VECTOR },
-	{ "diffusematrixt",		PT_VECTOR },
-	{ "specularmatrixs",		PT_VECTOR },
-	{ "specularmatrixt",		PT_VECTOR },
-	{ "vertexcolormodulate",	PT_VECTOR },
-	{ "vertexcoloradd",		PT_VECTOR },
-	{ "color",					PT_VECTOR },
-	{ "vieworigin",				PT_VECTOR },
-	{ "globaleyepos",			PT_VECTOR },
-	{ "mvpmatrixx",				PT_VECTOR },
-	{ "mvpmatrixy",				PT_VECTOR },
-	{ "mvpmatrixz",				PT_VECTOR },
-	{ "mvpmatrixw",				PT_VECTOR },
-	{ "modelmatrixx",			PT_VECTOR },
-	{ "modelmatrixy",			PT_VECTOR },
-	{ "modelmatrixz",			PT_VECTOR },
-	{ "modelmatrixw",			PT_VECTOR },
-	{ "projmatrixx",			PT_VECTOR },
-	{ "projmatrixy",			PT_VECTOR },
-	{ "projmatrixz",			PT_VECTOR },
-	{ "projmatrixw",			PT_VECTOR },
-	{ "modelviewmatrixx",		PT_VECTOR },
-	{ "modelviewmatrixy",		PT_VECTOR },
-	{ "modelviewmatrixz",		PT_VECTOR },
-	{ "modelviewmatrixw",		PT_VECTOR },
-	{ "texturematrixs",		PT_VECTOR },
-	{ "texturematrixt",		PT_VECTOR },
-	{ "texgen0s",				PT_VECTOR },
-	{ "texgen0t",				PT_VECTOR },
-	{ "texgen0q",				PT_VECTOR },
-	{ "texgen0enabled",		PT_VECTOR },
-	{ "texgen1s",				PT_VECTOR },
-	{ "texgen1t",				PT_VECTOR },
-	{ "texgen1q",				PT_VECTOR },
-	{ "texgen1enabled",		PT_VECTOR },
-	{ "wobbleskyx",				PT_VECTOR },
-	{ "wobbleskyy",				PT_VECTOR },
-	{ "wobbleskyz",				PT_VECTOR },
-	{ "overbright",				PT_VECTOR },
-	{ "enableskinning",		PT_VECTOR },
-	{ "alphatest",				PT_VECTOR },
-	{ "shadowmatrixx",			PT_VECTOR },
-	{ "shadowmatrixy",			PT_VECTOR },
-	{ "shadowmatrixz",			PT_VECTOR },
-	{ "shadowmatrixw",			PT_VECTOR },
-	{ "shadowprojectionx",		PT_VECTOR },
-	{ "shadowprojectiony",		PT_VECTOR },
-	{ "shadowprojectionz",		PT_VECTOR },
-	{ "shadowprojectionw",		PT_VECTOR },
-	{ "shadowparams",			PT_VECTOR }
-};
+// The temporary expression parm names must outlive the registry entries
+// because idRenderProgParm only stores the raw pointer. The same applies
+// to the user parm names.
+static idStr s_temporaryParmNames[RENDERPROG_NUM_TEMPORARY_PARMS];
+static idStr s_userParmNames[RENDERPROG_NUM_USER_PARMS];
 
-static_assert( sizeof( engineParms ) / sizeof( engineParms[0] ) == RENDERPARM_TOTAL,
-	"engineParms must have one entry per renderParm_t value in enum order" );
-
-static const char * tempParmNames[NUM_RENDER_PARMS_TEMPORARY] = {
-	"temp1", "temp2", "temp3", "temp4", "temp5", "temp6", "temp7", "temp8",
-	"temp9", "temp10", "temp11", "temp12", "temp13", "temp14", "temp15", "temp16",
-	"temp17", "temp18", "temp19", "temp20", "temp21", "temp22", "temp23", "temp24",
-	"temp25", "temp26", "temp27", "temp28", "temp29", "temp30", "temp31", "temp32"
-};
-
-// parms allocated at runtime, outside the engine table and temporaries
-struct dynamicParm_t {
-	idStr			name;
-	int				index;
-	parmType_t		type;
-};
-static idList<dynamicParm_t, TAG_RENDER> dynamicParms;
-
-// one free index counter per parm range
-static int nextVectorIndex;
-static int nextTextureIndex;
-static int nextSamplerIndex;
-static int nextProgramIndex;
-static int nextStringIndex;
-
-/*
-================================================================================================
-idRenderProgParms::Init
-================================================================================================
-*/
-void idRenderProgParms::Init() {
-	dynamicParms.Clear();
-	nextVectorIndex = RENDERPARM_TOTAL + NUM_RENDER_PARMS_TEMPORARY;
-	nextTextureIndex = PARM_INDEX_TEXTURE_BASE;
-	nextSamplerIndex = PARM_INDEX_SAMPLER_BASE;
-	nextProgramIndex = PARM_INDEX_PROGRAM_BASE;
-	nextStringIndex = PARM_INDEX_STRING_BASE;
+idRenderProgParm::idRenderProgParm( const char * name, parmType_t type, int index ) {
+	this->name = name;
+	parmType = type;
+	parmIndex = index;
+	memset( &declaredValue, 0, sizeof( declaredValue ) );
 }
 
-/*
-================================================================================================
-idRenderProgParms::Shutdown
-================================================================================================
-*/
-void idRenderProgParms::Shutdown() {
-	dynamicParms.Clear();
+idRenderProgParmState renderProgParms;
+
+void idRenderProgParmState::EnsureBuilt() {
+	if ( parms.Num() > 0 ) {
+		return;
+	}
+	parms.SetGranularity( 64 );
+	for ( int index = 0; index < RENDERPROG_NUM_BUILTIN_PARMS; index++ ) {
+		parms.Append( idRenderProgParm( s_renderParmNames[index], PT_VECTOR, index ) );
+	}
+	// User parms referenced directly by name in the legacy shaders.
+	for ( int index = 0; index < RENDERPROG_NUM_USER_PARMS; index++ ) {
+		s_userParmNames[index].Format( "rpUser%i", index );
+		parms.Append( idRenderProgParm( s_userParmNames[index].c_str(), PT_VECTOR,
+										RENDERPROG_USER_PARM_BASE + index ) );
+	}
+	// Temporary expression parms used by the parm block parser; their
+	// indices sit just below INVALID_PARM_INDEX.
+	for ( int index = 0; index < RENDERPROG_NUM_TEMPORARY_PARMS; index++ ) {
+		s_temporaryParmNames[index].Format( "temp%i", index + 1 );
+		parms.Append( idRenderProgParm( s_temporaryParmNames[index].c_str(), PT_VECTOR,
+										RENDERPROG_FIRST_TEMPORARY_PARM_INDEX + index ) );
+	}
 }
 
-/*
-================================================================================================
-idRenderProgParms::FindParmByName
-================================================================================================
-*/
-int idRenderProgParms::FindParmByName( const char * name ) {
-	for ( int i = 0; i < RENDERPARM_TOTAL; i++ ) {
-		if ( idStr::Icmp( name, engineParms[i].name ) == 0 ) {
-			return i;
+const idRenderProgParm * idRenderProgParmState::FindParmByName( const char * name ) {
+	if ( name == nullptr || name[0] == '\0' ) {
+		return nullptr;
+	}
+	EnsureBuilt();
+	for ( int index = 0; index < parms.Num(); index++ ) {
+		if ( idStr::Icmp( parms[index].GetName(), name ) == 0 ) {
+			return &parms[index];
 		}
 	}
-	for ( int i = 0; i < NUM_RENDER_PARMS_TEMPORARY; i++ ) {
-		if ( idStr::Icmp( name, tempParmNames[i] ) == 0 ) {
-			return RENDERPARM_TOTAL + i;
-		}
-	}
-	for ( int i = 0; i < dynamicParms.Num(); i++ ) {
-		if ( dynamicParms[i].name.Icmp( name ) == 0 ) {
-			return dynamicParms[i].index;
-		}
-	}
-	return PARM_INDEX_INVALID;
+	return nullptr;
 }
 
-/*
-================================================================================================
-idRenderProgParms::AllocateParm
-================================================================================================
-*/
-int idRenderProgParms::AllocateParm( const char * name, parmType_t type ) {
-	int index = FindParmByName( name );
-	if ( index != PARM_INDEX_INVALID ) {
-		if ( GetParmType( index ) != type ) {
-			idLib::Warning( "Render parm '%s' already registered with a different type", name );
-		}
-		return index;
+const idRenderProgParm * idRenderProgParmState::GetRenderParmForIndex( int index ) {
+	EnsureBuilt();
+	if ( index < 0 ) {
+		return nullptr;
 	}
-
-	if ( type < PT_VECTOR || type >= PT_MAX ) {
-		idLib::Warning( "Invalid render parm type %d for '%s'", ( int ) type, name );
-		return PARM_INDEX_INVALID;
-	}
-
-	// every type in a range shares the range counter
-	if ( type == PT_VECTOR ) {
-		index = nextVectorIndex++;
-		if ( index >= PARM_INDEX_VECTOR_MAX ) {
-			idLib::Warning( "Vector render parm range full, cannot register '%s'", name );
-			return PARM_INDEX_INVALID;
-		}
-	} else if ( type >= PT_TEXTURE_2D && type <= PT_IMAGE_2D_WRITE ) {
-		index = nextTextureIndex++;
-		if ( index >= PARM_INDEX_TEXTURE_MAX ) {
-			idLib::Warning( "Texture render parm range full, cannot register '%s'", name );
-			return PARM_INDEX_INVALID;
-		}
-	} else if ( type == PT_SAMPLER ) {
-		index = nextSamplerIndex++;
-		if ( index >= PARM_INDEX_SAMPLER_MAX ) {
-			idLib::Warning( "Sampler render parm range full, cannot register '%s'", name );
-			return PARM_INDEX_INVALID;
-		}
-	} else if ( type == PT_PROGRAM ) {
-		index = nextProgramIndex++;
-		if ( index >= PARM_INDEX_PROGRAM_MAX ) {
-			idLib::Warning( "Program render parm range full, cannot register '%s'", name );
-			return PARM_INDEX_INVALID;
-		}
-	} else {
-		index = nextStringIndex++;
-		if ( index >= PARM_INDEX_STRING_MAX ) {
-			idLib::Warning( "String render parm range full, cannot register '%s'", name );
-			return PARM_INDEX_INVALID;
+	// The array position no longer equals the parm index now that the
+	// temporary parms are appended after the built-in registers, so scan
+	// by index.
+	for ( int i = 0; i < parms.Num(); i++ ) {
+		if ( parms[i].GetIndex() == index ) {
+			return &parms[i];
 		}
 	}
-
-	dynamicParm_t & parm = dynamicParms.Alloc();
-	parm.name = name;
-	parm.index = index;
-	parm.type = type;
-	return index;
+	return nullptr;
 }
 
-/*
-================================================================================================
-idRenderProgParms::GetParmName
-================================================================================================
-*/
-const char * idRenderProgParms::GetParmName( int index ) {
-	if ( index < 0 || index >= MAX_RENDER_PARMS ) {
-		return "";
-	}
-	if ( index < RENDERPARM_TOTAL ) {
-		return engineParms[index].name;
-	}
-	if ( index < RENDERPARM_TOTAL + NUM_RENDER_PARMS_TEMPORARY ) {
-		return tempParmNames[index - RENDERPARM_TOTAL];
-	}
-	for ( int i = 0; i < dynamicParms.Num(); i++ ) {
-		if ( dynamicParms[i].index == index ) {
-			return dynamicParms[i].name.c_str();
-		}
-	}
-	return "";
-}
-
-/*
-================================================================================================
-idRenderProgParms::GetParmType
-================================================================================================
-*/
-parmType_t idRenderProgParms::GetParmType( int index ) {
-	if ( index < 0 || index >= MAX_RENDER_PARMS ) {
-		return PT_MAX;
-	}
-	if ( index < RENDERPARM_TOTAL + NUM_RENDER_PARMS_TEMPORARY ) {
-		return PT_VECTOR;
-	}
-	for ( int i = 0; i < dynamicParms.Num(); i++ ) {
-		if ( dynamicParms[i].index == index ) {
-			return dynamicParms[i].type;
-		}
-	}
-	return PT_MAX;
+const char * idRenderProgParmState::GetParmNameForIndex( int index ) {
+	const idRenderProgParm * parm = GetRenderParmForIndex( index );
+	return parm != nullptr ? parm->GetName() : nullptr;
 }

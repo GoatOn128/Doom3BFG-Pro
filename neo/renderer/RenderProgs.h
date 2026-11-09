@@ -2,9 +2,9 @@
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
-Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 
-This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
 Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/lice
 
 In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
 
-If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+If you have questions concerning the license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
 
 ===========================================================================
 */
@@ -34,7 +34,7 @@ If you have questions concerning this license or the applicable additional terms
 static const int PC_ATTRIB_INDEX_VERTEX		= 0;
 static const int PC_ATTRIB_INDEX_NORMAL		= 2;
 static const int PC_ATTRIB_INDEX_COLOR		= 3;
-static const int PC_ATTRIB_INDEX_COLOR2		= 4;
+static const int PC_ATTRIB_INDEX_COLOR2	= 4;
 static const int PC_ATTRIB_INDEX_ST			= 8;
 static const int PC_ATTRIB_INDEX_TANGENT	= 9;
 
@@ -69,7 +69,7 @@ enum renderParm_t {
 	RENDERPARM_VERTEXCOLOR_ADD,
 
 	// The following are new and can be in any order
-	
+
 	RENDERPARM_COLOR,
 	RENDERPARM_VIEWORIGIN,
 	RENDERPARM_GLOBALEYEPOS,
@@ -114,6 +114,7 @@ enum renderParm_t {
 	RENDERPARM_OVERBRIGHT,
 	RENDERPARM_ENABLE_SKINNING,
 	RENDERPARM_ALPHA_TEST,
+
 	RENDERPARM_SHADOWMATRIX_X,
 	RENDERPARM_SHADOWMATRIX_Y,
 	RENDERPARM_SHADOWMATRIX_Z,
@@ -129,18 +130,24 @@ enum renderParm_t {
 };
 
 
-struct glslUniformLocation_t {
-	int		parmIndex;
-	GLint	uniformIndex;
-};
-
-
-
 /*
 ================================================================================================
 idRenderProgManager
+
+Adapted from the Wolfenstein: The New Order render prog manager
+(references/wolfnto-reversedengineered). That material is decompiled
+proprietary code and is not GPL-compatible; this is a re-implementation on
+this engine's idlib.
+
+The manager keeps the integer based API of the legacy .vertex/.pixel
+manager so the backend code does not change, but every shader resolves to
+an idDeclRenderProg decl that owns the generated GLSL and the linked GL
+program. The shader tables below only remember which decl each legacy
+shader name maps to.
 ================================================================================================
 */
+class idDeclRenderProg;
+
 class idRenderProgManager {
 public:
 	idRenderProgManager();
@@ -156,6 +163,7 @@ public:
 	int		FindFragmentShader( const char * name );
 
 	void	BindShader( int vIndex, int fIndex );
+	void	BindShader( int programIndex );
 
 	void	BindShader_GUI( ) { BindShader_Builtin( BUILTIN_GUI ); }
 	void	BindShader_Color( ) { BindShader_Builtin( BUILTIN_COLOR ); }
@@ -193,9 +201,9 @@ public:
 	void	BindShader_MotionBlur() { BindShader_Builtin( BUILTIN_MOTION_BLUR); }
 
 	// the joints buffer should only be bound for vertex programs that use joints
-	bool	ShaderUsesJoints() const { return vertexShaders[currentVertexShader].usesJoints; }
+	bool	ShaderUsesJoints() const { return currentUsesJoints; }
 	// the rpEnableSkinning render parm should only be set for vertex programs that use it
-	bool	ShaderHasOptionalSkinning() const { return vertexShaders[currentVertexShader].optionalSkinning; }
+	bool	ShaderHasOptionalSkinning() const { return currentOptionalSkinning; }
 
 	// unbind the currently bound render program
 	void	Unbind();
@@ -213,9 +221,6 @@ public:
 	void		ZeroUniforms();
 
 protected:
-	void	LoadVertexShader( int index );
-	void	LoadFragmentShader( int index );
-
 	enum {
 		BUILTIN_GUI,
 		BUILTIN_COLOR,
@@ -237,6 +242,7 @@ protected:
 
 		BUILTIN_DEPTH,
 		BUILTIN_DEPTH_SKINNED,
+
 		BUILTIN_BLENDLIGHT,
 		BUILTIN_FOG,
 		BUILTIN_FOG_SKINNED,
@@ -254,53 +260,41 @@ protected:
 		MAX_BUILTINS
 	};
 	int builtinShaders[MAX_BUILTINS];
-	void BindShader_Builtin( int i ) { BindShader( builtinShaders[i], builtinShaders[i] ); }
+	void BindShader_Builtin( int i ) { BindShader( builtinShaders[i] ); }
 
-	GLuint	LoadShader( GLenum target, const char * name, const char * startToken );
-	bool	CompileGLSL( GLenum target, const char * name );
-	GLuint	LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms, const char * programHLSL, const ID_TIME_T sourceTimeStamp );
-	void	LoadGLSLProgram( const int programIndex, const int vertexShaderIndex, const int fragmentShaderIndex );
-
-	static const GLuint INVALID_PROGID = 0xFFFFFFFF;
-
-	struct vertexShader_t {
-					vertexShader_t() : progId( INVALID_PROGID ), usesJoints( false ), optionalSkinning( false ) {}
-		idStr		name;
-		GLuint		progId;
-		bool		usesJoints;
-		bool		optionalSkinning;
-		idList<int>	uniforms;
+	// a legacy shader name mapped to the renderprog decl that implements it
+	struct shaderEntry_t {
+		idStr	name;
+		idDeclRenderProg * decl;
 	};
-	struct fragmentShader_t {
-					fragmentShader_t() : progId( INVALID_PROGID ) {}
-		idStr		name;
-		GLuint		progId;
-		idList<int>	uniforms;
+	// a linked pair of a vertex and a fragment shader; the decl of the pair
+	// owns the GL program
+	struct programEntry_t {
+		idStr	name;
+		idDeclRenderProg * decl;
+		int		vertexShaderIndex;
+		int		fragmentShaderIndex;
 	};
 
-	struct glslProgram_t {
-		glslProgram_t() :	progId( INVALID_PROGID ),
-							vertexShaderIndex( -1 ),
-							fragmentShaderIndex( -1 ),
-							vertexUniformArray( -1 ),
-							fragmentUniformArray( -1 ) {}
-		idStr		name;
-		GLuint		progId;
-		int			vertexShaderIndex;
-		int			fragmentShaderIndex;
-		GLint		vertexUniformArray;
-		GLint		fragmentUniformArray;
-		idList<glslUniformLocation_t> uniformLocations;
-	};
+	// uploads the decl if needed, binds its GL program, and refreshes the
+	// cached joint and skinning state of the current program
+	void	BindDecl( idDeclRenderProg * decl );
+
 	int	currentRenderProgram;
-	idList<glslProgram_t, TAG_RENDER> glslPrograms;
+	idList<programEntry_t, TAG_RENDER> glslPrograms;
 	idStaticList<idVec4, RENDERPARM_USER + MAX_GLSL_USER_PARMS> glslUniforms;
 
+	int		currentVertexShader;
+	int		currentFragmentShader;
+	idList<shaderEntry_t, TAG_RENDER> vertexShaders;
+	idList<shaderEntry_t, TAG_RENDER> fragmentShaders;
 
-	int				currentVertexShader;
-	int				currentFragmentShader;
-	idList<vertexShader_t, TAG_RENDER> vertexShaders;
-	idList<fragmentShader_t, TAG_RENDER> fragmentShaders;
+	// cached state of the currently bound decl; the per-shader tables of the
+	// legacy manager are gone so the joint and skinning queries read these
+	// copies instead
+	idDeclRenderProg *	currentDecl;
+	bool	currentUsesJoints;
+	bool	currentOptionalSkinning;
 };
 
 extern idRenderProgManager renderProgManager;
