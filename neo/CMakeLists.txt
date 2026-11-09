@@ -51,7 +51,9 @@ if(MSVC)
 	endif()
 endif()
 
-set(DARKLIGHT_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Directory used for executable output")
+# The CMake project lives in neo/, so ../bin is the bin/ folder at the
+# repository root, next to the base/ directory the game runs from.
+set(DARKLIGHT_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/../bin" CACHE PATH "Directory used for executable output")
 set(DARKLIGHT_DXSDK_DIR "" CACHE PATH "DirectX SDK (June 2010) root directory; may also be set with DXSDK_DIR")
 
 if(DARKLIGHT_BUILD_IDSTUDIO AND NOT (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC"))

@@ -1,0 +1,79 @@
+/*===========================================================================
+
+Doom 3 BFG Edition GPL Source Code
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+
+Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
+
+renderprog vtFeedback {
+	hlsl_vp {
+
+		struct VS_IN {
+			float4 position : POSITION;
+			float2 texcoord : TEXCOORD0;
+		};
+
+		struct VS_OUT {
+			float4 position : POSITION;
+			float2 texcoord0 : TEXCOORD0;
+		};
+
+		void main( VS_IN vertex, out VS_OUT result ) {
+			result.position.x = dot4( vertex.position, rpMVPmatrixX );
+			result.position.y = dot4( vertex.position, rpMVPmatrixY );
+			result.position.z = dot4( vertex.position, rpMVPmatrixZ );
+			result.position.w = dot4( vertex.position, rpMVPmatrixW );
+			result.texcoord0 = vertex.texcoord;
+		}
+	}
+	hlsl_fp {
+
+		uniform float4 rpUser0 : register(c128); // VMTR atlas scale.xy and bias.zw
+		uniform float4 rpUser1 : register(c129); // source, virtual width, feedback-to-view scale x/y
+
+		struct PS_IN {
+			half4 position : VPOS;
+			float2 texcoord0 : TEXCOORD0;
+		};
+
+		struct PS_OUT {
+			half4 color : COLOR;
+		};
+
+		void main( PS_IN fragment, out PS_OUT result ) {
+			float2 atlasTexCoord = frac( fragment.texcoord0 ) * rpUser0.xy + rpUser0.zw;
+			float2 pageCoord = atlasTexCoord * rpUser1.y;
+			float pageFootprint = max( length( ddx( pageCoord ) ) * rpUser1.z,
+				length( ddy( pageCoord ) ) * rpUser1.w );
+			float requestedLevel = clamp( floor( log2( max( pageFootprint, 1.0 ) ) ),
+				0.0, floor( log2( rpUser1.y ) ) );
+			float2 page = floor( pageCoord );
+			float highX = floor( page.x / 256.0 );
+			float highY = floor( page.y / 256.0 );
+			float lowX = page.x - highX * 256.0;
+			float lowY = page.y - highY * 256.0;
+			result.color = half4( lowX, lowY, highY * 16.0 + highX,
+				rpUser1.x * 16.0 + requestedLevel ) / 255.0;
+		}
+	}
+}

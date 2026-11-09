@@ -1,0 +1,271 @@
+#version 150
+
+void clip( float v ) { if ( v < 0.0 ) { discard; } }
+void clip( vec2 v ) { if ( any( lessThan( v, vec2( 0.0 ) ) ) ) { discard; } }
+void clip( vec3 v ) { if ( any( lessThan( v, vec3( 0.0 ) ) ) ) { discard; } }
+void clip( vec4 v ) { if ( any( lessThan( v, vec4( 0.0 ) ) ) ) { discard; } }
+
+float saturate( float v ) { return clamp( v, 0.0, 1.0 ); }
+vec2 saturate( vec2 v ) { return clamp( v, vec2( 0.0 ), vec2( 1.0 ) ); }
+vec3 saturate( vec3 v ) { return clamp( v, vec3( 0.0 ), vec3( 1.0 ) ); }
+vec4 saturate( vec4 v ) { return clamp( v, vec4( 0.0 ), vec4( 1.0 ) ); }
+
+vec4 tex2D( sampler2D sampler, vec2 texcoord ) { return texture( sampler, texcoord.xy ); }
+vec4 tex2D( sampler2DShadow sampler, vec3 texcoord ) { return vec4( texture( sampler, texcoord.xyz ) ); }
+
+vec4 tex2D( sampler2D sampler, vec2 texcoord, vec2 dx, vec2 dy ) { return textureGrad( sampler, texcoord.xy, dx, dy ); }
+vec4 tex2D( sampler2DShadow sampler, vec3 texcoord, vec2 dx, vec2 dy ) { return vec4( textureGrad( sampler, texcoord.xyz, dx, dy ) ); }
+
+vec4 texCUBE( samplerCube sampler, vec3 texcoord ) { return texture( sampler, texcoord.xyz ); }
+vec4 texCUBE( samplerCubeShadow sampler, vec4 texcoord ) { return vec4( texture( sampler, texcoord.xyzw ) ); }
+
+vec4 tex1Dproj( sampler1D sampler, vec2 texcoord ) { return textureProj( sampler, texcoord ); }
+vec4 tex2Dproj( sampler2D sampler, vec3 texcoord ) { return textureProj( sampler, texcoord ); }
+vec4 tex3Dproj( sampler3D sampler, vec4 texcoord ) { return textureProj( sampler, texcoord ); }
+
+vec4 tex1Dbias( sampler1D sampler, vec4 texcoord ) { return texture( sampler, texcoord.x, texcoord.w ); }
+vec4 tex2Dbias( sampler2D sampler, vec4 texcoord ) { return texture( sampler, texcoord.xy, texcoord.w ); }
+vec4 tex3Dbias( sampler3D sampler, vec4 texcoord ) { return texture( sampler, texcoord.xyz, texcoord.w ); }
+vec4 texCUBEbias( samplerCube sampler, vec4 texcoord ) { return texture( sampler, texcoord.xyz, texcoord.w ); }
+
+vec4 tex1Dlod( sampler1D sampler, vec4 texcoord ) { return textureLod( sampler, texcoord.x, texcoord.w ); }
+vec4 tex2Dlod( sampler2D sampler, vec4 texcoord ) { return textureLod( sampler, texcoord.xy, texcoord.w ); }
+vec4 tex3Dlod( sampler3D sampler, vec4 texcoord ) { return textureLod( sampler, texcoord.xyz, texcoord.w ); }
+vec4 texCUBElod( samplerCube sampler, vec4 texcoord ) { return textureLod( sampler, texcoord.xyz, texcoord.w ); }
+
+
+uniform vec4 rpScreenCorrectionFactor;
+uniform vec4 rpWindowCoord;
+uniform vec4 rpDiffuseModifier;
+uniform vec4 rpSpecularModifier;
+uniform vec4 rpLocalLightOrigin;
+uniform vec4 rpLocalViewOrigin;
+uniform vec4 rpLightProjectionS;
+uniform vec4 rpLightProjectionT;
+uniform vec4 rpLightProjectionQ;
+uniform vec4 rpLightFalloffS;
+uniform vec4 rpBumpMatrixS;
+uniform vec4 rpBumpMatrixT;
+uniform vec4 rpDiffuseMatrixS;
+uniform vec4 rpDiffuseMatrixT;
+uniform vec4 rpSpecularMatrixS;
+uniform vec4 rpSpecularMatrixT;
+uniform vec4 rpVertexColorModulate;
+uniform vec4 rpVertexColorAdd;
+uniform vec4 rpColor;
+uniform vec4 rpViewOrigin;
+uniform vec4 rpGlobalEyePos;
+uniform vec4 rpMVPmatrixX;
+uniform vec4 rpMVPmatrixY;
+uniform vec4 rpMVPmatrixZ;
+uniform vec4 rpMVPmatrixW;
+uniform vec4 rpModelMatrixX;
+uniform vec4 rpModelMatrixY;
+uniform vec4 rpModelMatrixZ;
+uniform vec4 rpModelMatrixW;
+uniform vec4 rpProjectionMatrixX;
+uniform vec4 rpProjectionMatrixY;
+uniform vec4 rpProjectionMatrixZ;
+uniform vec4 rpProjectionMatrixW;
+uniform vec4 rpModelViewMatrixX;
+uniform vec4 rpModelViewMatrixY;
+uniform vec4 rpModelViewMatrixZ;
+uniform vec4 rpModelViewMatrixW;
+uniform vec4 rpTextureMatrixS;
+uniform vec4 rpTextureMatrixT;
+uniform vec4 rpTexGen0S;
+uniform vec4 rpTexGen0T;
+uniform vec4 rpTexGen0Q;
+uniform vec4 rpTexGen0Enabled;
+uniform vec4 rpTexGen1S;
+uniform vec4 rpTexGen1T;
+uniform vec4 rpTexGen1Q;
+uniform vec4 rpTexGen1Enabled;
+uniform vec4 rpWobbleSkyX;
+uniform vec4 rpWobbleSkyY;
+uniform vec4 rpWobbleSkyZ;
+uniform vec4 rpOverbright;
+uniform vec4 rpEnableSkinning;
+uniform vec4 rpAlphaTest;
+uniform vec4 rpShadowMatrixX;
+uniform vec4 rpShadowMatrixY;
+uniform vec4 rpShadowMatrixZ;
+uniform vec4 rpShadowMatrixW;
+uniform vec4 rpShadowProjectionX;
+uniform vec4 rpShadowProjectionY;
+uniform vec4 rpShadowProjectionZ;
+uniform vec4 rpShadowProjectionW;
+uniform vec4 rpShadowParams;
+float dot2( vec2 a, vec2 b ) { return dot( a, b ); }
+float dot3( vec3 a, vec3 b ) { return dot( a, b ); }
+float dot3( vec3 a, vec4 b ) { return dot( a, b.xyz ); }
+float dot3( vec4 a, vec3 b ) { return dot( a.xyz, b ); }
+float dot3( vec4 a, vec4 b ) { return dot( a.xyz, b.xyz ); }
+float dot4( vec4 a, vec4 b ) { return dot( a, b ); }
+float dot4( vec2 a, vec4 b ) { return dot( vec4( a, 0, 1 ), b ); }
+const vec4 matrixRGB1toCoCg1YX = vec4( 0.50, 0.0, -0.50, 0.50196078 );
+const vec4 matrixRGB1toCoCg1YY = vec4( -0.25, 0.5, -0.25, 0.50196078 );
+const vec4 matrixRGB1toCoCg1YZ = vec4( 0.0, 0.0, 0.0, 1.0 );
+const vec4 matrixRGB1toCoCg1YW = vec4( 0.25, 0.5, 0.25, 0.0 );
+const vec4 matrixCoCg1YtoRGB1X = vec4( 1.0, -1.0, 0.0, 1.0 );
+const vec4 matrixCoCg1YtoRGB1Y = vec4( 0.0, 1.0, -0.50196078, 1.0 );
+const vec4 matrixCoCg1YtoRGB1Z = vec4( -1.0, -1.0, 1.00392156, 1.0 );
+vec3 ConvertYCoCgToRGB( vec4 YCoCg ) {
+vec3 rgbColor;
+YCoCg.z = ( YCoCg.z * 31.875 ) + 1.0;
+YCoCg.z = 1.0 / YCoCg.z;
+YCoCg.xy *= YCoCg.z;
+rgbColor.x = dot4( YCoCg, matrixCoCg1YtoRGB1X );
+rgbColor.y = dot4( YCoCg, matrixCoCg1YtoRGB1Y );
+rgbColor.z = dot4( YCoCg, matrixCoCg1YtoRGB1Z );
+return rgbColor;
+}
+vec2 CenterScale( vec2 inTC, vec2 centerScale ) {
+float scaleX = centerScale.x;
+float scaleY = centerScale.y;
+vec4 tc0 = vec4( scaleX, 0, 0, 0.5 - ( 0.5 * scaleX ) );
+vec4 tc1 = vec4( 0, scaleY, 0, 0.5 - ( 0.5 * scaleY ) );
+vec2 finalTC;
+finalTC.x = dot4( inTC, tc0 );
+finalTC.y = dot4( inTC, tc1 );
+return finalTC;
+}
+vec2 Rotate2D( vec2 inTC, vec2 cs ) {
+float sinValue = cs.y;
+float cosValue = cs.x;
+vec4 tc0 = vec4( cosValue, -sinValue, 0, ( -0.5 * cosValue ) + ( 0.5 * sinValue ) + 0.5 );
+vec4 tc1 = vec4( sinValue, cosValue, 0, ( -0.5 * sinValue ) + ( -0.5 * cosValue ) + 0.5 );
+vec2 finalTC;
+finalTC.x = dot4( inTC, tc0 );
+finalTC.y = dot4( inTC, tc1 );
+return finalTC;
+}
+float rand( vec2 co ) {
+return fract( sin( dot( co.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+}
+#define _half2( x ) vec2( x )
+#define _half3( x ) vec3( x )
+#define _half4( x ) vec4( x )
+#define _float2( x ) vec2( x )
+#define _float3( x ) vec3( x )
+#define _float4( x ) vec4( x )
+#define VPOS WPOS
+vec4 idtex2Dproj( sampler2D samp, vec4 texCoords ) { return tex2Dproj( samp, texCoords.xyw ); }
+vec4 swizzleColor( vec4 c ) { return c; }
+vec2 vposToScreenPosTexCoord( vec2 vpos ) { return vpos.xy * rpWindowCoord.xy; }
+#define BRANCH
+#define IFANY
+uniform sampler2D samp0;
+uniform sampler2D samp1;
+uniform sampler2D samp2;
+uniform sampler2D samp3;
+uniform sampler2D samp4;
+uniform sampler2DShadow samp5;
+uniform sampler2D samp6;
+uniform sampler2D samp7;
+uniform sampler2D samp8;
+uniform sampler2D samp9;
+uniform vec4 rpUser0;
+uniform vec4 rpUser1;
+
+in vec4 vofi_TexCoord7;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_TexCoord5;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord6;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+{
+float shadow = 1.0;
+if ( rpShadowParams.x > 0.5 ) {
+vec3 shadowCoord;
+if ( rpShadowParams.x < 1.5 ) {
+shadowCoord = vofi_TexCoord7.xyz / vofi_TexCoord7.w;
+} else {
+vec3 absCoord = abs( vofi_TexCoord7.xyz );
+float maxCoord = max( absCoord.x, max( absCoord.y, absCoord.z ) );
+vec4 axis;
+axis.xyz = step( vec3( maxCoord, maxCoord, maxCoord ), absCoord );
+axis.yz = saturate( axis.yz - axis.xx - axis.xy );
+axis.w = 0.0;
+vec4 rotate = axis.yxxy + axis.zwzw;
+vec4 flatCoord;
+flatCoord.x = dot2( rotate.xy, vofi_TexCoord7.xz );
+flatCoord.y = dot2( rotate.zw, vofi_TexCoord7.yz );
+flatCoord.z = -maxCoord;
+flatCoord.w = vofi_TexCoord7.w;
+vec3 negativeSide = 1.0 - step( vec3( 0.0, 0.0, 0.0 ), vofi_TexCoord7.xyz );
+float sBias = 0.5 + dot3( axis.xyz, negativeSide );
+float tBias = 0.5 + dot3( axis.xyz, vec3( 0.0, 1.0, 2.0 ) );
+vec4 faceCoord;
+faceCoord.x = dot4( flatCoord, rpShadowProjectionX + sBias * rpShadowProjectionW );
+faceCoord.y = dot4( flatCoord, rpShadowProjectionY + tBias * rpShadowProjectionW );
+faceCoord.z = dot4( flatCoord, rpShadowProjectionZ );
+faceCoord.w = dot4( flatCoord, rpShadowProjectionW );
+shadowCoord = faceCoord.xyz / faceCoord.w;
+shadowCoord.xy *= ( 1.0 / 3.0 );
+}
+shadowCoord.z -= rpShadowParams.z;
+float insideShadowMap = step( 0.0, shadowCoord.x ) * step( shadowCoord.x, 1.0 ) *
+step( 0.0, shadowCoord.y ) * step( shadowCoord.y, 1.0 ) *
+step( 0.0, shadowCoord.z ) * step( shadowCoord.z, 1.0 );
+vec2 texel = vec2( rpShadowParams.y, rpShadowParams.y );
+float filteredShadow = 0.25 * ( tex2D( samp5, shadowCoord + vec3( -texel.x, -texel.y, 0.0 ) ).x +
+tex2D( samp5, shadowCoord + vec3( texel.x, -texel.y, 0.0 ) ).x +
+tex2D( samp5, shadowCoord + vec3( -texel.x, texel.y, 0.0 ) ).x +
+tex2D( samp5, shadowCoord + vec3( texel.x, texel.y, 0.0 ) ).x );
+shadow = mix( 1.0, filteredShadow, insideShadowMap );
+}
+vec4 bumpMap = tex2D( samp0, vofi_TexCoord1.xy );
+vec4 lightFalloff = idtex2Dproj( samp1, vofi_TexCoord2 );
+vec4 lightProj = idtex2Dproj( samp2, vofi_TexCoord3 );
+vec4 YCoCG = tex2D( samp3, vofi_TexCoord4.xy );
+vec4 specMap = tex2D( samp4, vofi_TexCoord5.xy );
+float useVirtualTexture = 0.0;
+if ( rpUser1.w > 0.5 ) {
+vec2 atlasTexCoord = fract( vofi_TexCoord4.xy ) * rpUser0.xy + rpUser0.zw;
+vec4 pageMapping = tex2D( samp9, atlasTexCoord );
+if ( pageMapping.w > 0.5 ) {
+vec2 physicalPage = floor( pageMapping.xy * 255.0 + 0.5 );
+float residentLevel = floor( pageMapping.z * 255.0 + 0.5 );
+float levelPagesWide = max( 1.0, rpUser1.y / exp2( residentLevel ) );
+float physicalWidth = rpUser1.z * 128.0;
+vec2 pageOrigin = physicalPage * 128.0 + 4.0;
+vec2 bumpLocal = fract( ( fract( vofi_TexCoord1.xy ) * rpUser0.xy + rpUser0.zw ) * levelPagesWide );
+vec2 diffuseLocal = fract( atlasTexCoord * levelPagesWide );
+vec2 specularLocal = fract( ( fract( vofi_TexCoord5.xy ) * rpUser0.xy + rpUser0.zw ) * levelPagesWide );
+vec2 bumpTC = ( pageOrigin + bumpLocal * 120.0 ) / physicalWidth;
+vec2 diffuseTC = ( pageOrigin + diffuseLocal * 120.0 ) / physicalWidth;
+vec2 specularTC = ( pageOrigin + specularLocal * 120.0 ) / physicalWidth;
+bumpMap = tex2D( samp7, bumpTC );
+YCoCG = tex2D( samp6, diffuseTC );
+specMap = tex2D( samp8, specularTC );
+useVirtualTexture = 1.0;
+}
+}
+vec3 lightVector = normalize( vofi_TexCoord0.xyz );
+vec3 diffuseMap = useVirtualTexture > 0.5 ? YCoCG.xyz : ConvertYCoCgToRGB( YCoCG );
+vec3 localNormal;
+if ( useVirtualTexture > 0.5 ) {
+localNormal = bumpMap.xyz * 2.0 - 1.0;
+} else {
+localNormal.xy = bumpMap.wy - 0.5;
+localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+}
+localNormal = normalize( localNormal );
+float specularPower = 10.0;
+float hDotN = dot3( normalize( vofi_TexCoord6.xyz ), localNormal );
+vec3 specularContribution = _half3( pow( hDotN, specularPower ) );
+vec3 diffuseColor = diffuseMap * rpDiffuseModifier.xyz;
+vec3 specularColor = specMap.xyz * specularContribution * rpSpecularModifier.xyz;
+vec3 lightColor = dot3( lightVector, localNormal ) * lightProj.xyz * lightFalloff.xyz;
+out_FragColor0.xyz = ( diffuseColor + specularColor ) * lightColor * vofi_Color.xyz * shadow;
+out_FragColor0.w = 1.0;
+}
+}
