@@ -1,0 +1,42 @@
+name: Remove legacy shader files
+
+on:
+  push:
+    branches: [m1-renderprogs]
+
+jobs:
+  remove-legacy-shaders:
+    if: contains(github.event.head_commit.message, '[remove-legacy-shaders]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove legacy .vertex/.pixel files that have a .rp replacement
+        shell: bash
+        run: |
+          set -e
+          removed=0
+          for f in base/renderprogs/*.vertex base/renderprogs/*.pixel; do
+            [ -e "$f" ] || continue
+            if [ -f "${f%.vertex}.rp" ] || [ -f "${f%.pixel}.rp" ]; then
+              git rm -q "$f"
+              removed=$((removed + 1))
+            else
+              echo "no renderprog decl for $f, keeping it"
+            fi
+          done
+          echo "removing $removed files"
+          if [ "$removed" -eq 0 ]; then
+            echo "nothing to remove"
+            exit 0
+          fi
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "m1 phase 4b: remove legacy vertex and pixel shader files"
+          git push
