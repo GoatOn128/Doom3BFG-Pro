@@ -239,7 +239,7 @@ jobs:
           touch build-windows.log build-linux.log build-macos.log build-digest.md
           if [ "$HEAD_BRANCH" = "$DEFAULT_BRANCH" ]; then
             # default branch: the digest is committed next to the code
-            git add build-windows.log build-linux.log build-macos.log build-digest.md
+            git add -f build-windows.log build-linux.log build-macos.log build-digest.md
             git rm -q --ignore-unmatch build.log
             git diff --cached --quiet && exit 0
             git commit -m "CI: publish build logs and digest [skip ci]"
@@ -254,16 +254,25 @@ jobs:
             # through this push: the GITHUB_TOKEN app is not allowed to
             # create refs whose commits touch .github/workflows, so the
             # snapshot has no parent and carries only the digest files
+            # build* is in .gitignore: the digest files need a forced
+            # add or git refuses them and the publish dies silently
             export GIT_INDEX_FILE="$PWD/.git/ci-logs-index"
             rm -f "$GIT_INDEX_FILE"
             git read-tree --empty
-            git add build-windows.log build-linux.log build-macos.log build-digest.md
+            git add -f build-windows.log build-linux.log build-macos.log build-digest.md
             tree=$(git write-tree)
             unset GIT_INDEX_FILE
             commit=$(git commit-tree "$tree" -m "CI: publish build logs and digest [skip ci]")
             if ! out=$(git push --force origin "$commit:refs/heads/ci-logs/$HEAD_BRANCH" 2>&1); then
-              msg=$(printf '%s' "$out" | tr '\n' ' ' | head -c 900 | sed 's/%/%25/g; s/\r/%0D/g')
+              msg=$(printf '%s' "$out" | tr '\r\n' '  ' | tr -d '\000-\010\013\014\016-\037' | head -c 900 | sed 's/%/%25/g')
               echo "::error title=ci-logs push failed::$msg"
+              # job summaries are readable without signing in, unlike logs
+              {
+                echo '### ci-logs push failed'
+                echo '```'
+                printf '%s' "$out"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
               exit 1
             fi
           fi
