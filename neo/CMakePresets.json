@@ -1,0 +1,127 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ninja-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows / MSVC",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DARKLIGHT_BUILD_IDSTUDIO": "ON",
+        "DARKLIGHT_SOUND_BACKEND": "XAudio2"
+      }
+    },
+    {
+      "name": "windows-mingw-gcc",
+      "displayName": "Windows / MinGW-w64 / GCC",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "DARKLIGHT_BUILD_IDSTUDIO": "OFF",
+        "DARKLIGHT_SOUND_BACKEND": "XAudio2"
+      }
+    },
+    {
+      "name": "windows-clang-cl",
+      "displayName": "Windows / Clang-CL",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl",
+        "DARKLIGHT_BUILD_IDSTUDIO": "OFF",
+        "DARKLIGHT_SOUND_BACKEND": "XAudio2"
+      }
+    },
+    {
+      "name": "linux-gcc",
+      "displayName": "Linux / GCC",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "DARKLIGHT_BUILD_IDSTUDIO": "OFF",
+        "DARKLIGHT_SOUND_BACKEND": "OpenAL"
+      }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux / Clang",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "DARKLIGHT_BUILD_IDSTUDIO": "OFF",
+        "DARKLIGHT_SOUND_BACKEND": "OpenAL"
+      }
+    },
+    {
+      "name": "macos-clang",
+      "displayName": "macOS / Apple Clang",
+      "inherits": "ninja-base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "DARKLIGHT_BUILD_IDSTUDIO": "OFF",
+        "DARKLIGHT_SOUND_BACKEND": "CoreAudio"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-msvc", "configurePreset": "windows-msvc" },
+    { "name": "windows-mingw-gcc", "configurePreset": "windows-mingw-gcc" },
+    { "name": "windows-clang-cl", "configurePreset": "windows-clang-cl" },
+    { "name": "linux-gcc", "configurePreset": "linux-gcc" },
+    { "name": "linux-clang", "configurePreset": "linux-clang" },
+    { "name": "macos-clang", "configurePreset": "macos-clang" }
+  ]
+}
