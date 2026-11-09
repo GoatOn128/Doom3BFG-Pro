@@ -1,0 +1,28 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_transmap;
+
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 tc = vofi_TexCoord1.xy;
+	vec2 inset;
+	inset.xy = 8.0 / vec2( vofi_TexCoord0.y * _fa_[0 ].x, vofi_TexCoord0.w * _fa_[0 ].y );
+	clip( min( tc - inset, vec2( 1.0 ) - ( tc + inset ) ) );
+	vec2 texcoord;
+	texcoord.x = tc.x * vofi_TexCoord0.y + vofi_TexCoord0.x;
+	texcoord.y = tc.y * vofi_TexCoord0.w + vofi_TexCoord0.z;
+	float fog = saturate( exp2( vofi_TexCoord1.w ) );
+	vec4 final = tex2D( samp_transmap, texcoord );
+	final.w *= vofi_Color.w;
+	final.xyz = mix( _fa_[1 ].xyz, final.xyz, fog );
+	out_FragColor0.xyz = final.xyz * final.w;
+	out_FragColor0.w = final.w;
+}

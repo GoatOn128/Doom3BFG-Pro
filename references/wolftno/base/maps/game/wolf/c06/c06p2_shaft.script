@@ -1,0 +1,220 @@
+/*
+================================================================================
+Map Script for c06p2_shaft.map
+================================================================================
+*/
+
+void bounceMove(entity mover, float angle, float dist, float moveTime, float firstAccelTime, float bouncefactor);
+void prodPlayer(float t);
+
+#define ELEVATOR_TOP 5112
+#define ELEVATOR_BOUNCEFACTOR 0.20
+
+object brakeblock
+{
+	string owner_elevator_name;
+	int num;
+	boolean broken;
+	
+	void onTrigger(entity acti);
+};
+
+void brakeblock::onTrigger(entity acti)
+{
+
+	if(broken) return;
+	broken = true;
+
+	entity owner_elevator = sys.getEntity(owner_elevator_name);
+	entity brake_model = sys.getEntity(owner_elevator_name+"_brake_"+num);
+	entity clamp_model = sys.getEntity(owner_elevator_name+"_clamp_"+num); 
+	entity fx = sys.getEntity(owner_elevator_name+"_fx_"+num);
+
+	brake_model.time(0.25);
+	brake_model.accelTime(0.125);
+	brake_model.decelTime(0.125);
+	brake_model.rotateOnceXYZ(0,24.5,0); //TODO: Make a bit more violent
+
+	clamp_model.unbind();
+	clamp_model.activate($null);
+	fx.activate($player1);
+
+	owner_elevator.callFunction("destroyBrake");
+	
+	sys.wait(2);
+	
+	clamp_model.bind(owner_elevator);
+
+}
+
+
+
+object elevator
+{
+	int numBrakes;
+//	int initialPos;
+
+	int currentpos;
+
+	boolean moving;
+
+	void init();
+
+	void moveToHeight(float h, float spd);
+	void destroyBrake();
+};
+
+
+/* 
+ * Sets up and moves the elevator to the initial position
+ */
+void elevator::init()
+{
+	vector pos = self.getOrigin();
+	currentpos = pos_z;
+		
+//	thread moveToHeight(initialPos, 170 * 32);
+}
+
+/* 
+ * The elevator moves to the given position
+ */
+void elevator::moveToHeight(float h, float spd)
+{
+	waitUntil(!moving);
+	if(numBrakes <= 0) return;
+	
+	float dist = h - currentpos;
+	
+	if(dist == 0) return;
+
+	moving = true;
+	
+	currentpos = currentpos + dist;
+
+	float t = (abs(dist) / spd) * (1 - sys.random(0.1)) + 1.5;
+	float at = 0.75;
+
+	self.time(t);
+	self.accelTime(at);
+	self.decelTime(at);	
+	
+	
+	self.move(DIR_UP, dist);
+	sys.waitFor(self);
+	moving = false;	
+		
+}
+
+
+void elevator::destroyBrake()
+{
+	waitUntil( !moving );
+
+	if(numBrakes == 0) return;
+	
+	moving = true;
+	numBrakes--;
+	
+	float dist, t, bf;
+	
+	if(numBrakes == 0)
+	{
+		//When all brakes are destroyed, let the elevator plummet to the bottom of the shaft
+		dist = 1920;
+		t = sys.sqrt(abs(dist) / 500); //Also magisk!!! Also copyrightet!!!
+		bf = ELEVATOR_BOUNCEFACTOR;
+		$sound_sp_weight_up_front.activate( $activator );
+		$sound_sp_weight_up_rear.activate( $activator );
+	}
+	else
+	{
+		// Have the elevator shake about a bit as brakes are destroyed
+
+		dist = 1 +(4 * (3 - numBrakes)); //This essentially means: 1st time: 1 unit, 2nd: 5 units, 3rd: 9 units
+		t = 0.4;
+		bf = 0.4;										
+	}
+	
+	if(numBrakes == 1)
+	{
+		$sound_sp_lift_stutter_front.activate( $activator );
+		$sound_sp_lift_stutter_rear.activate( $activator );
+	}	
+	
+	if(dist == 0) return;
+
+	currentpos = currentpos + dist;
+
+	thread prodPlayer(t);
+	bounceMove(self, DIR_DOWN, dist, t, t, bf);
+	
+	
+	moving = false;
+	return;
+
+}
+
+/*
+================================================================================
+Misc 
+================================================================================
+*/
+
+void prodPlayer(float t)
+{
+	//Amazin hack! 
+	sys.wait(0.3);
+	$setexternalvalocity_1.activate($player1);
+	sys.wait(t);	
+	$setexternalvalocity_0.activate($player1);	
+	
+}
+
+void bounceMove(entity mover, float angle, float dist, float moveTime, float firstAccelTime, float bouncefactor)
+{
+	if(bouncefactor >= 1.0) bouncefactor = 0.99;
+	if(bouncefactor <  0.0) bouncefactor = 0.01;
+	
+	float firstDecelTime;
+	
+	if(firstAccelTime >= moveTime)
+	{
+		firstAccelTime = moveTime * 0.95;
+		firstDecelTime = moveTime * 0.025;		
+	}else
+	{
+		firstDecelTime = (moveTime - firstAccelTime) * 0.3;
+	}
+	
+	
+	
+	mover.time(moveTime);
+	mover.accelTime(firstAccelTime);
+	mover.decelTime(firstDecelTime);
+	
+	mover.move(angle, dist);
+	sys.waitFor(mover);
+	
+	dist *= (bouncefactor * bouncefactor);
+	moveTime *= bouncefactor;
+
+	while(abs(dist) > 0.01 && moveTime > 0.001)
+	{
+	
+		mover.time(moveTime);
+		mover.accelTime(moveTime * 0.05);
+		mover.decelTime(moveTime * 0.95);
+		mover.move(angle, -dist); //Bounce back
+		sys.waitFor(mover);
+		
+		mover.time(moveTime);
+		mover.accelTime(moveTime * 0.95);
+		mover.decelTime(moveTime * 0.05);
+		mover.move(angle, dist); //Continue forward
+		sys.waitFor(mover);
+		
+		dist *= (bouncefactor * bouncefactor);
+		moveTime *= bouncefactor;
+	}
+}

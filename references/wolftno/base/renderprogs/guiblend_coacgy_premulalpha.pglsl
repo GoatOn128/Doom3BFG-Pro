@@ -1,0 +1,26 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_transmap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+in vec4 vofi_TexCoord1;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 CoYCgA = tex2D( samp_transmap, vofi_TexCoord0.xy );
+	CoYCgA.xz -= 132.0 / 255.0;
+	vec4 rgba;
+	rgba.x = CoYCgA.w + CoYCgA.x - CoYCgA.z;
+	rgba.y = CoYCgA.w + CoYCgA.z;
+	rgba.z = CoYCgA.w - CoYCgA.x - CoYCgA.z;
+	rgba.w = CoYCgA.y;
+	rgba *= vofi_Color;
+	rgba.xyz += vofi_TexCoord1.xyz * rgba.w * vofi_Color.w;
+	out_FragColor0.xyz = pow3( saturate( rgba.xyz ), _fa_[0 ].x ) * vofi_Color.w;
+	out_FragColor0.w = rgba.w;
+}

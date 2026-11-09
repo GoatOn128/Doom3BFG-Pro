@@ -1,0 +1,204 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [5];
+uniform sampler2D samp_dither256map;
+uniform sampler2D samp_transmap1;
+uniform sampler2DMS samp_viewtargetms;
+uniform sampler2D samp_viewcolormap;
+uniform sampler2D samp_viewtarget;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord7;
+
+out vec4 out_FragColor0;
+
+void main() {
+	{ if ( _fa_[0 ].x < 1.0 ) {
+			vec2 texcoord = gl_FragCoord.xy * ( 1.0 / 256.0 );
+			float dither = _fa_[0 ].y * tex2D( samp_dither256map, texcoord ).x + _fa_[0 ].z;
+			clip( _fa_[0 ].x - 0.2 - dither * 0.6 );
+		}
+	};
+	vec3 color = vec3( 0.0 ); if ( _fa_[1 ].y > 0.0 ) {
+		float bsaaStep = 1.25;
+		vec4 coverage;
+		{
+			{
+				vec2 dx = dFdx( vofi_TexCoord7.xy ) * 0.5;
+				vec2 dy = dFdy( vofi_TexCoord7.xy ) * 0.5;
+				vec2 dxh = dx * 0.5;
+				vec2 dyh = dy * 0.5;
+				coverage = vec4( 0.0 );
+				coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy - dxh - dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy + dxh - dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy - dxh + dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy + dxh + dyh, dx, dy);
+				coverage *= vec4( 1.0 / 5.0 );
+			};
+		};
+		{
+			vec2 tcMask = screenPosToTexcoord( gl_FragCoord.xy, _fa_[2 ] );
+			vec2 tcMaskStep = _fa_[3 ].zw * vec2( bsaaStep );
+			vec4 coloraa = vec4( 0.0 );
+			vec4 colorsrc = vec4( 0.0 ); if ( _fa_[4 ].x > 1.0 ) {
+				vec2 tcScreen = gl_FragCoord.xy;
+				vec2 tcScreenStep = vec2( bsaaStep );
+				colorsrc = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen ), 0 );
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( -2.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( -2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( -2.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( -2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( -1.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( -1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( -1.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( -1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( 1.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( 1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( 1.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( 1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( 2.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( 2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( 2.0 ) ), 0 );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( 2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+			} else {
+				vec2 tcScreen = tcMask;
+				vec2 tcScreenStep = tcMaskStep;
+				colorsrc = tex2D( samp_viewtarget, tcScreen );
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( -2.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( -2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( -2.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( -2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( -1.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( -1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( -1.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( -1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( 1.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( 1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( 1.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( 1.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].xy * vec2( 2.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].xy * vec2( 2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+				{
+					vec4 target = tex2D( samp_viewtarget, tcScreen + tcScreenStep * _fa_[1 ].yx * vec2( 2.0 ) );
+					float mask = tex2D( samp_viewcolormap, tcMask + tcMaskStep * _fa_[1 ].yx * vec2( 2.0 ) ).y;
+					coloraa += mix( colorsrc, target, mask );
+				};
+			}
+			coloraa *= ( 1.0 / 8.0 );
+			color = mix( colorsrc.xyz, coloraa.xyz, saturate( ( ( 1.0 - coverage.w ) - 0.6 ) * 4.0 ) );
+		};
+	} else {
+		{
+			float FXAA_SPAN_MAX = 8.0;
+			float FXAA_REDUCE_MUL = 1.0 / 8.0;
+			float FXAA_REDUCE_MIN = 1.0 / 128.0;
+			float FXAA_SUBPIX_SHIFT = 1.0 / 4.0;
+			float fxaaStep = 0.5 + FXAA_SUBPIX_SHIFT;
+			vec2 tcStep;
+			vec2 tcScreen;
+			vec4 viewColorC;
+			vec4 viewColorNW;
+			vec4 viewColorNE;
+			vec4 viewColorSW;
+			vec4 viewColorSE; if ( _fa_[4 ].x > 1.0 ) {
+				tcStep = vec2( fxaaStep );
+				tcScreen = gl_FragCoord.xy;
+				viewColorC = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen ), 0 );
+				viewColorNW = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcStep * vec2( -1, -1 ) ), 0 );
+				viewColorNE = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcStep * vec2( -1, 1 ) ), 0 );
+				viewColorSW = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcStep * vec2( 1, -1 ) ), 0 );
+				viewColorSE = tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + tcStep * vec2( 1, 1 ) ), 0 );
+			} else {
+				tcStep = _fa_[3 ].zw * vec2( fxaaStep );
+				tcScreen = screenPosToTexcoord( gl_FragCoord.xy, _fa_[2 ] );
+				viewColorC = tex2D( samp_viewtarget, tcScreen );
+				viewColorNW = tex2D( samp_viewtarget, tcScreen + tcStep * vec2( -1, -1 ) );
+				viewColorNE = tex2D( samp_viewtarget, tcScreen + tcStep * vec2( -1, 1 ) );
+				viewColorSW = tex2D( samp_viewtarget, tcScreen + tcStep * vec2( 1, -1 ) );
+				viewColorSE = tex2D( samp_viewtarget, tcScreen + tcStep * vec2( 1, 1 ) );
+			}
+			vec3 luma = vec3( 0.299, 0.587, 0.114 );
+			float lumaNW = dot3( viewColorNW, luma );
+			float lumaNE = dot3( viewColorNE, luma );
+			float lumaSW = dot3( viewColorSW, luma );
+			float lumaSE = dot3( viewColorSE, luma );
+			float lumaC = dot3( viewColorC, luma );
+			float lumaMin = min( lumaC, min( min( lumaNW, lumaNE ), min( lumaSW, lumaSE ) ) );
+			float lumaMax = max( lumaC, max( max( lumaNW, lumaNE ), max( lumaSW, lumaSE ) ) );
+			vec2 dir;
+			dir.x = -( ( lumaNW + lumaNE ) - ( lumaSW + lumaSE ) );
+			dir.y = ( ( lumaNW + lumaSW ) - ( lumaNE + lumaSE ) );
+			float dirReduce = max( ( lumaNW + lumaNE + lumaSW + lumaSE ) * ( 0.25 * FXAA_REDUCE_MUL ), FXAA_REDUCE_MIN );
+			float rcpDirMin = 1.0 / ( min( abs( dir.x ), abs( dir.y ) ) + dirReduce );
+			dir = min( vec2( FXAA_SPAN_MAX, FXAA_SPAN_MAX ), max( vec2( -FXAA_SPAN_MAX, -FXAA_SPAN_MAX ), dir * rcpDirMin ) ) * tcStep;
+			vec4 clrA = vec4( 0.0 );
+			vec4 clrB = vec4( 0.0 ); if ( _fa_[4 ].x > 1.0 ) {
+				clrA += tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + dir * ( 1.0 / 3.0 - 0.5 ) ), 0 );
+				clrA += tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + dir * ( 2.0 / 3.0 - 0.5 ) ), 0 );
+				clrB += tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + dir * ( 0.0 / 3.0 - 0.5 ) ), 0 );
+				clrB += tex2DMSFetch( samp_viewtargetms, ivec2( tcScreen + dir * ( 3.0 / 3.0 - 0.5 ) ), 0 );
+			} else {
+				clrA += tex2D( samp_viewtarget, tcScreen + dir * ( 1.0 / 3.0 - 0.5 ) );
+				clrA += tex2D( samp_viewtarget, tcScreen + dir * ( 2.0 / 3.0 - 0.5 ) );
+				clrB += tex2D( samp_viewtarget, tcScreen + dir * ( 0.0 / 3.0 - 0.5 ) );
+				clrB += tex2D( samp_viewtarget, tcScreen + dir * ( 3.0 / 3.0 - 0.5 ) );
+			}
+			clrA = clrA * ( 1.0 / 2.0 );
+			clrB = clrA * ( 1.0 / 2.0 ) + clrB * ( 1.0 / 4.0 );
+			float lumaB = dot3( clrB, luma );
+			color = clrB.xyz; if ( ( lumaB < lumaMin ) || ( lumaB > lumaMax ) ) {
+				color = clrA.xyz;
+			}
+		};
+	}
+	out_FragColor0.xyz = color.xyz;
+	out_FragColor0.w = 0.0;
+}

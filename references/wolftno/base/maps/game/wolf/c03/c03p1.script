@@ -1,0 +1,49 @@
+/*
+================================================================================
+Map Script for c03p1.map
+================================================================================
+*/
+
+void RotateDoor01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 3.0 );
+     $gp_func_mover_2.accelTime( 0.1 );
+     $gp_func_mover_2.decelTime( 0.1 );
+     $gp_func_mover_2.rotateOnce( '0 60 0' );
+}
+
+void OpenDrawer01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_1.time( 1.0 );
+     $gp_func_mover_1.accelTime( 0.2 );
+     $gp_func_mover_1.decelTime( 0.3 );
+     $gp_func_mover_1.move( DIR_LEFT, 18 );
+}
+
+void CloseBlinds01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_3.time( 1.0 );
+     $gp_func_mover_3.accelTime( 0.2 );
+     $gp_func_mover_3.decelTime( 0.3 );
+     $gp_func_mover_3.move( DIR_DOWN, 30 );
+}
+
+//ignore for now 
+//void PutOnApron( entity activatedEntity, entity activator ) {
+//	$flightdeck_pliers.show();
+//	$flightdeck_pliersevent.attachEntity( $flightdeck_pliers, "right_hand" );
+
+//}
+
+//ignore for now 
+void HideApron( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_apron_1.hide();
+}
+
+void HideGoggles( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_goggles_1.hide();
+}
+
+void HideChainsaw( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_chainsaw_1.hide();
+}

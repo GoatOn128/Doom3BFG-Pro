@@ -1,0 +1,24 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_transmap2;
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_transmap1;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float worldNoiseMap = tex2D( samp_transmap2, vofi_TexCoord1.xy * 0.002 + ( _fa_[1 ].x * 0.025 ) + ( vofi_TexCoord1.z * 0.002 ) ).x;
+	vec2 rampCoords = tex2D( samp_transmap, vofi_TexCoord0.xy ).xy;
+	vec3 finalColor = tex2D( samp_transmap1, rampCoords * saturate((worldNoiseMap + 0.1 ) * vofi_Color.w) ).xyz;
+	out_FragColor0.xyz = finalColor;
+	out_FragColor0.w = 1.0;
+}

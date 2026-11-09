@@ -1,0 +1,85 @@
+/*
+================================================================================
+Map Script for c02p1.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+//===============================================================
+//	Massacre event  					     
+//===============================================================
+
+// As def. the takedown is not applicable, since one hasn't picked up the knife
+
+void script_event_massacre_grabknife( entity activatedEntity, entity activator )
+{
+	sys.print( "SCRIPT - MASSACRE - GRABKNIFE\n" );
+	
+	$gp_relay_massacre_executioncountdown.remove();	
+	$gp_relay_killplayerearlier.remove();
+	
+	$gp_event_massacre_firstpersonevent_wheelchair.setFirstPersonEventAnimState( 3 );
+	
+	$gp_animatedsimple_massacre_knife.setAnimState( 1, 0, false );
+	
+	$gp_animatedsimple_massacre_wheelchair.setAnimState( 1,0, false );
+}
+
+
+//For the skip cutscene part. Release player from firstpersonevent state and clean up leftovers  
+void script_event_massacre_abort( entity activatedEntity, entity activator )
+{
+	sys.print( "SCRIPT - MASSACRE - ABORT\n" );
+	
+	//Massacre Event 
+	$gp_event_massacre_firstpersonevent_wheelchair.forceEndFirstPersonEvent();
+	$gp_target_kill_player.remove();
+	$gp_animatedsimple_massacre_knife.remove();
+	$gp_animatedsimple_foodcart.setAnimState( 1,0,false );
+	$gp_triggers_trigger_facing_1.makeActivatable( false );
+	
+	//Save game
+	$gp_target_player_checkpoint_2.activate( activator );
+	
+	sys.wait(1.0f);	
+	$gp_target_equipitem_1.activate( $player1 );
+	$gp_target_sethudelement_2.activate( activator );
+	$gp_event_massacre_firstpersonevent_wheelchair.remove();
+}
+
+//pickuphandgun
+void call_attachhandgun( entity activatedEntity, entity activator )
+{
+	$gp_animatedsimple_handgun.bindToJoint( $thirdpersonhands_0, "", "righthandattach", true );
+}
+
+//For the skip cutscene part. Release player from firstpersonevent state and clean up leftovers  
+
+//Secret beneath staircase 
+void script_secretlatch( entity activatedEntity, entity activator )
+{
+	$gp_mover_latchhandle.time( 0.5 );
+	$gp_mover_latchhandle.rotateOnce( '0 0 90' );
+}
+
+// For mounting the truck turret
+void mountTruckTurretRight( entity activatedEntity, entity activator )
+{
+     $gp_prop_useable_turret_mg46.specialMount( $player1, 1 );
+}
+
+void mountTruckTurretLeft( entity activatedEntity, entity activator )
+{
+     $gp_prop_useable_turret_mg46.specialMount( $player1, 0 );
+}
+
+
+//Make AIs un-blind
+
+void ais_notblind( entity activatedEntity, entity activator )
+{
+	$sp_relay_aisnotblind.activate( activator );
+}

@@ -1,0 +1,207 @@
+#pragma once
+
+#include "engine/framework/coderesource.h"
+
+class idDeclRenderParm;
+
+// Declaration order is significant: the retail initializers prepend each
+// resource to idBaseCodeResource::codeResourceList in this exact order.
+#define WOLF_AUTO_RENDER_PARM_LIST(X) \
+  X(rp_If, "If")                                                \
+  X(rp_Time, "Time")                                            \
+  X(rp_SysTime, "SysTime")                                      \
+  X(rp_Color, "Color")                                          \
+  X(rp_coverage, "coverage")                                    \
+  X(rp_modelFade, "modelFade")                                  \
+  X(rp_useSkinBlending, "useSkinBlending")                      \
+  X(rp_exposure, "exposure")                                    \
+  X(rp_TimeScale, "TimeScale")                                  \
+  X(rp_TimeOffset, "TimeOffset")                                \
+  X(rp_TimeStop, "TimeStop")                                    \
+  X(rp_Diversity, "Diversity")                                  \
+  X(rp_Wind, "Wind")                                            \
+  X(rp_NoShadows, "NoShadows")                                  \
+  X(rp_polygonOffset, "polygonOffset")                          \
+  X(rp_waveBase, "waveBase")                                    \
+  X(rp_aiRobotGlow, "aiRobotGlow")                              \
+  X(rp_aiRobotAwareGlow, "aiRobotAwareGlow")                    \
+  X(rp_aiSelfDestructGlow, "aiSelfDestructGlow")                \
+  X(rp_weaponHeat, "weaponHeat")                                \
+  X(rp_weaponEmpGlow, "weaponEmpGlow")                          \
+  X(rp_modelAngles, "modelAngles")                              \
+  X(rp_animColRowSpeed, "animColRowSpeed")                      \
+  X(rp_rotate, "rotate")                                        \
+  X(rp_color1, "color1")                                        \
+  X(rp_color2, "color2")                                        \
+  X(rp_color3, "color3")                                        \
+  X(rp_color4, "color4")                                        \
+  X(rp_lightColor, "lightColor")                                \
+  X(rp_lightScale, "lightScale")                                \
+  X(rp_lightProjectMap, "lightProjectMap")                      \
+  X(rp_lightFalloffMap, "lightFalloffMap")                      \
+  X(rp_lightDiffuseScale, "lightDiffuseScale")                  \
+  X(rp_lightSpecularScale, "lightSpecularScale")                \
+  X(rp_lightEnvironmentScale, "lightEnvironmentScale")          \
+  X(rp_lightEyeDiffuseScale, "lightEyeDiffuseScale")            \
+  X(rp_lightEyeSpecularScale, "lightEyeSpecularScale")          \
+  X(rp_lightEyeEnvironmentScale, "lightEyeEnvironmentScale")    \
+  X(rp_globalViewOrigin, "globalViewOrigin")                    \
+  X(rp_globalViewFwd, "globalViewFwd")                          \
+  X(rp_globalViewLeft, "globalViewLeft")                        \
+  X(rp_globalViewUp, "globalViewUp")                            \
+  X(rp_globalLightOrigin, "globalLightOrigin")                  \
+  X(rp_stageSort, "stageSort")                                  \
+  X(rp_sortCoverage, "sortCoverage")                            \
+  X(rp_sortSSS, "sortSSS")                                      \
+  X(rp_sortEmit, "sortEmit")                                    \
+  X(rp_sortEmitOnly, "sortEmitOnly")                            \
+  X(rp_sortLight, "sortLight")                                  \
+  X(rp_sortPerturber, "sortPerturber")                          \
+  X(rp_sortSkybox, "sortSkybox")                                \
+  X(rp_sortBackgroundFar, "sortBackgroundFar")                  \
+  X(rp_sortBackground, "sortBackground")                        \
+  X(rp_sortBackgroundEmit, "sortBackgroundEmit")                \
+  X(rp_sortDecal, "sortDecal")                                  \
+  X(rp_sortTrans, "sortTrans")                                  \
+  X(rp_sortTransSort, "sortTransSort")                          \
+  X(rp_sortWater, "sortWater")                                  \
+  X(rp_surfaceFlags, "surfaceFlags")                            \
+  X(rp_contentFlags, "contentFlags")                            \
+  X(rp_toolsFlags, "toolsFlags")                                \
+  X(rp_surfaceType, "surfaceType")                              \
+  X(rp_fractureInfo, "fractureInfo")                            \
+  X(rp_fractureColorType, "fractureColorType")                  \
+  X(rp_fractureColorContent, "fractureColorContent")            \
+  X(rp_skipSurfaceInfo, "skipSurfaceInfo")                      \
+  X(rp_discrete, "discrete")                                    \
+  X(rp_noFragment, "noFragment")                                \
+  X(rp_bakeStaticSpecular, "bakeStaticSpecular")                \
+  X(rp_fractureDecal1Q, "fractureDecal1Q")                      \
+  X(rp_fractureDecal1R, "fractureDecal1R")                      \
+  X(rp_fractureDecal1S, "fractureDecal1S")                      \
+  X(rp_fractureDecal2Q, "fractureDecal2Q")                      \
+  X(rp_fractureDecal2R, "fractureDecal2R")                      \
+  X(rp_fractureDecal2S, "fractureDecal2S")                      \
+  X(rp_fractureDecal3Q, "fractureDecal3Q")                      \
+  X(rp_fractureDecal3R, "fractureDecal3R")                      \
+  X(rp_fractureDecal3S, "fractureDecal3S")                      \
+  X(rp_fractureTextureTile, "fractureTextureTile")              \
+  X(rp_fractureTexture, "fractureTexture")                      \
+  X(rp_fractureDecalTexture, "fractureDecalTexture")            \
+  X(rp_qer_editorImage, "qer_editorImage")                      \
+  X(rp_editorDraw, "editorDraw")                                \
+  X(rp_editorAlpha, "editorAlpha")                              \
+  X(rp_viewMatrixX, "viewMatrixX")                              \
+  X(rp_viewMatrixY, "viewMatrixY")                              \
+  X(rp_viewMatrixZ, "viewMatrixZ")                              \
+  X(rp_viewMatrixW, "viewMatrixW")                              \
+  X(rp_inverseViewMatrixX, "inverseViewMatrixX")                \
+  X(rp_inverseViewMatrixY, "inverseViewMatrixY")                \
+  X(rp_inverseViewMatrixZ, "inverseViewMatrixZ")                \
+  X(rp_inverseViewMatrixW, "inverseViewMatrixW")                \
+  X(rp_modelMatrixX, "modelMatrixX")                            \
+  X(rp_modelMatrixY, "modelMatrixY")                            \
+  X(rp_modelMatrixZ, "modelMatrixZ")                            \
+  X(rp_modelMatrixW, "modelMatrixW")                            \
+  X(rp_inverseModelMatrixX, "inverseModelMatrixX")              \
+  X(rp_inverseModelMatrixY, "inverseModelMatrixY")              \
+  X(rp_inverseModelMatrixZ, "inverseModelMatrixZ")              \
+  X(rp_inverseModelMatrixW, "inverseModelMatrixW")              \
+  X(rp_inverseMVPMatrixX, "inverseMVPMatrixX")                  \
+  X(rp_inverseMVPMatrixY, "inverseMVPMatrixY")                  \
+  X(rp_inverseMVPMatrixZ, "inverseMVPMatrixZ")                  \
+  X(rp_inverseMVPMatrixW, "inverseMVPMatrixW")                  \
+  X(rp_projectionMatrixX, "projectionMatrixX")                  \
+  X(rp_projectionMatrixY, "projectionMatrixY")                  \
+  X(rp_projectionMatrixZ, "projectionMatrixZ")                  \
+  X(rp_projectionMatrixW, "projectionMatrixW")                  \
+  X(rp_inverseProjectionMatrixX, "inverseProjectionMatrixX")    \
+  X(rp_inverseProjectionMatrixY, "inverseProjectionMatrixY")    \
+  X(rp_inverseProjectionMatrixZ, "inverseProjectionMatrixZ")    \
+  X(rp_inverseProjectionMatrixW, "inverseProjectionMatrixW")    \
+  X(rp_mvpMatrixX, "mvpMatrixX")                                \
+  X(rp_mvpMatrixY, "mvpMatrixY")                                \
+  X(rp_mvpMatrixZ, "mvpMatrixZ")                                \
+  X(rp_mvpMatrixW, "mvpMatrixW")                                \
+  X(rp_viewProjectionMatrixX, "viewProjectionMatrixX")          \
+  X(rp_viewProjectionMatrixY, "viewProjectionMatrixY")          \
+  X(rp_viewProjectionMatrixZ, "viewProjectionMatrixZ")          \
+  X(rp_viewProjectionMatrixW, "viewProjectionMatrixW")          \
+  X(rp_powerMip, "powerMip")                                    \
+  X(rp_diffuseMap, "diffuseMap")                                \
+  X(rp_specularMap, "specularMap")                              \
+  X(rp_bumpMap, "bumpMap")                                      \
+  X(rp_powerMap, "powerMap")                                    \
+  X(rp_coverMap, "coverMap")                                    \
+  X(rp_virtualTransMap, "virtualTransMap")                      \
+  X(rp_transMap, "transMap")                                    \
+  X(rp_textureMap, "textureMap")                                \
+  X(rp_textureMapShadow, "textureMapShadow")                    \
+  X(rp_sMatrix, "sMatrix")                                      \
+  X(rp_tMatrix, "tMatrix")                                      \
+  X(rp_rMatrix, "rMatrix")                                      \
+  X(rp_qMatrix, "qMatrix")                                      \
+  X(rp_select, "select")                                        \
+  X(rp_virtualMapping, "virtualMapping")                        \
+  X(rp_positionToViewTexture, "positionToViewTexture")          \
+  X(rp_renderPositionToViewTexture, "renderPositionToViewTexture") \
+  X(rp_positionToFeedback, "positionToFeedback")                \
+  X(rp_channelLight0, "channelLight0")                          \
+  X(rp_channelLight1, "channelLight1")                          \
+  X(rp_channelLight2, "channelLight2")                          \
+  X(rp_channelLight3, "channelLight3")                          \
+  X(rp_channelLight4, "channelLight4")                          \
+  X(rp_channelLight5, "channelLight5")                          \
+  X(rp_primeLightDir, "primeLightDir")                          \
+  X(rp_primeLightColor, "primeLightColor")                      \
+  X(rp_globalLightOrg0, "globalLightOrg0")                      \
+  X(rp_globalLightOrg1, "globalLightOrg1")                      \
+  X(rp_globalLightOrg2, "globalLightOrg2")                      \
+  X(rp_lightColor0, "lightColor0")                              \
+  X(rp_lightColor1, "lightColor1")                              \
+  X(rp_lightColor2, "lightColor2")                              \
+  X(rp_highlightColor, "highlightColor")                        \
+  X(rp_highlightScale, "highlightScale")                        \
+  X(rp_landPageFile, "landPageFile")                            \
+  X(rp_renderBump, "renderBump")                                \
+  X(rp_stampCovers, "stampCovers")                              \
+  X(rp_stampScales, "stampScales")                              \
+  X(rp_radialBlurCenter, "radialBlurCenter")                    \
+  X(rp_globalBlur, "globalBlur")                                \
+  X(rp_doubleVision, "doubleVision")                            \
+  X(rp_dofNearAmount, "dofNearAmount")                          \
+  X(rp_dofNearEnd, "dofNearEnd")                                \
+  X(rp_dofFocusBegin, "dofFocusBegin")                          \
+  X(rp_dofFocusEnd, "dofFocusEnd")                              \
+  X(rp_dofFarBegin, "dofFarBegin")                              \
+  X(rp_dofFarAmount, "dofFarAmount")                            \
+  X(rp_dofSkyAmount, "dofSkyAmount")                            \
+  X(rp_brightnessScale, "brightnessScale")                      \
+  X(rp_fogColor, "fogColor")                                    \
+  X(rp_fogScale, "fogScale")                                    \
+  X(rp_fogStart, "fogStart")                                    \
+  X(rp_fogEnd, "fogEnd")                                        \
+  X(rp_fogSkyAmount, "fogSkyAmount")                            \
+  X(rp_wrinkleScale, "wrinkleScale")                            \
+  X(rp_wrinkleFactor0, "wrinkleFactor0")                        \
+  X(rp_wrinkleFactor1, "wrinkleFactor1")                        \
+  X(rp_wrinkleFactor2, "wrinkleFactor2")                        \
+  X(rp_wrinkleFactor3, "wrinkleFactor3")                        \
+  X(rp_facingCorrection, "facingCorrection")                    \
+  X(rp_partialScreen, "partialScreen")                          \
+  X(rp_srcTexClamp, "srcTexClamp")
+
+#define WOLF_DECLARE_AUTO_RENDER_PARM(variable, resourceName) \
+  extern idCodeResource<idDeclRenderParm> variable;
+WOLF_AUTO_RENDER_PARM_LIST(WOLF_DECLARE_AUTO_RENDER_PARM)
+#undef WOLF_DECLARE_AUTO_RENDER_PARM
+
+// These six resources are owned by jobs/render/parmstate_alloc.cpp in the
+// retail binary and share this client-facing declaration header.
+extern idCodeResource<idDeclRenderParm> rp_vertexStScaleBias;
+extern idCodeResource<idDeclRenderParm> rp_vertexXYZScale;
+extern idCodeResource<idDeclRenderParm> rp_vertexXYZBias;
+extern idCodeResource<idDeclRenderParm> rp_vertexMorphScale;
+extern idCodeResource<idDeclRenderParm> rp_lightingModel;
+extern idCodeResource<idDeclRenderParm> rp_fragmentPositionToWindow;
+

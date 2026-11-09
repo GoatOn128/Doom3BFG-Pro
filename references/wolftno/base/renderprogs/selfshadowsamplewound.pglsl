@@ -1,0 +1,261 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [9];
+uniform sampler2D samp_woundtexture;
+uniform sampler2DShadow samp_lightdepthcomparemap;
+uniform sampler2D samp_lightdepthmap;
+
+in vec4 vofi_TexCoord9;
+in vec4 vofi_TexCoord8;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord5;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord6;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord7;
+in vec4 vofi_TexCoord4;
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 woundMap3 = tex2D( samp_woundtexture, vofi_TexCoord9.xy );
+	{
+		float clipValue = vofi_TexCoord8.w + ( woundMap3.w - 0.5 ) * 0.1;
+		clip( clipValue );
+	};
+	vec3 shadow = vec3(0.0, 0.0, 0.0);
+	vec3 thickness = vec3(1.0, 1.0, 1.0);
+	if ( _fa_[0 ].x == 1.0)
+	{
+		{
+			vec3 texCoord = vofi_TexCoord1.xyz / vofi_TexCoord1.w;
+			{
+				float s = _fa_[1 ].y * 2.0;
+				vec4 shadow4;
+				{
+					shadow4.x = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.375, -0.125, 0 ) );
+				};
+				{
+					shadow4.y = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.125, 0.375, 0 ) );
+				};
+				{
+					shadow4.z = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.125, -0.375, 0 ) );
+				};
+				{
+					shadow4.w = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.375, 0.125, 0 ) );
+				};
+				shadow.x = dot( shadow4, vec4( 0.25 ) );
+			};
+		};
+		{
+			vec3 shadowPos = vofi_TexCoord5.xyz / vofi_TexCoord5.w;
+			float depth = tex2D( samp_lightdepthmap, shadowPos.xy ).x;
+			thickness.x = abs( depth - shadowPos.z );
+			thickness.x *= _fa_[2 ].x / _fa_[3 ].x;
+		};
+	}
+	if ( _fa_[0 ].y == 1.0)
+	{
+		{
+			vec3 texCoord = vofi_TexCoord2.xyz / vofi_TexCoord2.w;
+			{
+				float s = _fa_[1 ].y * 2.0;
+				vec4 shadow4;
+				{
+					shadow4.x = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.375, -0.125, 0 ) );
+				};
+				{
+					shadow4.y = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.125, 0.375, 0 ) );
+				};
+				{
+					shadow4.z = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.125, -0.375, 0 ) );
+				};
+				{
+					shadow4.w = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.375, 0.125, 0 ) );
+				};
+				shadow.y = dot( shadow4, vec4( 0.25 ) );
+			};
+		};
+		{
+			vec3 shadowPos = vofi_TexCoord6.xyz / vofi_TexCoord6.w;
+			float depth = tex2D( samp_lightdepthmap, shadowPos.xy ).x;
+			thickness.y = abs( depth - shadowPos.z );
+			thickness.y *= _fa_[2 ].y / _fa_[3 ].x;
+		};
+	}
+	if ( _fa_[0 ].z == 1.0)
+	{
+		{
+			vec3 texCoord = vofi_TexCoord3.xyz / vofi_TexCoord3.w;
+			{
+				float s = _fa_[1 ].y * 2.0;
+				vec4 shadow4;
+				{
+					shadow4.x = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.375, -0.125, 0 ) );
+				};
+				{
+					shadow4.y = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( -0.125, 0.375, 0 ) );
+				};
+				{
+					shadow4.z = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.125, -0.375, 0 ) );
+				};
+				{
+					shadow4.w = shadow2Ddepth( samp_lightdepthcomparemap, texCoord.xyz + s * vec3( 0.375, 0.125, 0 ) );
+				};
+				shadow.z = dot( shadow4, vec4( 0.25 ) );
+			};
+		};
+		{
+			vec3 shadowPos = vofi_TexCoord7.xyz / vofi_TexCoord7.w;
+			float depth = tex2D( samp_lightdepthmap, shadowPos.xy ).x;
+			thickness.z = abs( depth - shadowPos.z );
+			thickness.z *= _fa_[2 ].z / _fa_[3 ].x;
+		};
+	}
+	{
+		vec3 shadowThickness = saturate( vec3( _fa_[4 ].x + 1.0 ) - thickness.xyz ) * vec3( equal( shadow.xyz, vec3( 0.0 ) ) );
+		out_FragColor0.xyz = ( shadow.xyz + vec3( 1.0 ) - shadowThickness ) * 0.5;
+	};
+	float ao = 1.0;
+	if ( _fa_[2 ].w > 0.0 ) {
+		vec2 shadowTexCoord = vofi_TexCoord4.xy / vofi_TexCoord4.w;
+		{
+			float c_rand = gl_FragCoord.x * 0.313 + gl_FragCoord.y * 0.456;
+			vec2 c_resolution = vec2( 4096.0, 4096.0 );
+			vec2 c_invResolution = vec2( 1.0 ) / c_resolution;
+			float c_radius = 1.0;
+			float c_sqrRadius = c_radius * c_radius;
+			float c_invRadius = 1.0 / c_radius;
+			float c_numDirs = 8;
+			float c_numSteps = 4;
+			float c_tanAngleBias = 0.2;
+			float c_attenuation = 1.0;
+			vec2 baseUV = round( shadowTexCoord.xy * c_resolution ) * c_invResolution;
+			vec3 P, Pr, Pl, Pt, Pb;
+			{
+				float depth = tex2Dlod( samp_lightdepthmap, vec4( (baseUV) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+				vec4 device;
+				if ( true ) {
+					device = vec4( (baseUV).x, (baseUV).y, depth, 1 );
+				} else {
+					device = vec4( (baseUV).x * 2.0 - 1.0, (baseUV).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+				}
+				float rw = 1.0 / dot4( device, _fa_[5 ] );
+				P.x = dot4( device, _fa_[6 ] ) * rw;
+				P.y = dot4( device, _fa_[7 ] ) * rw;
+				P.z = dot4( device, _fa_[8 ] ) * rw;
+			};
+			{
+				float depth = tex2Dlod( samp_lightdepthmap, vec4( (baseUV + vec2( c_invResolution.x, 0 )) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+				vec4 device;
+				if ( true ) {
+					device = vec4( (baseUV + vec2( c_invResolution.x, 0 )).x, (baseUV + vec2( c_invResolution.x, 0 )).y, depth, 1 );
+				} else {
+					device = vec4( (baseUV + vec2( c_invResolution.x, 0 )).x * 2.0 - 1.0, (baseUV + vec2( c_invResolution.x, 0 )).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+				}
+				float rw = 1.0 / dot4( device, _fa_[5 ] );
+				Pr.x = dot4( device, _fa_[6 ] ) * rw;
+				Pr.y = dot4( device, _fa_[7 ] ) * rw;
+				Pr.z = dot4( device, _fa_[8 ] ) * rw;
+			};
+			{
+				float depth = tex2Dlod( samp_lightdepthmap, vec4( (baseUV + vec2( -c_invResolution.x, 0 )) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+				vec4 device;
+				if ( true ) {
+					device = vec4( (baseUV + vec2( -c_invResolution.x, 0 )).x, (baseUV + vec2( -c_invResolution.x, 0 )).y, depth, 1 );
+				} else {
+					device = vec4( (baseUV + vec2( -c_invResolution.x, 0 )).x * 2.0 - 1.0, (baseUV + vec2( -c_invResolution.x, 0 )).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+				}
+				float rw = 1.0 / dot4( device, _fa_[5 ] );
+				Pl.x = dot4( device, _fa_[6 ] ) * rw;
+				Pl.y = dot4( device, _fa_[7 ] ) * rw;
+				Pl.z = dot4( device, _fa_[8 ] ) * rw;
+			};
+			{
+				float depth = tex2Dlod( samp_lightdepthmap, vec4( (baseUV + vec2( 0, c_invResolution.y )) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+				vec4 device;
+				if ( true ) {
+					device = vec4( (baseUV + vec2( 0, c_invResolution.y )).x, (baseUV + vec2( 0, c_invResolution.y )).y, depth, 1 );
+				} else {
+					device = vec4( (baseUV + vec2( 0, c_invResolution.y )).x * 2.0 - 1.0, (baseUV + vec2( 0, c_invResolution.y )).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+				}
+				float rw = 1.0 / dot4( device, _fa_[5 ] );
+				Pt.x = dot4( device, _fa_[6 ] ) * rw;
+				Pt.y = dot4( device, _fa_[7 ] ) * rw;
+				Pt.z = dot4( device, _fa_[8 ] ) * rw;
+			};
+			{
+				float depth = tex2Dlod( samp_lightdepthmap, vec4( (baseUV + vec2( 0, -c_invResolution.y )) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+				vec4 device;
+				if ( true ) {
+					device = vec4( (baseUV + vec2( 0, -c_invResolution.y )).x, (baseUV + vec2( 0, -c_invResolution.y )).y, depth, 1 );
+				} else {
+					device = vec4( (baseUV + vec2( 0, -c_invResolution.y )).x * 2.0 - 1.0, (baseUV + vec2( 0, -c_invResolution.y )).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+				}
+				float rw = 1.0 / dot4( device, _fa_[5 ] );
+				Pb.x = dot4( device, _fa_[6 ] ) * rw;
+				Pb.y = dot4( device, _fa_[7 ] ) * rw;
+				Pb.z = dot4( device, _fa_[8 ] ) * rw;
+			};
+			vec3 Dr = Pr - P;
+			vec3 Dl = P - Pl;
+			vec3 Dt = Pt - P;
+			vec3 Db = P - Pb;
+			vec3 dPdu = dot( Dr, Dr ) < dot( Dl, Dl ) ? Dr : Dl;
+			vec3 dPdv = dot( Dt, Dt ) < dot( Db, Db ) ? Dt : Db;
+			float lu = c_radius * inversesqrt( max( dot( dPdu, dPdu ), 0.0001 ) );
+			float lv = c_radius * inversesqrt( max( dot( dPdv, dPdv ), 0.0001 ) );
+			float numSteps = floor( min( c_numSteps, min( lu, lv ) ) );
+			float accum = 0.0;
+			if ( numSteps > 0 ) {
+				vec2 stepUV = vec2( lu, lv ) * c_invResolution / numSteps;
+				for ( float i = 0; i < c_numDirs; i++ ) {
+					float angle = i * 2.0 * 3.1415 / c_numDirs + c_rand;
+					vec2 deltaUV = vec2( cos( angle ), sin( angle ) ) * stepUV;
+					vec2 uv = baseUV;
+					float tanH = -10;
+					float baseH = 0;
+					for ( float j = 0; j < numSteps; j++ ) {
+						uv += deltaUV;
+						vec2 snapped_uv = round( uv * c_resolution ) * c_invResolution;
+						vec2 snapped_duv = snapped_uv - baseUV;
+						vec3 T = snapped_duv.x * dPdu + snapped_duv.y * dPdv;
+						float tanT = c_tanAngleBias + T.z * inversesqrt( dot2( T.xy, T.xy ) );
+						vec3 S;
+						{
+							float depth = tex2Dlod( samp_lightdepthmap, vec4( (snapped_uv) + 0.5 * c_invResolution, 0.0, 0.0 ) ).x;
+							vec4 device;
+							if ( true ) {
+								device = vec4( (snapped_uv).x, (snapped_uv).y, depth, 1 );
+							} else {
+								device = vec4( (snapped_uv).x * 2.0 - 1.0, (snapped_uv).y * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0 );
+							}
+							float rw = 1.0 / dot4( device, _fa_[5 ] );
+							S.x = dot4( device, _fa_[6 ] ) * rw;
+							S.y = dot4( device, _fa_[7 ] ) * rw;
+							S.z = dot4( device, _fa_[8 ] ) * rw;
+						};
+						vec3 dPS = S - P;
+						float d = dot3( dPS, dPS );
+						if ( d < c_sqrRadius ) {
+							float tanS = dPS.z * inversesqrt( dot2( dPS.xy, dPS.xy ) );
+							if ( tanS > max( tanT, tanH ) ) {
+								float sinS = tanS * inversesqrt( tanS * tanS + 1.0 );
+								float sinT = tanT * inversesqrt( tanT * tanT + 1.0 );
+								float h = sinS - sinT;
+								accum += ( 1.0 - c_attenuation * d * c_invRadius * c_invRadius ) * ( h - baseH );
+								baseH = h;
+								tanH = tanS;
+							}
+						}
+					}
+				}
+			}
+			ao = 1.0 - accum / c_numDirs;
+		};
+	}
+	out_FragColor0.w = ao;
+}

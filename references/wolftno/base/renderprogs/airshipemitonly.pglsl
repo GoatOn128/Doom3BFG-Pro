@@ -1,0 +1,30 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_texturemap;
+uniform sampler2D samp_fademap;
+uniform sampler2D samp_spare1map;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 final = vec4( 1.0, 1.0, 1.0, 1.0 );
+	float fog = vofi_TexCoord0.w;
+	final.xyz *= fog;
+	float amount = 0.0;
+	{
+		vec4 texel_dissolve = tex2D( samp_texturemap, vofi_TexCoord0.xy );
+		vec4 texel_mask = tex2D( samp_fademap, vofi_TexCoord0.xy );
+		float dissolve = mix( -100.0, clamp( texel_dissolve.y, 0.0001, 0.9999 ), texel_mask.y );
+		amount += 1.0 - saturate( abs( dissolve - ( _fa_[0 ].x * 1.1 ) ) * 8.0 );
+		amount *= ceil( _fa_[0 ].x - 0.000001 );
+	}
+	vec4 texel_lut = tex2D( samp_spare1map, vec2( saturate( amount ), 0.5 ) );
+	texel_lut *= vec4( ceil( saturate( amount - 0.000001 ) ) );
+	final.xyz *= texel_lut.xyz;
+	out_FragColor0 = final;
+}

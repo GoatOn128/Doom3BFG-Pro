@@ -1,0 +1,28 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_transmap1;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 tex_focus = tex2D( samp_transmap, vofi_TexCoord0.xy );
+	vec4 tex_hilit = tex2D( samp_transmap1, vofi_TexCoord0.xy );
+	vec4 final = tex_focus;
+	float highlight = 1.0;
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[0 ].x ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[0 ].y ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[0 ].z ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[0 ].w ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[1 ].x ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[1 ].y ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[1 ].z ), highlight );
+	highlight = min( abs( vofi_TexCoord0.w - _fa_[1 ].w ), highlight );
+	final.xyz += tex_hilit.xyz * ( 1.0 - saturate( highlight ) );
+	out_FragColor0 = final;
+}

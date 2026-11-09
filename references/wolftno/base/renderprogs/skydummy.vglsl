@@ -1,0 +1,12 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [2];
+
+in vec4 in_Position;
+
+
+void main() {
+	gl_Position = in_Position * _va_[0 ] + _va_[1 ];
+}

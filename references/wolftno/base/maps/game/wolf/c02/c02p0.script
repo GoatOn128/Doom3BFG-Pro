@@ -1,0 +1,15 @@
+/*
+================================================================================
+Map Script for c02p0.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+void call_freelook( entity activatedEntity, entity activator )
+{
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 10.0f, 0.0f );
+}

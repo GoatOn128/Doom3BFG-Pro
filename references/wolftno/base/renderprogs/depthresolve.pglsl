@@ -1,0 +1,16 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2DMS samp_targetdepthms;
+
+in vec4 vofi_TexCoord0;
+
+out float out_FragDepth;
+
+void main() {
+	vec2 texcoord = vofi_TexCoord0.xy * vec2( 1.0 / _fa_[0 ].z, 1.0 / _fa_[0 ].w );
+	ivec2 texcoordi = ivec2( texcoord.x, texcoord.y );
+	out_FragDepth = tex2DMSFetch( samp_targetdepthms, texcoordi.xy, 0 ).x;
+}

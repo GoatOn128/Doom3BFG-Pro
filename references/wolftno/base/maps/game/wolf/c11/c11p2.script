@@ -1,0 +1,61 @@
+/*
+================================================================================
+Map Script for c11p2.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+void secretdooropen( entity activatedEntity, entity activator )
+{
+//	 $sound_sp_train_door.activate( activator );	
+     $gp_func_movers_mover_secretdoor.time( 7.0 );
+     $gp_func_movers_mover_secretdoor.accelTime( 2 );
+     $gp_func_movers_mover_secretdoor.decelTime( 2 );
+     $gp_func_movers_mover_secretdoor.move( DIR_BACK, 520 );
+}
+
+void secretdoorclose( entity activatedEntity, entity activator )
+{
+//	 $sound_sp_train_door.activate( activator );	
+     $gp_func_movers_mover_secretdoor.time( 7.0 );
+     $gp_func_movers_mover_secretdoor.accelTime( 2 );
+     $gp_func_movers_mover_secretdoor.decelTime( 2 );
+     $gp_func_movers_mover_secretdoor.move( DIR_BACK, -1300 );
+}
+
+void secretdooropencap( entity activatedEntity, entity activator )
+{
+//	 $sound_sp_train_door.activate( activator );	
+     $gp_func_movers_mover_secretdoor1.time( 7.0 );
+     $gp_func_movers_mover_secretdoor1.accelTime( 2 );
+     $gp_func_movers_mover_secretdoor1.decelTime( 2 );
+     $gp_func_movers_mover_secretdoor1.move( DIR_BACK, 520 );
+}
+
+void elevatordown( entity activatedEntity, entity activator )
+{
+//	 $sound_sp_train_door.activate( activator );	
+     $gp_func_movers_mover_elevator.time( 13.3 );
+     $gp_func_movers_mover_elevator.accelTime( 4 );
+     $gp_func_movers_mover_elevator.decelTime( 2 );
+     $gp_func_movers_mover_elevator.move( DIR_DOWN, 425 );
+}
+
+void elevatorup( entity activatedEntity, entity activator )
+{
+//	 $sound_sp_train_door.activate( activator );	
+     $gp_func_movers_mover_elevator.time( 15.0 );
+     $gp_func_movers_mover_elevator.accelTime( 4 );
+     $gp_func_movers_mover_elevator.decelTime( 2 );
+     $gp_func_movers_mover_elevator.move( DIR_DOWN, -930 );
+}
+
+
+void call_no_suit( entity activatedEntity, entity activator )
+{
+	$player1.switchMeshKit(MESH_KIT_HEADS, "normal");
+
+}

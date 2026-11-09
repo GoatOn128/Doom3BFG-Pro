@@ -1,0 +1,2088 @@
+#ifndef C14P1_BOSS
+#define C14P1_BOSS
+
+float ClampAngle( float angle ) {
+	angle = angle % 360.0;
+	if ( angle > 180 ) {
+		angle -= 360;
+	} 
+	if ( angle < -180 ) {
+		angle += 360;
+	} 
+	return angle;
+}
+
+float Square( float val ) {
+	return val*val;
+}
+
+boolean IsWithin2DRange( vector pos1, vector pos2, float range ) {
+	return ( Square( pos1_x - pos2_x ) + Square( pos1_y - pos2_y ) < Square( range ) );
+};
+
+/*
+================================================================================
+Map Script for londonmonitorbosstest.map
+================================================================================
+*/
+
+/*================================================================================
+LONDON MONITOR 
+
+                                        Pos 0
+                                        Fw+L
+                                         ^
+                                         |
+                                      +  |  ^
+                                      |  |  |
+                               Anim 2 |  |  | Anim 0
+                                      |  |  |
+                                      |  |  |
+                            Anim 3    v  |  +     Anim 3
+                          <----------+   |   <----------+
+             Pos 3                        
+             Bw+L   <------------------- 5 ------------------->  Pos 1
+                                                                 Fw+R
+                          +---------->   |   +---------->
+                            Anim 1    +  |  ^     Anim 1
+                                      |  |  |
+                                      |  |  |
+                               Anim 2 |  |  | Anim 0
+                                      |  |  |
+                                      v  |  +
+                                         v
+                                       Pos 2
+                                       Bw+R
+
+================================================================================*/
+#define LM_ANIM_FWDLEFT 	0
+#define LM_ANIM_FWDRIGHT 	1
+#define LM_ANIM_BWDRIGHT 	2
+#define LM_ANIM_BWDLEFT 	3
+#define LM_ANIM_ENTER 		4
+#define LM_ANIM_MH			5
+#define LM_ANIM_DEATH		6
+#define LM_ANIM_CHECKPOINT	7
+#define LM_ANIM_DEATH_ENTER	8
+#define LM_ANIM_DEATH_MH	9
+
+#define LM_ANIM_ADD_DESTROY_MISSILEPOD_LEFT		0
+#define LM_ANIM_ADD_DESTROY_MISSILEPOD_RIGHT	1
+#define LM_ANIM_ADD_BLINDED						2
+#define LM_ANIM_ADD_FIRE_EYEBEAM				3			
+#define LM_ANIM_ADD_FIRE_MISSILES				4			
+#define LM_ANIM_ADD_FIRE_MISSILES_LEFT			5				
+#define LM_ANIM_ADD_FIRE_MISSILES_RIGHT			6				
+
+#define LM_ANIM_HATCH_OPEN		1
+#define LM_ANIM_HATCH_OPEN_MH 	2
+#define LM_ANIM_HATCH_CLOSE		3
+
+#define LM_MOVE_STOP 		0
+#define LM_MOVE_DISTANCE	1
+#define LM_MOVE_CLOSE 		2
+#define LM_MOVE_RANDOM 		3
+
+float lmParmFloat( string name ) {
+	return $boss_info_lmparameters.getScriptObjectFloat( name );	
+};
+int lmParmInt( string name ) {
+	return $boss_info_lmparameters.getScriptObjectInt( name );	
+};
+boolean lmUseDebug() {
+	return ( sys.getcvar( "animatedSimple_debugLevel" ) == "-1" );	
+}
+
+object londonMonitor {
+	void init();
+	void onTrigger( entity activator );	
+	void startCommon();
+	void start();
+	void checkpointStart();
+	void die();
+
+	void state_Intro();
+	void state_CheckpointIntro();
+	void state_Searching();
+	void state_EyeBeam();
+	void state_Blinded();	
+
+	boolean checkTargetLOS();
+	boolean hasMaintainedTargetLOS( float _time );
+	boolean targetLocatedRecently( float _time );
+	
+	void buildUpBurn();
+	
+	void activateMachineGuns();
+	void deactivateMachineGuns();
+
+	void openCoreHatch();
+	void closeCoreHatch();
+	void delayedCloseCoreHatch( float delay );
+	
+	void openMissileHatches();
+	void primeMissiles();
+	void closeMissileHatches();
+	void delayedDisableMissilePodDamage();
+	void disableMissilePodDamage();
+	
+	void destroyMissilePodLeft1();
+	void destroyMissilePodLeft2();
+	void destroyMissilePodLeft3();
+	void destroyMissilePodRight1();
+	void destroyMissilePodRight2();
+	void destroyMissilePodRight3();
+	void destroyedMissilePod( boolean left, entity pod );
+	
+	void hitEye();
+	void hitCore();
+	void updateCoreHit();
+	void hitNearCore();
+	void destroyedMachineguns();
+	void updateFlameThrower( boolean waitForSpeak, float pilotFlameDuration, float burnDuration, float cooldown );
+	void abortFlameThrower();
+	
+	boolean speakDamaged( boolean force );
+	boolean speakKlausEncouragement();
+	void delayedSpeakCoreMiss();
+	boolean speak( entity vo );
+	void doneSpeaking();
+	
+	void targetLocated();
+	void makeOblivious( boolean oblivious );
+	void targetInHiding();
+
+	int getMove();
+	void updateMovement();
+
+	void updateFocus();
+	
+	void updateBlindedIndicator( float endBlindedTime );
+	
+	void stomp1();
+	void stomp2();
+	void stomp3();
+	void stomp( vector pos );
+
+	void liftfoot1();
+	void liftfoot2();
+	void liftfoot3();
+	
+	__noedit entity focus;
+	__noedit entity searchVolume;
+	__noedit entity missiletarget;
+	
+	__noedit list vo_KlausHideHint;
+	__noedit int vo_KlausHideHintIndex;
+	__noedit list vo_KlausPowercoreHint;
+	__noedit int vo_KlausPowercoreHintIndex;
+	__noedit list vo_KlausEncouragement;
+	__noedit int vo_KlausEncouragementIndex;
+	__noedit list vo_Damaged;
+	__noedit int vo_DamagedIndex;
+	__noedit list vo_Warning;
+	__noedit int vo_WarningIndex;
+	__noedit list vo_Hidden;
+	__noedit int vo_HiddenIndex;
+	__noedit boolean hasSpokenBlinded;
+	__noedit boolean hasSpokenMissilesWarning;
+	__noedit boolean hasSpokenMissilePodHit;
+	__noedit boolean hasSpokenCoreHit;
+	__noedit boolean hasSpokenCoreMiss;
+	__noedit float speakTimeout;
+
+    __noedit int currentPos;
+    __noedit entity target;
+	__noedit vector focusVelocity;
+	__noedit vector color_Searching;
+	__noedit float targetLocatedTime;
+	__noedit float targetLOSTime;
+	__noedit vector knownTargetPos;
+	__noedit boolean waitForMovement;
+	__noedit int movementType;
+	__noedit int eyeJointHandle;
+	__noedit boolean checkPlayerTargeting;
+	__noedit float playerTargetingTime;
+	__noedit vector playerTargetingPos; 
+	__noedit int numMissilePods;
+	__noedit boolean missilePodLeft1Destroyed;
+	__noedit boolean missilePodLeft2Destroyed;
+	__noedit boolean missilePodLeft3Destroyed;
+	__noedit boolean missilePodRight1Destroyed;
+	__noedit boolean missilePodRight2Destroyed;
+	__noedit boolean missilePodRight3Destroyed;
+	__noedit float eyeBeamCooldownTime;
+	__noedit boolean isOblivious;
+	__noedit boolean coreHatchOpen;
+	__noedit float targetInHidingTime;
+	__noedit list checkHiddenPos;
+	__noedit boolean missileHatchesOpen;
+	__noedit float coreHitTime;
+	__noedit boolean machinegunsDestroyed;
+	__noedit boolean flameThrowerCooldownTime;
+	__noedit boolean isDying;
+	__noedit int numCoreHits;
+	__noedit boolean allowCoreHits;
+	__noedit int blindingHintCount;
+	__noedit int missileHintCount;
+	__noedit boolean isBlinded;
+	
+	void testPauseEyeBeam();
+};
+
+void londonMonitor::init(){
+	currentPos = 4;
+	focusVelocity = Vec(0,0,0);
+	targetLocatedTime = -1000.0;
+	targetLOSTime = -1000.0;
+	waitForMovement = false;
+	movementType = LM_MOVE_STOP;
+	checkPlayerTargeting = false;
+	playerTargetingTime = -1000.0f;
+	playerTargetingPos = Vec(0,0,0);
+	numMissilePods = 6;
+	eyeBeamCooldownTime = 0;
+	isOblivious = false;
+	missilePodLeft1Destroyed = false;
+	missilePodLeft2Destroyed = false;
+	missilePodLeft3Destroyed = false;
+	missilePodRight1Destroyed = false;
+	missilePodRight2Destroyed = false;
+	missilePodRight3Destroyed = false;
+	coreHatchOpen = false;
+	hasSpokenMissilesWarning = false;
+	hasSpokenMissilePodHit = false;
+	hasSpokenCoreHit = false;
+	hasSpokenCoreMiss = false;
+	speakTimeout = 0.0;
+	targetInHidingTime = 0.0f;
+	missileHatchesOpen = false;
+	coreHitTime = 0.0;
+	machinegunsDestroyed = false;
+	flameThrowerCooldownTime = 0.0f;
+	isDying = false;
+	numCoreHits = 0;
+	allowCoreHits = false;
+	blindingHintCount = 0;
+	missileHintCount = 0;
+	isBlinded = false;
+}
+
+void londonMonitor::onTrigger( entity activator ){
+}
+
+void londonMonitor::startCommon() {
+	init();
+	self.show();
+	target = $player1;
+	focus = $boss_info_focuspoint;
+	missiletarget = $boss_info_missiletarget;
+	searchVolume = $boss_volume_search;
+	knownTargetPos = target.getWorldOrigin();
+	$boss_inputlistener_detectplayernoise.activate( self );
+	eyeJointHandle = self.getJointHandle( "eye_jnt" );
+	checkHiddenPos.clear();
+	checkHiddenPos.append( $boss_checklos_hidden1 );
+	checkHiddenPos.append( $boss_checklos_hidden2 );
+	checkHiddenPos.append( $boss_checklos_hidden3 );
+	
+	// VO lines. 
+	vo_KlausHideHintIndex = 0;
+	vo_KlausHideHint.clear();
+	vo_KlausHideHint.append( $boss_vo_klaus_hint_hide_7060 );
+	vo_KlausHideHint.append( $boss_vo_klaus_hint_likearat_7057 );
+	vo_KlausPowercoreHintIndex = 0;
+	vo_KlausPowercoreHint.clear();
+	vo_KlausPowercoreHint.append( $boss_vo_klaus_powercore_listennow_7055 );
+	vo_KlausPowercoreHint.append( $boss_vo_klaus_powercore_shootzeengine_7059 );
+	vo_KlausEncouragementIndex = 0;
+	vo_KlausEncouragement.clear();
+	vo_KlausEncouragement.append( $boss_vo_klaus_feedback_cowboyshooting_7015 );
+	vo_KlausEncouragement.append( $boss_vo_klaus_feedback_usastyle_7075 );
+	vo_KlausEncouragement.append( $boss_vo_klaus_feedback_captaingunslinger_7074 );
+	vo_KlausEncouragement.append( $boss_vo_klaus_feedback_yessirjohnny_7014 );
+	vo_DamagedIndex = 0;
+	vo_Damaged.clear();
+	vo_Damaged.append( $boss_vo_lm_damage_seizecausing_7039 );
+	vo_Damaged.append( $boss_vo_lm_damage_aggravatingseverity_7038 );
+	vo_Damaged.append( $boss_vo_lm_damage_stateproperty_7035 );
+	vo_Damaged.append( $boss_vo_lm_damage_tantamounttotreason_7036 );
+	vo_Damaged.append( $boss_vo_lm_damage_hurtzecitizensoflondon_7037 );
+	vo_WarningIndex = 0;
+	vo_Warning.clear();
+	vo_Warning.append( $boss_vo_lm_warning_seize_7026 );
+	vo_Warning.append( $boss_vo_lm_warning_antagonizingzeruleoflaw_7025 );
+	vo_Warning.append( $boss_vo_lm_warning_breachingzepeace_7024 );
+	vo_Warning.append( $boss_vo_lm_warning_crimeisunpardonable_7041 );
+	vo_Warning.append( $boss_vo_lm_warning_aggressionunforgivable_7042 );
+	vo_Warning.append( $boss_vo_lm_warning_sentenceisdeath_7040 );
+	vo_Warning.append( $boss_vo_lm_warning_youwillcomply_7043 );
+	vo_Warning.append( $boss_vo_lm_warning_complycomplycomply_7044 );
+	vo_Warning.append( $boss_vo_lm_warning_obey_7027 );
+	vo_HiddenIndex = 0;
+	vo_Hidden.clear();
+	vo_Hidden.append( $boss_vo_lm_hidden_orderedtoappear_7034 );
+	vo_Hidden.append( $boss_vo_lm_hidden_notremainconcealed_7030 );
+	vo_Hidden.append( $boss_vo_lm_hidden_compoundsyourcriminaloffence_7029 );
+	vo_Hidden.append( $boss_vo_lm_hidden_failuretoappear_7033 );
+	vo_Hidden.append( $boss_vo_lm_hidden_foundandpunished_7028 );
+	vo_Hidden.append( $boss_vo_lm_hidden_submityourself_7031 );
+	vo_Hidden.append( $boss_vo_lm_hidden_willbelocated_7032 );
+
+	// Set sub parts in correct state (for checkpoint reload etc)
+	$boss_func_movers_stomper1.hide();
+	$boss_func_movers_stomper2.hide();
+	$boss_func_movers_stomper3.hide();
+	$boss_triggers_damagetype_core.makeActivatable( false );
+	$boss_triggers_damagetype_hitnearcore.makeActivatable( false );
+	$boss_triggers_damagetype_eye.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_left_1.makeActivatable( false );	
+	$boss_triggers_damagetype_missilepod_left_2.makeActivatable( false );	
+	$boss_triggers_damagetype_missilepod_left_3.makeActivatable( false );	
+	$boss_triggers_damagetype_missilepod_right_1.makeActivatable( false );	
+	$boss_triggers_damagetype_missilepod_right_2.makeActivatable( false );	
+	$boss_triggers_damagetype_missilepod_right_3.makeActivatable( false );	
+	$boss_triggers_damagetype_turret1.makeActivatable( false );
+	$boss_triggers_damagetype_turret2.makeActivatable( false );
+	$boss_triggers_damagetype_turret3.makeActivatable( false );
+	$boss_func_animatedsimple_generic_corehatch.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_eyeshield.enableTargetLock( false );
+	$boss_turret_machineguns.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_3.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_3.enableTargetLock( false );
+	
+	// Hack to get machineguns in correct anim state
+	$boss_turret_machineguns.activate( target );
+	deactivateMachineGuns();
+	
+	// Set proper firing point
+	$boss_turret_machineguns.switchFiringPoint( "muzzle_1", "turret_root_jnt", "turret_01_jnt", "turret_01_spinner_jnt", ATTACK_DEFAULT );
+	
+	//if ( lmUseDebug() ) {
+	//	if ( ( target != $null ) && ( focus != $null ) && ( missiletarget != $null ) && ( searchVolume != $null ) ) {
+	//		sys.drawText( "STARTCOMMON: ALL CLEAR", Vec(10000,0,4000), 10, Vec(0,1,0), ALIGN_RIGHT, 10.0);
+	//	} else {
+	//		sys.drawText( "STARTCOMMON: MISSING ENTITIES" , Vec(10000,0,4000), 10, Vec(1,0,0), ALIGN_RIGHT, 10.0);
+	//	}
+	//}
+}
+
+void londonMonitor::start() {
+	startCommon();
+	thread state_Intro();
+}
+
+
+void londonMonitor::checkpointStart() {
+	startCommon();
+	thread state_CheckpointIntro();
+}
+
+void londonMonitor::die() {
+	isDying = true;
+	
+	sys.killThread( "londonMonitor::updateMovement" );
+	sys.killThread( "londonMonitor::updateFocus" );
+	sys.killThread( "londonMonitor::state_Searching" );	
+	sys.killThread( "londonMonitor::state_EyeBeam" );	
+	sys.killThread( "londonMonitor::state_Blinded" );	
+	sys.killThread( "londonMonitor::delayedSpeakCoreMiss" );
+	sys.killThread( "londonMonitor::state_Intro" );
+	sys.killThread( "londonMonitor::state_CheckpointIntro" );
+	
+	self.setFocus( $null, false, false, 0 );
+	
+	// Stop any buildup and core venting effects
+	self.stopFX( FX_CINEMATIC_10 );
+	focus.stopFX( FX_CINEMATIC_2 );
+	self.stopFX( FX_WEAPON_COOLEDAFTEROVERHEATED );
+
+	// Disable damage 	
+	$boss_triggers_damagetype_core.makeActivatable( false );
+	$boss_triggers_damagetype_hitnearcore.makeActivatable( false );
+	deactivateMachineGuns();
+
+	// No target locks
+	$boss_func_animatedsimple_generic_corehatch.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_eyeshield.enableTargetLock( false );
+	$boss_turret_machineguns.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_3.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_3.enableTargetLock( false );
+	
+	// Stop any primed effects
+	closeMissileHatches();
+
+	int i;
+	for ( i = 0; i < vo_KlausHideHint.size(); i++ ) {
+		vo_KlausHideHint.get( i ).stopSound( 0, 0 );
+	}
+	for ( i = 0; i < vo_KlausPowercoreHint.size(); i++ ) {
+		vo_KlausPowercoreHint.get( i ).stopSound( 0, 0 );
+	}
+	for ( i = 0; i < vo_Damaged.size(); i++ ) {
+		vo_Damaged.get( i ).stopSound( 0, 0 );
+	}
+	for ( i = 0; i < vo_Warning.size(); i++ ) {
+		vo_Warning.get( i ).stopSound( 0, 0 );
+	}
+	for ( i = 0; i < vo_Hidden.size(); i++ ) {
+		vo_Hidden.get( i ).stopSound( 0, 0 );
+	}
+
+	// Blend straight to death enter anim (and hope we don't clip too much geo)
+	self.setAnimState( LM_ANIM_DEATH_ENTER, 200, false );
+	self.startFX( FX_START_DEATH_1 );
+			
+	sys.waitFrame();
+	sys.killThread( "londonMonitor::updateCoreHit" );
+	sys.killThread( "londonMonitor::updateFlameThrower" );
+	self.stopFX( FX_EXPLODABLE_STEAM_01 );
+	
+	// Open hatches	
+	$boss_func_animatedsimple_generic_corehatch.setAnimState( LM_ANIM_HATCH_OPEN_MH, 500, false );	
+	$boss_func_animatedsimple_generic_eyeshield.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );		
+	
+	// Wait a while for death enter to go into death MH 
+	sys.wait( 3.5 );
+	$boss_end_jobs_defeat_london_monitor.activate( target );
+	$boss_target_achievement_defeat_london_monitor.activate( target );
+	$gp_inventory_givesecrets_secret_model_london_monitor.activate( target ); 
+	
+	// Wait until player can see LM properly or after timeout
+	float deathTimeout = sys.getTime() + 15.0;
+	if ( lmUseDebug() ) deathTimeout = deathTimeout + 10000;
+	boolean isVisible = false;
+	list visibilityPos;
+	//visibilityPos.append( $boss_func_mover_footclip1 );	
+	//visibilityPos.append( $boss_func_mover_footclip2 );	
+	//visibilityPos.append( $boss_func_mover_footclip3 );	
+	visibilityPos.append( $boss_checklos_pos );
+	while ( !isVisible && ( sys.getTime() < deathTimeout ) ) {
+		// Check if player can see LM and is facing towards it
+		for ( i = 0; i < visibilityPos.size(); i++ ) {
+			vector lookDir = sys.angToForward( $player1.getViewAngles() );
+			vector lookPos = $player1.getViewPos();
+			vector LMViewPos = visibilityPos.get( i ).getWorldOrigin();// + Vec( 0,0,400 );
+			if ( lmUseDebug() ) sys.debugArrow( Vec(1,1,0), lookPos + ( lookDir * 20.0 ) - Vec(0,0,5), LMViewPos, 1, 0.2 );
+			
+			if ( sys.vecDotProduct( sys.vecNormalize( LMViewPos - lookPos ), lookDir ) > lmParmFloat( "deathViewCos" ) ) {
+				// Looking in somewhat that direction
+				if ( sys.tracePoint( lookPos + ( lookDir * 20.0 ), LMViewPos, CLIPMASK_SHOT, self ) == 1.0f ) {
+					// Have LOS
+					if ( lmUseDebug() ) {
+						 sys.debugArrow( Vec(0,1,0), lookPos + ( lookDir * 20.0 ), LMViewPos, 1, 0.2 );
+					} else {
+						isVisible = true;	
+						break;
+					}
+				}		
+			}
+			
+			sys.wait( 0.2 );	
+		}
+	}
+	
+	// Start proper death anim 
+	self.setAnimState( LM_ANIM_DEATH, 500, false );
+		
+	// Anim events should do the rest, but just to be safe
+	sys.wait( 30.0 );
+	$boss_target_nextmap.activate( target ); 
+}
+
+
+void londonMonitor::state_Intro() {
+	// Intro dialogue (move to intro anim when done)
+	$boss_target_timedevents_introdialogue.activate( self );
+
+	//if ( lmUseDebug() ) sys.drawText( "INTRO", self.getWorldOrigin() + Vec(0,0,800), 10, Vec(1,1,1), ALIGN_RIGHT, 20.0);
+
+	// Start focusing straight forward after a while
+	sys.wait( 5.0 );
+	targetLocated();
+	sys.wait( 15 );
+	focus.setWorldOrigin( self.getJointPos( eyeJointHandle ) + sys.angToForward( self.getJointAngle( eyeJointHandle ) ) * 2500.0 );	
+	self.setFocus( $boss_info_null_offsetfocus, true, true, 0 ); // Hack: Use offset focus to compensate for aiming bug. It is bound to proper focus.
+
+	// Checkpoint!
+	$boss_target_player_checkpoint_bossfight_started.activate( $player1 );
+
+	// Lower focus to search volume level, then start tracking target
+	float startSearchingTime = sys.getTime() + 5.0;
+	vector startFocusPos = self.getJointPos( eyeJointHandle ) + sys.angToForward( self.getJointAngle( eyeJointHandle ) ) * 2500.0;
+	while ( sys.getTime() < startSearchingTime ) {
+		sys.waitFrame();
+
+		checkTargetLOS();
+
+		// Lerp focusPos to known target pos over time
+		vector focusPos = startFocusPos + ( ( knownTargetPos - startFocusPos ) * ( 1.0 - ( ( startSearchingTime - sys.getTime() ) / 5.0 ) ) );
+		focus.setWorldOrigin( focusPos );
+
+//		if (lmUseDebug()) sys.debugArrow( Vec(1,1,1), focus.getWorldOrigin(), self.getJointPos( eyeJointHandle ), 1000, 0 );
+//		if (lmUseDebug()) sys.drawText("focus start", self.getWorldOrigin() + Vec(0,0,600), 5.0, Vec(1,1,1), 1, 0); 
+	}
+	thread updateFocus();
+	
+	// Wait until done moving
+	waitForMovement = true;
+	while ( waitForMovement ) {
+		sys.waitFrame();
+	}
+	
+	// The task at hand...
+	$gp_jobs_defeat_london_monitor.activate( $player1 );
+
+	// Find the little gnat and fry him good
+	if ( checkTargetLOS() ) {
+		thread state_EyeBeam();
+	} else {
+		thread state_Searching();
+	}
+}
+
+void londonMonitor::state_CheckpointIntro() {
+
+	$boss_target_timedevents_introdialogue.hide();
+	$boss_target_timedevents_introdialogue.makeActivatable( false );
+
+	// Anim (to position LM correctly)
+	self.setAnimState( LM_ANIM_CHECKPOINT, 0, false);
+
+	// Start tracking target.
+	sys.wait( 0.1 );
+	focus.setWorldOrigin( target.getWorldOrigin() );
+	self.setFocus( $boss_info_null_offsetfocus, true, true, 0 ); // Hack: Use offset focus to compensate for aiming bug. It is bound to proper focus.
+	
+	// The task at hand...
+	$gp_jobs_defeat_london_monitor.activate( $player1 );
+
+	//if ( lmUseDebug() ) sys.drawText( "CHECKPOINT INTRO", self.getWorldOrigin() + Vec(0,0,800), 10, Vec(1,1,1), ALIGN_RIGHT, 6.8 );
+
+	// Start updating focus after a while. Safety fix fo PS4.
+	sys.wait( 0.8 );
+	if ( !IsWithin2DRange( focus.getWorldOrigin(), target.getWorldOrigin(), 10000.0 ) ) {
+		focus.setWorldOrigin( target.getWorldOrigin() ); 
+	}
+	thread updateFocus();
+	
+	// Checkpoint intro line
+	speak( $boss_vo_lm_intro_surrender_7022 ); // This vo won't call speakDone, but failsafe is enough.
+	sys.wait( 6.0 );
+	speakTimeout = sys.getTime() + 1.0; // So we don't speak immediately again
+				
+	// Find the little gnat and fry him good
+	if ( checkTargetLOS() ) {
+		thread state_EyeBeam();
+	} else {
+		thread state_Searching();
+	}
+
+	// Wait for state to decide how to move, then start moving
+	sys.wait( 0.1 ); 
+	thread updateMovement();
+}
+
+
+void londonMonitor::state_Searching(){
+
+	movementType = LM_MOVE_DISTANCE;
+	float hiddenTime = sys.getTime();
+	boolean spokenHidden = false;
+	float spotTime = lmParmFloat( "spotTime" );
+	float hiddenDuration = spotTime + 1.0f;
+	float instaSpotTime = eyeBeamCooldownTime + lmParmFloat( "eyeBeamHiddenDuration" );
+	float targetLockDistance = lmParmFloat( "targetLockDistance" );
+	float targetMinRange = lmParmFloat( "focusMinRange" );
+	int checkHiddenIndex = 0;
+	boolean checkHiddenPosVisible = false;
+	float failsafeTime = sys.getTime() + 20.0;
+	
+	// Activate machine guns for a while
+	activateMachineGuns();
+	float activateMachineGunsMinTime = sys.getTime() + lmParmFloat( "turretMinDuration" );
+	
+	while ( true ) {
+
+		// When hidden for a while, we spot immediately
+		float curTime = sys.getTime();
+		if ( curTime > instaSpotTime ) {
+			spotTime = 0;
+		}	
+									
+		// Has target been in LOS for a while?
+		boolean targetLOS = hasMaintainedTargetLOS( spotTime );
+		if ( targetLOS ) {
+			hiddenTime = curTime;
+		}
+	
+		// Should we speak hidden line? Hidden lines repeat.
+		if ( !spokenHidden ) {
+			if ( curTime > FMax( hiddenTime + hiddenDuration, speakTimeout + 2.0 ) ) {
+				if ( curTime < targetInHidingTime + 1.0f ) {
+					if ( speak( vo_Hidden.get( vo_HiddenIndex % vo_Hidden.size() ) ) ) {
+						vo_HiddenIndex++;
+						spokenHidden = true;
+						spotTime = 0;
+					}
+				}
+			}		
+		}
+		
+		// Past laser cooldown and not speaking? 
+		if ( ( curTime > eyeBeamCooldownTime ) && 
+			 ( curTime > speakTimeout ) && 
+			 ( curTime > activateMachineGunsMinTime ) ) {
+
+			// Fire if we have LOS or we have spoken our hidden line (in which case we will fire blindly)
+			if ( targetLOS || spokenHidden ) {	
+				// Fire if focus is close enough to where we think target is. 
+				// Note that since focus can't move within a min range from us, we will never fire eye beam if target is too close. 	
+				if ( IsWithin2DRange( focus.getWorldOrigin(), knownTargetPos, targetLockDistance ) ) {
+					thread state_EyeBeam();
+					return;
+				}
+			}
+		}
+		
+		// Failsafe, not firing eye gun is a progression blocker
+		if ( curTime > failsafeTime ) {
+			thread state_EyeBeam();
+			return;
+		}
+				
+		// Check LOS from various positions at regular intervals to see if target is in hiding (not just obstructed by ourselves). 
+		if ( checkHiddenPosVisible || targetLOS ) {
+			// Target is visible
+			checkHiddenPosVisible = true;
+		} else {
+			// We haven't seen target yet this round, check from current position
+			vector aimPoint = target.getWorldOrigin();
+			aimPoint_z = Vec_z( target.getAimPoint( AIMPOINT_HEAD ) );
+			if ( sys.tracePoint( checkHiddenPos.get( checkHiddenIndex ).getWorldOrigin(), aimPoint, CLIPMASK_SHOT, target ) == 1.0f ) {
+				checkHiddenPosVisible = true;	
+			}
+		}
+		checkHiddenIndex++;		
+		if ( checkHiddenIndex >= checkHiddenPos.size() ) {
+			// All positions checked this round
+			if ( !checkHiddenPosVisible ) {
+				// None could see target, he is in hiding.
+				targetInHiding();
+			}
+			checkHiddenIndex = 0;
+			checkHiddenPosVisible = false;
+		}
+		
+		if ( lmUseDebug() ) sys.drawText( "SEARCHING", self.getWorldOrigin() + Vec(0,0,800), 10, Vec(1,1,0), ALIGN_RIGHT, 0.2);
+		sys.wait( 0.2f );
+	}					
+}
+
+void londonMonitor::state_EyeBeam(){
+	movementType = LM_MOVE_STOP;
+	closeCoreHatch();
+		
+	if ( lmUseDebug() ) sys.drawText( "FIRE EYE BEAM", self.getWorldOrigin() + Vec(0,0,800), 10, Vec(0,0,1), ALIGN_RIGHT, lmParmFloat( "eyebeambuilduptime" ) + lmParmFloat( "eyebeamfiredpause" ) );
+
+	// No machinegun fire during buildup
+	deactivateMachineGuns();
+	
+	// Speak warning if appropriate
+	if ( ( sys.getTime() > speakTimeout + 4.0 ) && ( vo_WarningIndex < vo_Warning.size() ) ) {
+		if ( ( vo_WarningIndex < 2 ) || ( sys.random( 1.0 ) < 0.1 ) ) {
+			if ( speak( vo_Warning.get( vo_WarningIndex ) ) ) {
+				vo_WarningIndex++;
+				float turretActivateRange = lmParmFloat( "turretActivateRange" );
+				float turretMaxRange = lmParmFloat( "turretMaxRange" );
+				while ( sys.getTime() < speakTimeout ) {
+					sys.wait( 0.1 );
+				}
+			}
+		}
+	} 
+
+	// Eye is vulnerable
+	$boss_func_animatedsimple_generic_eyeshield.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+	$boss_triggers_damagetype_eye.makeActivatable( true );
+	$boss_func_animatedsimple_generic_eyeshield.enableTargetLock( true );	
+	float buildUpTime = lmParmFloat( "eyebeambuilduptime" );
+	float obliviousTime = lmParmFloat( "eyebeamoblivioustime" );
+
+	// Start buildup (update focus will handle targeting)
+	self.startFX( FX_CINEMATIC_10 );
+	focus.startFX( FX_CINEMATIC_1 );
+	thread buildUpBurn();
+
+	// Start flamethrowers as a precautionary measure so rebel scum won't be able to hit us in the 'nads
+	// (they will be aborted if LM is blinded)
+	thread updateFlameThrower( false, buildUpTime - obliviousTime - 1.0, lmParmFloat( "coreHatchOpenDuration" ) + 0.5, 1.0 );	
+
+	// Start fire anim 3.1s before shot (must sync this with anim)
+	sys.wait( buildUpTime - 3.1 );
+	self.setAnimStateAdditive( LM_ANIM_ADD_FIRE_EYEBEAM );	
+	
+	// When buildup is almost done, we become oblivious (so player can get the hell out of there)
+	sys.wait( 3.1 - obliviousTime );
+	makeOblivious( true );
+	vector trailPos = target.getWorldOrigin();		
+	
+	// Open core hatch to vent excess heat from reactor.
+	openCoreHatch();	
+	sys.wait( obliviousTime );
+	
+	// Eye is no longer vulnerable
+	$boss_func_animatedsimple_generic_eyeshield.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+	$boss_triggers_damagetype_eye.makeActivatable( false );
+	$boss_triggers_damagetype_eye.resetHealth();
+	$boss_func_animatedsimple_generic_eyeshield.enableTargetLock( false );
+					
+	// Stop buildup effects
+	focus.stopFX( FX_CINEMATIC_2 );
+	self.stopFX( FX_CINEMATIC_10 );
+	
+	// Fire!
+	$boss_dummyfire_eyegun_blast.activate( self );
+	if ( numMissilePods > 0 ) {
+		eyeBeamCooldownTime	= sys.getTime() + lmParmFloat( "eyebeamCooldown" );
+	}
+	
+	// Speak Klaus hint line if available
+	sys.wait( lmParmFloat( "eyebeamfiredpause" ) );
+	makeOblivious( false );
+	knownTargetPos = trailPos;
+	if ( numMissilePods > 0 ) {
+		if ( blindingHintCount > -1 ) {
+			blindingHintCount++;
+		}	
+		if ( blindingHintCount == 4 ) {
+			if ( !speak( $boss_vo_klaus_eyehint_laser_7061 ) ) {
+				blindingHintCount--;
+			}
+		} else if ( blindingHintCount == 6 ) {
+			if ( !speak( $boss_vo_klaus_eyehint_charging_7062 ) ) {
+				blindingHintCount--;
+			}
+		} else if ( vo_KlausHideHintIndex < vo_KlausHideHint.size() ) {
+			if ( speak( vo_KlausHideHint.get( vo_KlausHideHintIndex ) ) ) {
+				vo_KlausHideHintIndex++;
+			}
+		}
+	} else {
+		// No missile pods left, hint about the power core if player is not underneath it already
+		if ( ( vo_KlausPowercoreHintIndex < vo_KlausPowercoreHint.size() ) && 
+			 ( self.distanceTo( target ) > 600.0f ) ) {
+			if ( speak( vo_KlausPowercoreHint.get( vo_KlausPowercoreHintIndex ) ) ) {
+				vo_KlausPowercoreHintIndex++;
+			}
+		}
+	}
+						
+	thread state_Searching();
+}
+
+void londonMonitor::state_Blinded() {
+	// Abort current beamer and flammenwerfer
+	sys.killThread( "londonMonitor::state_EyeBeam" );	
+	abortFlameThrower();
+	
+	// Stop any buildup effect
+	self.stopFX( FX_CINEMATIC_10 );
+	focus.stopFX( FX_CINEMATIC_2 );
+
+	// Abort buildup effect
+    self.startFX( FX_TESLA_ABORT );
+	
+	// Target shot us so we know where he is. That location will get clobbered by missiles.
+	targetLocated();
+	
+	// Can't see!
+	blindingHintCount = -1;
+	isBlinded = true;
+	makeOblivious( true );
+	self.setAnimStateAdditive( LM_ANIM_ADD_BLINDED );
+	movementType = LM_MOVE_RANDOM;
+	deactivateMachineGuns();
+
+	// Eye is no longer vulnerable
+	$boss_triggers_damagetype_eye.makeActivatable( false );
+	$boss_func_animatedsimple_generic_eyeshield.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+	$boss_func_animatedsimple_generic_eyeshield.enableTargetLock( false );
+		
+	// Stay blind for a while
+	float blindedEndTime;
+	if ( numMissilePods > 0 ) {
+		blindedEndTime = sys.getTime() + lmParmFloat( "blindedDuration" );
+	} else {
+		blindedEndTime = sys.getTime() + lmParmFloat( "blindedDuration" ) * 0.4f;
+	}
+	float fireMissilesTime = sys.getTime() + lmParmFloat( "missilesCooldown" );
+	int numMissilePodsStart = numMissilePods;
+	thread updateBlindedIndicator( blindedEndTime );
+
+	// Open core hatch to vent aborted build up heat after a while
+	sys.wait( 0.5f );
+	openCoreHatch();
+	
+	// Speak blinded lines
+	sys.wait( 1.5f );
+	if ( !hasSpokenBlinded ) {
+		// First time both Klaus and LM speak if possible
+		if ( speak( $boss_vo_klaus_feedback_crackshootingblinded_7072 ) ) {
+			hasSpokenBlinded = true;
+			while ( sys.getTime() < speakTimeout ) {
+				sys.wait( 0.2f );
+			}
+			sys.wait( 1.0f );
+			blindedEndTime = sys.getTime() + lmParmFloat( "blindedDuration" ); // Extend blinded time			
+		}
+	}
+	
+	if ( numMissilePods > 0 ) { 
+		// Have pods left, speak damaged lines sometimes, Klaus encouragement sometimes
+		if ( !speakDamaged( false ) ) {
+			speakKlausEncouragement();			
+		}
+	} else {
+		// No missile pods left, hint about the power core if we have lines left
+		if ( vo_KlausPowercoreHintIndex < vo_KlausPowercoreHint.size() ) {
+			if ( speak( vo_KlausPowercoreHint.get( vo_KlausPowercoreHintIndex ) ) ) {
+				vo_KlausPowercoreHintIndex++;
+			}
+		} else {
+			// No pods and no Klaus lines, fill the inaction with impotent complaining
+			speakDamaged( true );
+		}
+	}	
+	
+	boolean hasSpokenMissilePodDestroyed = false;
+	while ( sys.getTime() < blindedEndTime ) {
+		if ( lmUseDebug() ) sys.drawText( "BLINDED", self.getWorldOrigin() + Vec(0,0,800), 10, Vec(0,0,1), ALIGN_RIGHT, 0.5 );
+				
+		// Fire missiles if...
+		if ( ( sys.getTime() > speakTimeout ) && 			// We're not speaking
+			 ( numMissilePods > 0 ) && 						// We have pods left
+			 ( sys.getTime() > fireMissilesTime ) && 		// We're past cooldown
+			 ( numMissilePodsStart == numMissilePods ) ) {	// No pod has been destroyed during this blinded period
+			
+			// Prepare to fire missiles!	
+			openMissileHatches();
+			primeMissiles();
+			sys.wait( 0.5f );
+			
+			// Klaus warning if not already used
+			if ( !hasSpokenMissilesWarning ) {
+				if ( speak( $boss_vo_klaus_warning_missiles_7019 ) ) {
+					hasSpokenMissilesWarning = true;
+				}
+			} else if ( missileHintCount == 5 ) {
+				if ( !speak( $boss_vo_klaus_missilehint_openup_7065 ) ) {
+					missileHintCount--; 
+				}
+			}
+			
+			sys.wait( 2.5f );
+			
+			// Fire missiles blindly
+			missiletarget.setWorldOrigin( focus.getWorldOrigin() );
+//			if (lmUseDebug()) {
+//				sys.debugArrow( Vec(1,0,0), $boss_dummy_fire_left_rocket_1.getWorldOrigin(), missiletarget.getWorldOrigin(), 10, 5.0f );	
+//				sys.debugArrow( Vec(1,0,0), $boss_dummy_fire_right_rocket_1.getWorldOrigin(), missiletarget.getWorldOrigin(), 10, 5.0f );	
+//			}
+			
+			// Fire!
+			if ( numMissilePods > 0 ) {
+				// Should replace this firing sequence with anim events
+				float minInterval = lmParmFloat( "missileBarrageIntervalMin" );
+				float maxInterval = lmParmFloat( "missileBarrageIntervalMax" );
+				if ( !missilePodLeft1Destroyed ) {
+					$boss_dummy_fire_left_rocket_1.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_left_1.stopFX( FX_CINEMATIC_1 );
+				}
+				if ( !missilePodRight1Destroyed ) {
+					$boss_dummy_fire_right_rocket_1.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_right_1.stopFX( FX_CINEMATIC_1 );
+				}
+				sys.wait( RandomRangeFloat(minInterval, maxInterval) ); 
+				if ( !missilePodLeft2Destroyed ) {
+					$boss_dummy_fire_left_rocket_2.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_left_2.stopFX( FX_CINEMATIC_1 );
+				}
+				if ( !missilePodRight2Destroyed ) {
+					$boss_dummy_fire_right_rocket_2.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_right_2.stopFX( FX_CINEMATIC_1 );
+				}
+				sys.wait( RandomRangeFloat(minInterval, maxInterval) ); 
+				if ( !missilePodLeft3Destroyed ) {
+					$boss_dummy_fire_left_rocket_3.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_left_3.stopFX( FX_CINEMATIC_1 );
+				}
+				if ( !missilePodRight3Destroyed ) {
+					$boss_dummy_fire_right_rocket_3.activate( self );
+					$boss_func_animatedsimple_generic_missilepod_right_3.stopFX( FX_CINEMATIC_1 );
+				}
+			}
+			
+			// Wait until just after first impact
+			sys.wait( 1.0 ); // TODO: Detect impact
+			
+			// Wait a while before firing missiles again
+			fireMissilesTime = sys.getTime() + lmParmFloat( "missilesCooldown" );
+			
+			// Wait a while before using eye gun
+			eyeBeamCooldownTime	= sys.getTime() + lmParmFloat( "eyebeamCooldown" ) + 1.0;
+			
+			// We assume target has moved but have no idea where, so take a wild guess
+			knownTargetPos_x = knownTargetPos_x + ( 2 * sys.randomInt( 2 ) - 1) * RandomRangeFloat( 800.0, 1600.0 );
+			knownTargetPos_y = knownTargetPos_y + ( 2 * sys.randomInt( 2 ) - 1) * RandomRangeFloat( 800.0, 1600.0 );
+		}
+
+		if ( numMissilePods < numMissilePodsStart ) {
+			missileHintCount = -1;
+			if ( !hasSpokenMissilePodDestroyed ) {
+				// Speak indignant line because someone destroyed a missile pod		
+				closeMissileHatches();
+				sys.wait( 1.0 );
+				if ( speakDamaged( numMissilePodsStart == 6 ) ) {
+					hasSpokenMissilePodDestroyed = true;
+				}
+			} 
+		}
+		
+		sys.wait( 0.1 );
+	}
+
+	closeMissileHatches();
+	
+	if ( missileHintCount > -1 ) {
+		missileHintCount++;
+		if ( missileHintCount == 3 ) {
+			// Try to speak missile hint until we succeed
+			sys.wait( 1.0 );
+			if ( !speak( $boss_vo_klaus_missilehint_explodeinpod_7064 ) ) {
+				missileHintCount--; 
+			}
+		}
+	}
+		
+	// We can see again! Hooray!
+	makeOblivious( false );
+	isBlinded = false;
+		
+	thread state_Searching();
+}
+
+
+void londonMonitor::buildUpBurn() {
+	// Start suffering damage after being in the build up beam for a while
+	 float buildUpEndTime = sys.getTime() + lmParmFloat( "eyebeambuilduptime" );
+	 float burnedDuration = 0.0f;
+	 while ( sys.getTime() < buildUpEndTime ) {
+		if ( hasMaintainedTargetLOS( 0.5 ) ) {
+			vector toTarget = target.getWorldOrigin() - focus.getWorldOrigin();
+			float dist = sys.vecLength( toTarget );
+			if ( dist < 300.0 ) {
+				// Only suffer damage if near enough and in LOS
+				float damageScale = 1.0;
+				if ( Vec_z( target.getWorldOrigin() ) < Vec_z( self.getWorldOrigin() ) - 50.0f ) {
+					// It's safer belowground
+					burnedDuration = burnedDuration + 0.05;
+					damageScale = 0.5;
+				} else {
+					burnedDuration = burnedDuration + 0.1;
+				}
+				
+				if ( burnedDuration > 2.0 ) {
+					if ( dist > 100.0 ) {
+						damageScale = damageScale * ( 1.0 - ( ( dist - 100.0 ) * 0.005 ) );
+					}
+					target.damage( self, self, @damage( "damage/tungsten/ai/londonmonitor_eyegun_buildup" ), damageScale, toTarget );
+				}
+			}
+		}
+		sys.wait( 0.1 );
+	 }
+}
+
+void londonMonitor::openCoreHatch(){
+	if ( !coreHatchOpen ) {
+		coreHatchOpen = true;
+		$boss_func_animatedsimple_generic_corehatch.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_triggers_damagetype_core.makeActivatable( true );
+		allowCoreHits = true; // Enable/disable damagetype trigger should be enough, but isn't. Events may be delayed perhaps? 
+		$boss_triggers_damagetype_hitnearcore.makeActivatable( true );
+		$boss_func_animatedsimple_generic_corehatch.enableTargetLock( true );
+		self.startFX( FX_WEAPON_OVERHEATED );
+		self.startFX( FX_WEAPON_COOLEDAFTEROVERHEATED );
+		sys.killThread( "londonMonitor::delayedCloseCoreHatch" );
+		if ( numMissilePods > 0 ) {
+			// Auto close the hatch after a while. Longer duration when more missile pods have been destroyed.
+			thread delayedCloseCoreHatch( lmParmFloat( "coreHatchOpenDuration" ) - ( 0.5 * numMissilePods ) + 0.5 );
+		} else {
+			// Auto close the hatch after longer time when missile pods have been destroyed
+			thread delayedCloseCoreHatch( lmParmFloat( "coreHatchOpenDuration" ) + 3.0 );
+		}
+	}
+}
+
+void londonMonitor::closeCoreHatch(){
+	if ( coreHatchOpen ) {
+		coreHatchOpen = false;
+		$boss_func_animatedsimple_generic_corehatch.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_triggers_damagetype_hitnearcore.makeActivatable( false );
+		allowCoreHits = false; 
+		$boss_func_animatedsimple_generic_corehatch.enableTargetLock( false );
+		self.stopFX( FX_WEAPON_COOLEDAFTEROVERHEATED );
+		
+		// Fire off flame throwers for good measure :)
+		thread updateFlameThrower( true, 3.0, 5.0, 1.0 );
+
+		sys.wait( 0.3 );
+		$boss_triggers_damagetype_core.makeActivatable( false );
+	}
+}
+
+void londonMonitor::delayedCloseCoreHatch( float delay ) {
+	if ( isBlinded || ( numMissilePods == 0 ) || ( delay <= 1.0 ) ) {
+		// Player should be able to shoot hatch keep it open the entire duration
+		sys.wait( delay );
+	} else {
+		// Wait a short while, then close when delay is up or player comes near hatch
+		float closeTime = sys.getTime() + delay;
+		sys.wait( 1.0 );
+		while ( sys.getTime() < closeTime ) { 
+			if ( IsWithin2DRange( target.getWorldOrigin(), $boss_triggers_damagetype_core.getWorldOrigin(), 400.0 ) ) {
+				// Close prematurely
+				if ( lmUseDebug() ) sys.drawText( "PLAYER NEAR, CLOSE HATCH PREMATURELY", $boss_triggers_damagetype_core.getWorldOrigin(), 1.0, Vec(1,1,1), 1, 5.0 );
+				break;
+			}
+			sys.wait( 0.1 );
+		}
+	}
+	closeCoreHatch();
+}
+
+
+void londonMonitor::openMissileHatches(){
+	if ( !missileHatchesOpen ) {
+		missileHatchesOpen = true;
+		$boss_func_animatedsimple_generic_missilepod_left_1.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_func_animatedsimple_generic_missilepod_left_2.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_func_animatedsimple_generic_missilepod_left_3.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_1.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_2.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_3.setAnimState( LM_ANIM_HATCH_OPEN, 0, false );	
+	}
+}
+
+void londonMonitor::primeMissiles() {
+	// Prime missile pods
+	if ( !missilePodLeft1Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_left_1.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_left_1.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_left_1.enableTargetLock( true );
+	}
+	if ( !missilePodLeft2Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_left_2.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_left_2.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_left_2.enableTargetLock( true );
+	}
+	if ( !missilePodLeft3Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_left_3.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_left_3.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_left_3.enableTargetLock( true );
+	}
+	if ( !missilePodRight1Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_right_1.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_right_1.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_right_1.enableTargetLock( true );
+	}
+	if ( !missilePodRight2Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_right_2.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_right_2.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_right_2.enableTargetLock( true );
+	}
+	if ( !missilePodRight3Destroyed ) {
+		$boss_func_animatedsimple_generic_missilepod_right_3.startFX( FX_CINEMATIC_1 );
+		$boss_triggers_damagetype_missilepod_right_3.makeActivatable( true );
+		$boss_func_animatedsimple_generic_missilepod_right_3.enableTargetLock( true );
+	}
+}
+
+void londonMonitor::closeMissileHatches(){
+	// Abort priming effect
+	$boss_func_animatedsimple_generic_missilepod_left_1.stopFX( FX_CINEMATIC_1 );
+	$boss_func_animatedsimple_generic_missilepod_left_2.stopFX( FX_CINEMATIC_1 );
+	$boss_func_animatedsimple_generic_missilepod_left_3.stopFX( FX_CINEMATIC_1 );
+	$boss_func_animatedsimple_generic_missilepod_right_1.stopFX( FX_CINEMATIC_1 );
+	$boss_func_animatedsimple_generic_missilepod_right_2.stopFX( FX_CINEMATIC_1 );
+	$boss_func_animatedsimple_generic_missilepod_right_3.stopFX( FX_CINEMATIC_1 );
+			
+	// Batten the hatches!
+	if ( missileHatchesOpen ) {
+		missileHatchesOpen = false;
+		$boss_func_animatedsimple_generic_missilepod_left_1.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_func_animatedsimple_generic_missilepod_left_2.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_func_animatedsimple_generic_missilepod_left_3.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_1.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_2.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		$boss_func_animatedsimple_generic_missilepod_right_3.setAnimState( LM_ANIM_HATCH_CLOSE, 200, false );	
+		thread delayedDisableMissilePodDamage();
+	} else {
+		disableMissilePodDamage();
+	}
+}
+
+void londonMonitor::delayedDisableMissilePodDamage(){
+	sys.wait( 0.7 );
+	disableMissilePodDamage();
+}
+
+void londonMonitor::disableMissilePodDamage(){
+	$boss_triggers_damagetype_missilepod_left_1.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_left_2.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_left_3.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_right_1.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_right_2.makeActivatable( false );
+	$boss_triggers_damagetype_missilepod_right_3.makeActivatable( false );
+	
+	$boss_func_animatedsimple_generic_missilepod_left_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_left_3.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_1.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_2.enableTargetLock( false );
+	$boss_func_animatedsimple_generic_missilepod_right_3.enableTargetLock( false );
+}
+
+void londonMonitor::destroyMissilePodLeft1(){
+	if ( !missilePodLeft1Destroyed ) {
+		missilePodLeft1Destroyed = true;
+		$boss_triggers_damagetype_missilepod_left_1.makeActivatable( false );
+		destroyedMissilePod( true, $boss_func_animatedsimple_generic_missilepod_left_1 );
+	}
+}
+void londonMonitor::destroyMissilePodLeft2(){
+	if ( !missilePodLeft2Destroyed ) {
+		missilePodLeft2Destroyed = true;
+		$boss_triggers_damagetype_missilepod_left_2.makeActivatable( false );
+		destroyedMissilePod( true, $boss_func_animatedsimple_generic_missilepod_left_2 );
+	}
+}
+void londonMonitor::destroyMissilePodLeft3(){
+	if ( !missilePodLeft3Destroyed ) {
+		missilePodLeft3Destroyed = true;
+		$boss_triggers_damagetype_missilepod_left_3.makeActivatable( false );
+		destroyedMissilePod( true, $boss_func_animatedsimple_generic_missilepod_left_3 );
+	}
+}
+void londonMonitor::destroyMissilePodRight1(){
+	if ( !missilePodRight1Destroyed ) {
+		missilePodRight1Destroyed = true;
+		$boss_triggers_damagetype_missilepod_right_1.makeActivatable( false );
+		destroyedMissilePod( false, $boss_func_animatedsimple_generic_missilepod_right_1 );
+	}
+}
+void londonMonitor::destroyMissilePodRight2(){
+	if ( !missilePodRight2Destroyed ) {
+		missilePodRight2Destroyed = true;
+		$boss_triggers_damagetype_missilepod_right_2.makeActivatable( false );
+		destroyedMissilePod( false, $boss_func_animatedsimple_generic_missilepod_right_2 );
+	}
+}
+void londonMonitor::destroyMissilePodRight3(){
+	if ( !missilePodRight3Destroyed ) {
+		missilePodRight3Destroyed = true;
+		$boss_triggers_damagetype_missilepod_right_3.makeActivatable( false );
+		destroyedMissilePod( false, $boss_func_animatedsimple_generic_missilepod_right_3 );
+	}
+}
+
+	
+void londonMonitor::destroyedMissilePod( boolean left, entity pod ){
+	// Blammo!
+	numMissilePods--;
+	pod.switchMeshKit( MESH_KIT_GEAR, "Destroyed" );
+	missileHintCount = -1;
+
+	// Abort priming effect
+	pod.stopFX( FX_CINEMATIC_1 ); 
+	
+	// Explosion!
+	pod.startFX( FX_CINEMATIC_2 );
+	
+	// No target lock any more
+	pod.enableTargetLock( false );
+
+	if ( left ) {
+	    self.setAnimStateAdditive( LM_ANIM_ADD_DESTROY_MISSILEPOD_RIGHT );
+	} else {
+	    self.setAnimStateAdditive( LM_ANIM_ADD_DESTROY_MISSILEPOD_LEFT );
+	}
+}
+
+void londonMonitor::hitEye() {
+	thread state_Blinded();
+}
+
+void londonMonitor::hitCore() {
+	if ( !allowCoreHits ) {
+		return;
+	}
+	
+	// Stop timer closing core hatch
+	sys.killThread( "londonMonitor::delayedCloseCoreHatch" );
+	
+	// Don't allow damage until next time hatch is opened
+	$boss_triggers_damagetype_hitnearcore.makeActivatable( false );
+	allowCoreHits = false;
+
+	// Only count core hits from fairly close underneath to avoid rocket exploit
+	if ( IsWithin2DRange( target.getWorldOrigin(), $boss_triggers_damagetype_core.getWorldOrigin(), 400.0 ) ) {
+		// Only count hits when LM is blinded or has lost all missilepods
+		if ( ( numMissilePods == 0 ) || isBlinded ) {
+			// Damage first time, death the second
+			numCoreHits++;
+		} else if ( lmUseDebug() ) {
+			 sys.drawText( "HIT WHEN NOT VULNERABLE", $boss_triggers_damagetype_core.getWorldOrigin(), 1.0, Vec(1,1,1), 1, 5.0 );
+		}
+	} else if ( lmUseDebug() ) {
+		sys.drawText( "HIT FROM OUTSIDE RANGE", $boss_triggers_damagetype_core.getWorldOrigin(), 1.0, Vec(1,1,1), 1, 5.0 );
+		sys.debugCircle( Vec(1,1,1), $boss_triggers_damagetype_core.getWorldOrigin() - Vec(0,0,300), Vec(0,0,1), 400.0, 12, 5 );
+	}
+
+	if ( numCoreHits < 2 ) {
+		thread updateCoreHit();
+	} else {
+		die();
+	}
+}
+
+void londonMonitor::updateCoreHit() {
+	coreHitTime = sys.getTime();
+	movementType = LM_MOVE_DISTANCE;
+    self.setAnimStateAdditive( LM_ANIM_ADD_DESTROY_MISSILEPOD_RIGHT );
+    self.startFX( FX_START_DAMAGE_LEVEL_1 );
+	sys.killThread( "londonMonitor::delayedSpeakCoreMiss" );
+	eyeBeamCooldownTime	= sys.getTime() + 1000.0;
+	$boss_triggers_damagetype_hitnearcore.makeActivatable( false );
+	$boss_func_animatedsimple_generic_corehatch.enableTargetLock( false );
+	self.stopFX( FX_WEAPON_COOLEDAFTEROVERHEATED );
+
+	sys.wait( 1.0 );
+	
+	if ( !hasSpokenCoreHit && ( numCoreHits == 1 ) ) {
+		// Klaus cheers
+		if ( speak( $boss_vo_klaus_feedback_niceshootingagain_7076 ) ) {
+			hasSpokenCoreHit = true;
+		}	
+	} else if ( !speakKlausEncouragement() ) {
+		// Stop hitting me in ze core!
+		speakDamaged( true );
+	}
+	
+	// Don't close core hatch until hit effects have had time to play out
+	sys.wait( 1.0 );
+	closeCoreHatch();
+	eyeBeamCooldownTime	= sys.getTime();	
+//	if ( lmUseDebug() ) sys.drawText( "CORE HIT DONE", self.getWorldOrigin() + Vec(0,0,100), 2, Vec(1,1,1), ALIGN_RIGHT, 5.0);
+}
+
+void londonMonitor::hitNearCore() {
+	if ( !hasSpokenCoreMiss && ( sys.getTime() > coreHitTime + 10.0 ) ) {
+		// Start delayed thread that will be killed if we hit core
+		thread delayedSpeakCoreMiss();
+	}
+}
+
+void londonMonitor::destroyedMachineguns() {
+	machinegunsDestroyed = true;
+	deactivateMachineGuns();
+}
+
+void londonMonitor::updateFlameThrower( boolean waitForSpeak, float pilotFlameDuration, float burnDuration, float cooldown ) {
+	// Flammenwerfer: es werfs flammen!
+	sys.wait( 1.0 );
+//	if ( lmUseDebug() ) sys.drawText( "FLAME ON!", self.getWorldOrigin() + Vec(0,0,200), 2, Vec(1,0,0), ALIGN_RIGHT, 5.0);
+
+	if ( sys.getTime() < flameThrowerCooldownTime ) {
+		return;
+	}
+	
+	// Don't allow flame thrower to restart while burning
+	flameThrowerCooldownTime = sys.getTime() + 1000.0;
+
+	// Ignite pilot flame
+	self.startFX( FX_EXPLODABLE_STEAM_02 );
+	
+	// Wait a while then unleash the area hurtsings
+	float minTime = sys.getTime() + pilotFlameDuration;
+	while ( ( waitForSpeak && ( sys.getTime() < speakTimeout ) ) || // Waiting for speak
+			( sys.getTime() < minTime ) ) {							// Waiting for mintime
+		sys.wait( 0.2 );
+	}
+
+	// Burn baby, burn!
+	self.stopFX( FX_EXPLODABLE_STEAM_02 );
+	self.startFX( FX_EXPLODABLE_STEAM_01 );
+	float damageTime = sys.getTime() + burnDuration;
+	float damageChance = 0.0;
+	while ( sys.getTime() < damageTime ) {
+//		if (lmUseDebug()) sys.debugCircle( Vec(1,0,0), self.getWorldOrigin(), Vec(0,0,1), 250.0f, 16, 0 );
+		if ( self.distanceTo( $player1 ) < 250.0f ) {
+			vector away = $player1.getWorldOrigin() - self.getWorldOrigin(); 
+			if ( damageChance > 1.0 ) {
+				$player1.damage( self, self, @damage( "damage/tungsten/ai/londonmonitor_gas" ), 1.0f, away );
+				damageChance = 0.0;
+			} else {
+				damageChance = damageChance + sys.random( 1.0 );
+			}
+			$player1.pushSoft( away, 100.0f, 0.1f );
+		}
+		sys.waitFrame();
+	}
+	self.stopFX( FX_EXPLODABLE_STEAM_01 );
+
+	flameThrowerCooldownTime = sys.getTime() + cooldown;
+}
+
+void londonMonitor::abortFlameThrower() {
+	sys.killThread( "londonMonitor::updateFlameThrower" );
+	self.stopFX( FX_EXPLODABLE_STEAM_02 );
+	self.stopFX( FX_EXPLODABLE_STEAM_01 );
+	flameThrowerCooldownTime = sys.getTime();
+}
+
+int londonMonitor::getMove()
+{
+	if ( movementType == LM_MOVE_STOP ) {
+		// Stop when we reach mh, then maintain it. 
+		return -1;
+	}
+
+	int bestSpot = 0;
+	if ( movementType == LM_MOVE_RANDOM ) {
+		// Move to random position. 
+		bestSpot = sys.randomInt( 5 );	
+		
+		// Stay put if already there
+		if ( currentPos == bestSpot ) {
+			return -1;
+		}
+		
+	} else {
+		// Move towards/away from target or go to center if already at best position
+		float bestDistance;
+		if ( movementType == LM_MOVE_DISTANCE ) {
+			bestDistance = -1;
+		} else  {
+			bestDistance = 1000000;
+		}
+
+		float distance;
+		vector pos;
+		int i = 0;
+		for( ;i < 4; i++ ) {
+			pos = sys.getEntity( "boss_sensor_" + i ).getOrigin();	
+			
+			distance = sys.vecLength( knownTargetPos - pos );
+			
+			if ( ( ( movementType == LM_MOVE_CLOSE ) && ( distance < bestDistance ) ) || 
+				 ( ( movementType == LM_MOVE_DISTANCE ) && ( distance > bestDistance ) ) ) {						
+				bestDistance = distance;
+				bestSpot = i;
+			}
+		}
+		
+		if ( bestSpot == currentPos ) {
+			// Already at best spot, move to center or randomly away if there.
+			if ( bestSpot == 4) {
+				bestSpot = sys.randomInt( 4 ); 
+			} else {
+				bestSpot = 4;
+			}
+		}
+	}
+
+	if ( currentPos != 4 ) { 
+		// Not at center or best spot. Move to center and see where we want to go when we get there.  
+		// Anim to get to center = current pos + 2 % 4 (See above)
+		bestSpot = ( currentPos + 2 ) % 4;
+		currentPos = 4;
+		return bestSpot;
+		
+	} else { 
+		// We are in center, anim to get to best pos = bestSpot
+		currentPos = bestSpot;
+		return bestSpot;
+	}
+}
+
+
+void londonMonitor::updateMovement() {
+
+	if ( isDying ) {
+		return;
+	}
+			
+	waitForMovement = false;
+
+	// Movement is updated whenever a movement anim is finished (via triggerAnimDone on the monitor) or periodically when static.
+	// Pause for a while after each movement
+	if ( self.getAnimState() != LM_ANIM_MH ) {
+		self.setAnimState( LM_ANIM_MH, 200, false);
+	}
+	sys.wait( 1.0 );
+	
+	// Time to select next move
+	while ( !isDying ) {
+		int anim = getMove();
+		if ( anim >= 0 ) {
+			self.setAnimState(anim, 200, false);
+			return;		
+		} else {
+			// Stay put in mh
+			if ( self.getAnimState() != LM_ANIM_MH ) {
+				self.setAnimState( LM_ANIM_MH, 200, false);
+			}
+		}
+		sys.wait( 2.0 );
+	}
+}
+
+void londonMonitor::updateFocus() {
+
+	// Track towards target until we can lock or target hides
+	float focusMinRange = lmParmFloat( "focusMinRange" );
+	float focusMinRangeSqr = focusMinRange * focusMinRange;
+	float trackingMaxSpeed = lmParmFloat( "trackingMaxSpeed" );
+	float targetLockDistance = lmParmFloat( "targetLockDistance" );
+	float focusAcc = lmParmFloat( "focusAcc" );
+	float trackingAccClamp = lmParmFloat( "trackingAccClamp" );
+	
+	while ( true ) {
+
+		// Check if focus can move in a straight line towards target or if it has to detour around us.
+		vector acceleration;
+		vector moveDir = knownTargetPos - focus.getWorldOrigin();
+		if ( moveDir != Vec(0,0,0) ) {
+			moveDir_z = 0.0;
+			float moveDistance = sys.vecLength( moveDir );
+			moveDir = moveDir / moveDistance; // Normalize 
+			vector toFocus = focus.getWorldOrigin() - self.getWorldOrigin();
+			toFocus_z = 0.0;
+			float moveDirToFocusDot = sys.vecDotProduct( moveDir, toFocus );
+			float sqrFactor = Square( moveDirToFocusDot ) - sys.vecDotProduct( toFocus, toFocus ) + focusMinRangeSqr;
+			if ( sqrFactor <= 0.0 ) {
+				// Line from focus to target pos does not intersect focus min range circle (or just touches it), move in straight line 
+				acceleration = moveDir;
+			} else if ( moveDirToFocusDot > 0.0 ) {
+				// Focus wants to move away from us, move in straight line
+				acceleration = moveDir;
+			} else {
+				// Line does intersect, check where
+				float sqrtFactor = sys.sqrt( sqrFactor );
+				float intersectDistance1 = -moveDirToFocusDot - sqrtFactor;
+				float intersectDistance2 = -moveDirToFocusDot + sqrtFactor;
+				if ( ( intersectDistance1 > moveDistance ) && ( intersectDistance2 > moveDistance ) ) {
+					// Target in front of circle, move in straight line
+					acceleration = moveDir;
+				} else {
+					// Target is inside circle or on the other side, flock towards it pushing away from us
+					float toFocusDistance = sys.vecLength( toFocus );
+					vector repulsion;
+					if ( toFocusDistance > moveDistance ) {
+						// Front half of circle, push away in direction of target pos
+						repulsion = knownTargetPos - self.getWorldOrigin();  
+					} else {
+						// Back half or beyond circle, push away orthogonally
+						repulsion = sys.vecCrossProduct( toFocus, Vec(0,0,1) );
+						if ( sys.vecDotProduct( repulsion, knownTargetPos - self.getWorldOrigin() ) < 0.0 ) {
+							repulsion = -repulsion;
+						}  
+					}
+					// Repulsion grows when focus nears circle
+					repulsion_z = 0.0;
+					repulsion = sys.vecNormalize( repulsion ) * 2.0f * ( 400.0 / FMax(400.0, 400.0 + toFocusDistance - focusMinRange ) );
+					acceleration = sys.vecNormalize( moveDir + repulsion );
+//					if ( lmUseDebug() ) sys.debugArrow( Vec(0.5,1,0), focus.getWorldOrigin() + Vec(0,0,20), focus.getWorldOrigin() + repulsion * 50 + Vec(0,0,20), 5, 0);
+				}
+			}
+
+			// Accelerate		
+			if ( !sys.isValidVector( acceleration ) ) {
+				acceleration = Vec( 0,0,0 ); // PS4 failsafe
+			} 
+			focusVelocity = focusVelocity + acceleration * ( focusAcc * sys.getFrameTime() ); 
+			focusVelocity_z = 0.0;
+			if ( moveDistance < targetLockDistance ) {
+				// Decelerate to target pos
+				if ( ( sys.vecDotProduct( moveDir, focusVelocity ) > 0.0 ) && ( sys.vecLength( focusVelocity ) > moveDistance ) ) {
+					// Clamp velocity when nearing target
+					focusVelocity = sys.vecNormalize( focusVelocity ) * trackingAccClamp * moveDistance;
+				}	
+			} else {
+				// Clamp focus speed
+				if ( sys.vecLength( focusVelocity ) > trackingMaxSpeed ) {
+					focusVelocity = sys.vecNormalize( focusVelocity ) * trackingMaxSpeed;
+				}
+			}
+			if ( !sys.isValidVector( focusVelocity ) ) {
+				focusVelocity = Vec( 0,0,0 ); // PS4 failsafe
+			}
+			
+			// Move focus
+			vector newPos = focus.getWorldOrigin() + focusVelocity * sys.getFrameTime();
+			if ( IsWithin2DRange( newPos, self.getWorldOrigin(), focusMinRange ) ) {
+				// Inside min focus range, push out to nearest edge (note that this allows tunneling, but focus shouldn't move that fast :)).
+				vector away = sys.vecNormalize( newPos - self.getWorldOrigin() );
+				if ( !sys.isValidVector( away ) ) {
+					away = Vec( 1,0,0 );
+				}
+				newPos = self.getWorldOrigin() + ( away * ( focusMinRange + 10.0 ) );
+				focusVelocity = ( newPos - focus.getWorldOrigin() ) / sys.getFrameTime();	
+				focusVelocity_z = 0.0;
+				if ( ( sys.vecDotProduct( focusVelocity, toFocus ) < 0 ) || !sys.isValidVector( focusVelocity ) ) {
+					// Stop velocity towards us
+					focusVelocity = Vec(0.0, 0.0, 0.0);
+				}
+//				if ( lmUseDebug() ) {
+//					vector badPos = focus.getWorldOrigin() + focusVelocity * sys.getFrameTime();
+//					sys.debugBounds( Vec(0.5,1,0), badPos - Vec(10,10,10), badPos + Vec(10,10,10), 0); 		
+//					sys.debugArrow( Vec(0.5,1,0), badPos, newPos, 5, 0);
+//				}
+			}
+			// Straight lerp of focus height
+			float focusHeight = Vec_z( focus.getWorldOrigin() );
+			newPos_z = focusHeight + ( Vec_z( knownTargetPos ) - focusHeight ) * 0.1f;
+			
+			if ( sys.isValidVector( newPos ) ) { // PS4 failsafe
+				focus.setWorldOrigin( newPos );
+			}
+		}
+		
+//		if ( lmUseDebug() ) {
+//			sys.debugCircle( Vec(0.5,0.5,0), self.getWorldOrigin(), Vec(0,0,1), focusMinRange, 16, 0);
+//			sys.debugBounds( Vec(1,1,0), focus.getWorldOrigin() - Vec(40,40,40), focus.getWorldOrigin() + Vec(40,40,40), 0); 		
+//			sys.debugBounds( Vec(0,1,0), knownTargetPos - Vec(20,20,20), knownTargetPos + Vec(20,20,20), 0); 		
+//			sys.debugArrow( Vec(0,0.3,0), $boss_checklos_pos.getWorldOrigin(), knownTargetPos, 5, 0); 		
+//			sys.debugArrow( Vec(0.5,0.5,0), $boss_checklos_pos.getWorldOrigin(), focus.getWorldOrigin(), 5, 0); 		
+//			vector dir = focus.getWorldOrigin() - target.getWorldOrigin();
+//			float dist = sys.vecLength( dir );
+//			dir = dir / dist;
+//			sys.debugArrow( Vec(0.75,0.75,0), target.getWorldOrigin() + Vec(0,0,40), target.getWorldOrigin() + dir * 500.0, 5, 0); 		
+//			sys.drawText( "D: " + dist + "F: " + focus.getName() + " / " + $boss_info_null_offsetfocus.getName() + " T: " + target.getName(), self.getWorldOrigin() + Vec(0,0,300), 1.0, Vec(1,1,1), 1, 0 );
+//			if ( !sys.isValidFloat( dist ) )
+//				sys.drawText( "NAN!!!!!!!!!!!!!!!! ", self.getWorldOrigin() + Vec(0,0,0), 5, Vec(1,1,1), 1, 0 );
+//			sys.debugArrow( Vec(1,1,0), focus.getWorldOrigin(), focus.getWorldOrigin() + focusVelocity, 5, 0);
+//			sys.debugArrow( Vec(1,0.5,0), focus.getWorldOrigin() + Vec(0,0,10), focus.getWorldOrigin() + acceleration * 50 + Vec(0,0,10), 5, 0);
+//		}
+				
+		// Tick!
+		sys.waitFrame();
+
+		checkTargetLOS();
+	}
+}
+
+boolean londonMonitor::checkTargetLOS() {
+	
+	// If turret has spotted player, we know his position at least
+	if ( $boss_turret_machineguns.enemyVisible() ) {
+		targetLocated();
+	}		
+	
+	// Trace from eye (offset outside of own collision) to target aim position to see if anything except the target obstructs the line of sight.
+	// Use height of aim position only. XY is above origin, to enable player to lean without being spotted. 
+	vector aimPoint = target.getWorldOrigin();
+	vector eyePos = $boss_checklos_pos.getWorldOrigin();
+	aimPoint_z = Vec_z( target.getAimPoint( AIMPOINT_HEAD ) );
+	if ( !isOblivious && ( sys.tracePoint( eyePos, aimPoint, CLIPMASK_SHOT, target ) == 1.0f ) ) {
+	
+		// In LOS
+		targetLocated();
+		if ( targetLOSTime < 0.0 ) {
+			// We did not have LOS last check, set time if also within forward angle
+			if ( ClampAngle( $boss_checklos_pos.angleTo( target ) ) < lmParmFloat( "viewAngle" ) ) {
+				targetLOSTime = sys.getTime();
+			}
+		}
+
+//		if (lmUseDebug()) sys.debugLine( Vec(0,1,0), eyePos, sys.getTraceEndPos(), 0);  
+//		if (lmUseDebug()) sys.drawText( "LOS time: " + ( sys.getTime() - targetLOSTime ) , self.getWorldOrigin() + Vec(0,0,700), 5, Vec(0,1,0), ALIGN_RIGHT, 0.01 );
+						
+		return true;
+		
+	} else {
+		// Not in LOS, reset time and keep known position
+		targetLOSTime = -1000.0;
+//		if (lmUseDebug()) sys.debugLine( Vec(1,0,0), eyePos, sys.getTraceEndPos(), 0);  
+//		if (lmUseDebug()) sys.drawText( "No LOS" , self.getWorldOrigin() + Vec(0,0,700), 5, Vec(1,0,0), ALIGN_RIGHT, 0.01 );
+		return false;
+	}
+}
+
+boolean londonMonitor::hasMaintainedTargetLOS( float _time ) {
+	return ( targetLOSTime > 0.0f ) && ( sys.getTime() > targetLOSTime + _time );
+}
+
+boolean londonMonitor::targetLocatedRecently( float _time ){
+	return ( targetLocatedTime > 0.0f ) && ( sys.getTime() < targetLocatedTime + _time );
+}
+
+void londonMonitor::activateMachineGuns(){
+	if ( !machinegunsDestroyed ) {
+		$boss_turret_machineguns.activate( target );
+		$boss_triggers_damagetype_turret1.makeActivatable( true );
+		$boss_triggers_damagetype_turret2.makeActivatable( true );
+		$boss_triggers_damagetype_turret3.makeActivatable( true );
+		$boss_turret_machineguns.enableTargetLock( true );
+	}
+}
+
+void londonMonitor::deactivateMachineGuns(){
+	$boss_turret_machineguns.deactivate();
+	$boss_triggers_damagetype_turret1.makeActivatable( false );
+	$boss_triggers_damagetype_turret2.makeActivatable( false );
+	$boss_triggers_damagetype_turret3.makeActivatable( false );
+	$boss_triggers_damagetype_turret1.resetHealth();
+	$boss_triggers_damagetype_turret2.resetHealth();
+	$boss_triggers_damagetype_turret3.resetHealth();
+	$boss_turret_machineguns.enableTargetLock( false );	
+}
+
+boolean londonMonitor::speakDamaged( boolean force ) {
+
+	// Always speak the first few damaged lines, then only speak them at random intervals
+	// Damaged lines will loop if all have been played
+	if ( force || 
+		 ( vo_DamagedIndex < 3 ) || 
+		 ( sys.random( 1.0 ) < 0.1f ) ) {
+		if ( speak( vo_Damaged.get( vo_DamagedIndex % vo_Damaged.size() ) ) ) {
+			vo_DamagedIndex++;	
+			return true;
+		}
+	}
+	return false;
+}
+
+boolean londonMonitor::speakKlausEncouragement() {
+	if ( vo_KlausEncouragementIndex < vo_KlausEncouragement.size() ) {
+		if ( speak( vo_KlausEncouragement.get( vo_KlausEncouragementIndex ) ) ) { 
+			vo_KlausEncouragementIndex++;
+			return true;
+		}
+	}
+	return false;
+}
+
+void londonMonitor::delayedSpeakCoreMiss() {
+	sys.wait( 2.0 );
+	
+	if ( !hasSpokenCoreMiss ) {
+		// Klaus explains
+		if ( speak( $boss_vo_klaus_powercore_shootitfrombelow_7058 ) ) {
+			hasSpokenCoreMiss = true;
+		}	
+	} 
+}
+
+boolean londonMonitor::speak( entity vo ) {
+	if ( sys.getTime() < speakTimeout ) {
+		// Can't speak
+		return false;
+	}
+
+	// Speak!
+	vo.activate( self );
+	speakTimeout = sys.getTime() + 6.0; // Failsafe, also used for checkpoint intro line 
+//	if (lmUseDebug()) sys.println("Speaking " + vo.getName() + " @ " + sys.getTime());	
+	return true;
+}
+
+void londonMonitor::doneSpeaking() {
+	speakTimeout = sys.getTime();
+//	if (lmUseDebug()) sys.println("Done speaking @ " + sys.getTime());	
+}
+
+void londonMonitor::targetLocated() {
+	if ( !isOblivious ) {
+		targetLocatedTime = sys.getTime();
+		knownTargetPos = target.getWorldOrigin();
+	}
+}
+
+void londonMonitor::makeOblivious( boolean oblivious ) {
+	if ( !isOblivious && oblivious ) {
+		targetLocatedTime = -1000.0f;
+		targetLOSTime = -1000.0f;
+	}
+	isOblivious = oblivious;
+}
+
+void londonMonitor::targetInHiding() {
+	targetInHidingTime = sys.getTime();
+}
+
+void londonMonitor::updateBlindedIndicator( float endBlindedTime ){
+	// Blink blinding indicator before unblinding
+	//if ( sys.getTime() < endBlindedTime - 3.0f ) {
+	//	sys.wait( endBlindedTime - 3.0f - sys.getTime() );
+	//}
+	
+	//while ( sys.getTime() < blindedEndTime ) {
+	//	if ( sys.random( 1.0 ) < 0.2 ) {
+	//		$boss_func_dynamic_notblindindicator.show();
+	//	} else {
+	//		$boss_func_dynamic_notblindindicator.hide();
+	//	}
+	//}	
+}
+
+
+void londonMonitor::stomp1(){
+	stomp( $boss_func_movers_stomper1.getWorldOrigin() );
+	$boss_func_movers_stomper1.hide();
+};
+void londonMonitor::stomp2(){
+	stomp( $boss_func_movers_stomper2.getWorldOrigin() );
+	$boss_func_movers_stomper2.hide();
+};
+void londonMonitor::stomp3(){
+	stomp( $boss_func_movers_stomper3.getWorldOrigin() );
+	$boss_func_movers_stomper3.hide();
+};
+void londonMonitor::stomp( vector pos ) {
+	// Push player away from stomp with set force tapering off from 200 units to set radius.
+	vector away = $player1.getWorldOrigin() - pos;
+	if ( away_z > -50.0 ) {
+		float distance = FMax( 1.0, sys.vecLength( away ) );
+		float frac = FMax( 0.0, FMin( 1.0, ( distance - 200.0 ) / ( lmParmFloat( "stompPushRadius" ) - 200.0 ) ) ); 
+		if ( frac < 0.95 ) {
+			$player1.pushSoft( away / distance, lmParmFloat( "stompPushForce" ) * ( 1.0 - frac ), 0.5 );
+		}
+	}
+};
+
+
+void londonMonitor::liftfoot1(){
+	$boss_func_movers_stomper1.show();
+};
+void londonMonitor::liftfoot2(){
+	$boss_func_movers_stomper2.show();
+};
+void londonMonitor::liftfoot3(){
+	$boss_func_movers_stomper3.show();
+};
+	
+
+void londonMonitor::testPauseEyeBeam(){
+	eyeBeamCooldownTime	= sys.getTime() + 180.0f;
+};
+
+//---------------------------------------------------------------------
+
+object londonmonitorturret {
+	__noedit boolean turret1_destroyed;
+	__noedit boolean turret2_destroyed;
+	__noedit boolean turret3_destroyed;
+	
+	void init();
+	void onTrigger( entity activator ){};	
+
+	void destroyTurret1();
+	void destroyTurret2();
+	void destroyTurret3();
+	void destroyedTurret();
+};
+
+void londonmonitorturret::init() {
+	turret1_destroyed = false;
+	turret2_destroyed = false;
+	turret3_destroyed = false;
+	self.switchMeshKit( MESH_KIT_HEADS, "turret_01_intact" );
+	self.switchMeshKit( MESH_KIT_GEAR, "turret_02_intact" );
+	self.switchMeshKit( MESH_KIT_GORE, "turret_03_intact" );
+}
+
+void londonmonitorturret::destroyTurret1() {
+	turret1_destroyed = true;
+	self.startFX( FX_CINEMATIC_1 ); // Explosion
+	//self.startFX( FX_CINEMATIC_4 ); // Smoke
+	//self.switchMeshKit( MESH_KIT_HEADS, "turret_01_destroyed" );
+	//destroyedTurret();
+	// Suppress machineguns, don't destroy them 
+	$boss_londonmonitor.callFunction( "deactivateMachineGuns" );
+}
+
+void londonmonitorturret::destroyTurret2() {
+	turret2_destroyed = true;
+	self.startFX( FX_CINEMATIC_2 ); // Explosion
+	//self.startFX( FX_CINEMATIC_5 ); // Smoke
+	//self.switchMeshKit( MESH_KIT_GEAR, "turret_02_destroyed" );
+	//destroyedTurret();
+	// Suppress machineguns, don't destroy them 
+	$boss_londonmonitor.callFunction( "deactivateMachineGuns" );
+}
+
+void londonmonitorturret::destroyTurret3() {
+	turret3_destroyed = true;
+	self.startFX( FX_CINEMATIC_3 ); // Explosion
+	//self.startFX( FX_CINEMATIC_6 ); // Smoke
+	//self.switchMeshKit( MESH_KIT_GORE, "turret_03_destroyed" );
+	//destroyedTurret();
+	// Suppress machineguns, don't destroy them 
+	$boss_londonmonitor.callFunction( "deactivateMachineGuns" );
+}
+
+void londonmonitorturret::destroyedTurret() {
+
+	if ( turret1_destroyed && turret2_destroyed && turret3_destroyed) {
+		// All turrets destroyed
+		self.deactivate();
+		self.makeActivatable( false );
+		$boss_londonmonitor.callFunction( "destroyedMachineguns" );
+		return;
+	}
+	
+	// Deactivate machine guns when one is destroyed
+	$boss_londonmonitor.callFunction( "deactivateMachineGuns" );
+
+	// We start off using turret1, so we only need to switch firing point if that is destroyed
+	if ( turret1_destroyed ) {
+		if ( !turret2_destroyed ) {
+			$boss_turret_machineguns.switchFiringPoint( "muzzle_2", "turret_root_jnt", "turret_02_jnt", "turret_02_spinner_jnt", ATTACK_LEFT );
+		} else {
+			$boss_turret_machineguns.switchFiringPoint( "muzzle_3", "turret_root_jnt", "turret_03_jnt", "turret_03_spinner_jnt", ATTACK_RIGHT );
+		}
+	}
+}
+
+//---------------------------------------------------------------------
+
+
+
+// Since we don't want to respawn the london monitor in midlevel, 
+// we keep a parameters object which we can respawn to tweak stuff
+object londonMonitorParams {
+	float minSearchDuration;
+	float focusMinRange;
+	float focusPadRange;
+	float focusMaxSpeed;
+	float focusAcc;
+	float focusDec;
+	float focusSweepTimeMin;
+	float focusSweepTimeMax;
+	float focusSweepPauseMin;
+	float focusSweepPauseMax;
+	float trackingMaxSpeed;
+	float trackingAccClamp;
+	float targetLockDistance;
+	float missilesCooldown;
+	float missileBarrageIntervalMin;
+	float missileBarrageIntervalMax;
+	float spotTime;
+	float viewAngle;
+	float eyebeambuilduptime;
+	float eyebeamoblivioustime;
+	float eyebeamfiredpause;
+	float eyebeamCooldown;
+	float eyeBeamHiddenDuration;
+	float chargeduration;
+	float blindedDuration;
+	float coreHatchOpenDuration;
+	float stompPushRadius;
+	float stompPushForce;
+	float turretActivateRange;
+	float turretMaxRange;
+	float deathViewCos;
+	float turretMinDuration;
+	
+	void init(){};
+};
+
+
+//---------------------------------------------------------------------
+boolean firstPodHit = false;
+object missilepoddamage {
+	void init();
+	void onTrigger( entity activator ){};
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );	
+	
+	entity missilePod;
+	__noedit float damageEffectCooldown;
+};
+
+void missilepoddamage::init() {
+	damageEffectCooldown = 0.0;
+};
+
+void missilepoddamage::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ) {
+	// The first pod will be destroyed by one substantial hit.
+	if ( !firstPodHit && ( health > 0 ) && ( damageAmount > 10 ) ) {
+		// Kablam!
+		self.damage( attacker, attacker, damageDecl, 100.0f, Vec( 0.0, 0.0, 1.0 ) );
+		firstPodHit = true;
+	}
+	//if (lmUseDebug()) sys.drawText( "DMG: " + damageAmount, self.getWorldOrigin(), 5, Vec(1,0,0), 1, 5 );	
+	
+	// In case it's been destroyed by lots of low damage attacks
+	if ( health <= 0 ) {
+		firstPodHit = true;
+	}
+	
+	// Damage effect
+	if ( ( missilePod != $null ) && ( self.getHealth() > 0 ) && ( damageAmount > 5 ) && ( sys.getTime() > damageEffectCooldown ) ) {
+		missilePod.startFX( FX_CINEMATIC_3 );
+		damageEffectCooldown = sys.getTime() + 1.0;
+	}
+}	
+
+
+//---------------------------------------------------------------------
+// Functions called from map entities
+//---------------------------------------------------------------------
+
+void call_destroylmturret1( entity activator, entity activatedEntity ) {
+	$boss_turret_machineguns.callFunction( "destroyTurret1" );
+}
+
+void call_destroylmturret2( entity activator, entity activatedEntity ) {
+	$boss_turret_machineguns.callFunction( "destroyTurret2" );
+}
+
+void call_destroylmturret3( entity activator, entity activatedEntity ) {
+	$boss_turret_machineguns.callFunction( "destroyTurret3" );
+}
+
+
+void call_boss_movementanimdone ( entity acti, entity targ ) {
+	$boss_londonmonitor.callFunction("updateMovement");
+}
+
+void call_boss_death (entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("die");
+}
+
+void call_boss_introanimdone(entity activator, entity activatedEntity ) {
+}
+
+void call_boss_start( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("start");
+}
+
+void call_lm_start_checkpoint( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("checkpointStart");
+}
+
+void call_boss_donespeaking( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("doneSpeaking");	
+}
+
+void call_boss_playerNoise( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("targetLocated");	
+}
+
+void call_lm_playerhidden( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction("targetInHiding");	
+}
+
+void call_lm_hitmissilepod( entity activator, entity activatedEntity ) {
+}
+
+void call_lm_destroymissilepod_left1( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodLeft1" );
+}
+
+void call_lm_destroymissilepod_left2( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodLeft2" );
+}
+
+void call_lm_destroymissilepod_left3( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodLeft3" );
+}
+
+void call_lm_destroymissilepod_right1( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodRight1" );
+}
+
+void call_lm_destroymissilepod_right2( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodRight2" );
+}
+
+void call_lm_destroymissilepod_right3( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "destroyMissilePodRight3" );
+}
+
+void call_lm_hitcore( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "hitCore" );
+}
+
+void call_lm_hitnearcore( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "hitNearCore" );
+}
+
+void call_hitlondonmonitoreye( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "hitEye" );
+}
+
+void call_lm_stomp_1( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "stomp1" );
+}
+void call_lm_stomp_2( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "stomp2" );
+}
+void call_lm_stomp_3( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "stomp3" );
+}
+void call_lm_liftfoot_1( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "liftfoot1" );
+}
+void call_lm_liftfoot_2( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "liftfoot2" );
+}
+void call_lm_liftfoot_3( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "liftfoot3" );
+}
+
+void call_testblast( entity activator, entity activatedEntity ) {
+//	sys.debugArrow( Vec(1,1,1), $player1.getWorldOrigin() + Vec(0,0,80), $player1.getWorldOrigin() + Vec(0,0,80) + sys.angToForward( $player1.getViewAngles() ) * 1000.0f, 10, 1 );
+//	$test_dummyfire_blast.setWorldOrigin( $player1.getWorldOrigin() + Vec(0,0,80) + sys.angToForward( $player1.getViewAngles() ) * 40.0f );
+//	$info_null_blasttarget.setWorldOrigin( $player1.getWorldOrigin() + Vec(0,0,80) + sys.angToForward( $player1.getViewAngles() ) * 1000.0f );
+//	$test_dummyfire_blast.activate( $player1 );
+}
+
+void call_testfiremissile( entity activator, entity activatedEntity ) {
+//	$boss_info_missiletarget.setWorldOrigin( $player1.getWorldOrigin() );
+//	$boss_dummy_fire_right_rocket_1.activate( $boss_londonmonitor );
+}
+
+void call_lmpauseeyebeam( entity activator, entity activatedEntity ) {
+	$boss_londonmonitor.callFunction( "testPauseEyeBeam" );	
+}
+
+void call_lmmachinegunson( entity activator, entity activatedEntity ) {
+	$boss_turret_machineguns.activate( $player1 );
+}
+
+void call_lmmachinegunsoff( entity activator, entity activatedEntity ) {
+	$boss_turret_machineguns.deactivate();
+}
+
+void call_nextmap( entity activator, entity activatedEntity ) {
+	// Ugh, nextmap can only be called by player, so we can't trigger it directly from london monitor anim event etc
+	$boss_target_nextmap.activate( $player1 ); 
+}
+
+
+//---------------------------------------------------------------------
+// End of London Monitor script
+//---------------------------------------------------------------------
+#endif

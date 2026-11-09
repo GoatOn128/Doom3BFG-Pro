@@ -1,0 +1,33 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [8];
+
+in vec4 in_Color;
+in vec4 in_Position;
+in vec2 in_TexCoord;
+
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord0;
+out vec4 vofi_Color;
+
+void main() {
+	vec4 temp = swizzleColor( in_Color );
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+	vec2 scaleBiasX;
+	scaleBiasX.x = floor( in_TexCoord.x / _va_[4 ].x );
+	scaleBiasX.y = in_TexCoord.x - ( scaleBiasX.x * _va_[4 ].x );
+	vec2 scaleBiasY;
+	scaleBiasY.x = floor( in_TexCoord.y / _va_[4 ].y );
+	scaleBiasY.y = in_TexCoord.y - ( scaleBiasY.x * _va_[4 ].y );
+	vofi_TexCoord0.xy = scaleBiasX / _va_[4 ].x;
+	vofi_TexCoord0.zw = scaleBiasY / _va_[4 ].y;
+	vofi_TexCoord1.xy = temp.xy;
+	vofi_TexCoord1.z = 0.0;
+	vofi_TexCoord1.w = -( clamp( gl_Position.w - _va_[5 ].x, 0.0, _va_[6 ].x ) * _va_[7 ].x );
+	vofi_Color = vec4( 1.0, 1.0, 1.0, temp.w );
+}

@@ -1,0 +1,25 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [4];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_transmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float interpolatedZOverW = gl_FragCoord.z;
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float scale = ComputeSoftParticleScale( samp_viewdepthmap, tc, interpolatedZOverW, _fa_[1 ].y );
+	vec4 final = tex2D( samp_transmap, vofi_TexCoord0.xy ) * vofi_Color;
+	float fogVal = vofi_TexCoord0.z;
+	final.xyz = mix( _fa_[2 ].xyz, final.xyz, fogVal );
+	out_FragColor0 = final;
+	out_FragColor0.xyz *= _fa_[3 ].xyz;
+	out_FragColor0.w *= scale;
+}

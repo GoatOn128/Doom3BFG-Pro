@@ -1,0 +1,438 @@
+#ifndef C14_MAIN
+#define C14_MAIN
+
+#include "c14p1_elevator.script"
+#include "c14p1_boss.script"
+
+
+/*================================================================================
+Helper function
+================================================================================*/
+
+void bounceRotate(entity mover, vector angle, float moveTime, float firstAccelTime, float bouncefactor)
+{
+	if(bouncefactor >= 1.0) bouncefactor = 0.99;
+	if(bouncefactor <  0.0) bouncefactor = 0.01;
+	
+	mover.time(moveTime);
+	mover.accelTime(firstAccelTime);
+	mover.decelTime(0);
+	
+	mover.rotateOnce(angle);
+	sys.waitFor(mover);
+	
+	angle *= (bouncefactor * bouncefactor);
+	moveTime *= bouncefactor;
+
+	while(abs(sys.vecLength(angle)) > 0.01 && moveTime > 0.001)
+	{
+	
+		mover.time(moveTime);
+		mover.accelTime(moveTime * 0.05);
+		mover.decelTime(moveTime * 0.95);
+		mover.rotateOnce(-angle); //Bounce back
+		sys.waitFor(mover);
+		
+		mover.time(moveTime);
+		mover.accelTime(moveTime * 0.95);
+		mover.decelTime(moveTime * 0.05);
+		mover.rotateOnce(angle);//Continue forward
+		sys.waitFor(mover);
+		
+		angle *= (bouncefactor * bouncefactor);
+		moveTime *= bouncefactor;
+	}
+}
+
+/*================================================================================
+Swinging object (in this case the rocket in the hallway 
+================================================================================*/
+
+object swingingObject  
+{	
+	float swingTime;
+	float swingAccelTime;
+	float swingDecelTime;
+	float pausStart;
+	float pausEnd;
+	
+	vector swingRotation;
+
+	void init();
+	void onTrigger ( entity activator );
+	
+	boolean shouldSwing;
+};
+
+void swingingObject::init()
+{
+	self.time( swingTime );	
+	self.accelTime( swingAccelTime );
+	self.decelTime( swingDecelTime );
+	
+	vector targetAngle;
+	
+	while ( shouldSwing == true )
+	{
+		self.rotateOnce( -swingRotation );
+		sys.waitFor( self );
+		sys.wait( pausStart );
+		
+		if (shouldSwing == false )
+		{
+			break;
+		} 
+		
+		self.rotateOnce( swingRotation );
+		sys.waitFor( self );
+		sys.wait( pausEnd );
+	}
+}
+
+void swingingObject::onTrigger( entity activator )
+{
+	shouldSwing = false; 
+	
+	self.stopRotating();	
+} 
+
+/*================================================================================
+Map Script for c14p1.map
+================================================================================*/
+
+
+/*================================================================================
+Sidescene stuff! Carz and maybe some blimps. I'd like birds as well.
+================================================================================*/
+
+void run_car ( entity spline, entity car, float drivetime )
+{
+	waitUntil ( !car.isMoving() );
+	
+	car.time( drivetime );
+	car.followSpline( spline, 0, false );
+}
+
+void cars1( entity acti, entity actiEnt )
+{
+	entity spline = $gp_car_spline_1;
+	entity car;
+	entity speaker;	
+	
+	int i = 0;
+	
+	while( true )
+	{
+		car = sys.getEntity( "gp_car1_" + (i%4 + 1) );
+		speaker = sys.getEntity( "sound_sp_car_a_" + (i%4 + 1) );		
+		
+		car.setAngles( '0 90 0' );
+		
+		speaker.activate( acti );			
+		run_car ( spline, car, 10 + sys.random( 8 ));
+		i ++;	
+		
+		sys.wait( 3 + sys.random( 17 ) );
+		speaker.activate( acti );		
+	} 	
+}
+
+void cars2( entity acti, entity actiEnt )
+{
+	entity spline = $gp_car_spline_2;
+	entity car;
+	entity speaker;		
+	
+	int i = 0;
+	
+	while( true )
+	{
+		car = sys.getEntity( "gp_car2_" + (i%4 + 1) );
+		speaker = sys.getEntity( "sound_sp_car_b_" + (i%4 + 1) );		
+		
+		car.setAngles( '0 0 0' );
+		
+		speaker.activate( acti );
+		run_car ( spline, car, 10 + sys.random( 8 ));
+		i ++;	
+		
+		sys.wait( 3 + sys.random( 17 ) );
+		speaker.activate( acti );	
+	} 
+}
+
+void call_cars( entity acti, entity actiEnt )
+{
+	thread cars1( acti, actiEnt );
+	thread cars2( acti, actiEnt );
+}
+
+
+//Walkway
+
+void lower_catwalk( entity target, entity player)
+{
+	
+	
+	
+	$sound_sp_fergusbridge.activate( $acti );	
+	$catwalk.time( 4 );
+	$catwalk.decelTime( 1 );
+	$catwalk.accelTime( 1 );
+	$catwalk.move( DIR_DOWN, 110 );
+}
+
+
+//================================================================================
+// BROKEN GLASS POSTERS  
+//================================================================================
+
+
+object breakable_poster_trigger
+{
+	int num;
+};
+
+void breakable_poster_trigger::onTrigger(entity acti)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+void destroy_poster (int num)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+/*================================================================================
+Crazy bridge!
+================================================================================*/
+
+boolean chains_busy;
+
+#define CATWALK_ANGLE 19 //Previous 8.7
+
+void pivot_plank(entity plank, entity joint, entity otherjoint, float angle, float t)
+{
+	plank.unbind();
+	otherjoint.unbind();
+	joint.unbind();
+	
+	plank.bind(joint);
+	otherjoint.bind(joint);	
+	vector angles = '0 0 0';
+	angles_z = angle;
+
+	bounceRotate(joint, angles, t, t, 0.6);
+}
+
+
+void cutchains_edge_1(entity targ, entity afcg)
+{
+	waitUntil(!chains_busy);
+	chains_busy = true;
+	
+	$sound_sp_plank_drop_01.activate( $acti );	
+	pivot_plank($catwalk_1, $pivot_catwalk_2_edge, $pivot_catwalk_1_edge, -CATWALK_ANGLE, 0.5);
+	
+	chains_busy = false;
+}
+
+
+
+void cutchains_edge_2(entity targ, entity afcg)
+{
+	waitUntil(!chains_busy);
+	chains_busy = true;
+
+	$sound_sp_plank_drop_2.activate( $acti );
+	pivot_plank($catwalk_1, $pivot_catwalk_1_edge, $pivot_catwalk_2_edge, CATWALK_ANGLE, 0.5);
+		
+	chains_busy = false;
+}
+
+//Second crazy bridge 
+
+void cutchains_edge_3(entity targ, entity afcg)
+{
+	waitUntil(!chains_busy);
+	chains_busy = true;
+	
+	$sound_sp_plank_drop_01.activate( $acti );	
+	pivot_plank($catwalk_2, $pivot_catwalk2_2_edge, $pivot_catwalk2_1_edge, -90, 0.5);
+	
+	chains_busy = false;
+}
+
+
+void cutchains_edge_4(entity targ, entity afcg)
+{
+	waitUntil(!chains_busy);
+	chains_busy = true;
+
+	$sound_sp_plank_drop_2.activate( $acti );
+	pivot_plank($catwalk_2, $pivot_catwalk2_1_edge, $pivot_catwalk2_2_edge, 20, 0.5);
+	//$catwalk_2.move( DIR_RIGHT, 20);
+		
+	chains_busy = false;
+}
+
+/*================================================================================
+Elevator 
+================================================================================*/
+
+void call_elevator (entity ai, entity actiEnt )
+{
+	
+	$sound_sp_elev_front.activate( $acti );
+	$sound_sp_elev_rear.activate( $acti );	
+	$gp_elevator.time( 10.0f );
+	$gp_elevator.accelTime( 2.0f );
+	$gp_elevator.decelTime( 2.0f );
+	$gp_elevator.move( DIR_DOWN, 1190 );
+	sys.wait(8.5f);
+	$gp_elevator_block.remove();
+}
+
+
+/*================================================================================
+Wyatt secret room 
+================================================================================*/
+
+void call_rotate_painting (entity activator, entity activatedEntity )
+{
+	
+	
+	$sound_sp_paintsecret_painting.activate( $acti );
+	$gp_movers_moverjoint_painting.time( 1.0f );
+	$gp_movers_moverjoint_painting.accelTime( 0.5f );
+	$gp_movers_moverjoint_painting.decelTime( 0.5f );
+	$gp_movers_moverjoint_painting.rotateOnce( '-12 0 0' );
+	
+	sys.waitFor( $gp_movers_moverjoint_painting );
+	
+	$sound_sp_paintsecret_1sec.activate( $acti );
+	$gp_mover_secretwall.time( 1.0f );
+	$gp_mover_secretwall.accelTime( 0.5f );
+	$gp_mover_secretwall.decelTime( 0.5f );
+	$gp_mover_secretwall.move( DIR_LEFT, 4 );
+	
+	sys.waitFor( $gp_mover_secretwall );
+	
+	
+	$sound_sp_paintsecret_2sec.activate( $acti );
+	$sound_sp_paintsecret_computers.activate( $acti );
+	$gp_mover_secretwall.time( 2.0f );
+	$gp_mover_secretwall.accelTime( 1.0f );
+	$gp_mover_secretwall.decelTime( 1.0f );
+	$gp_mover_secretwall.move( DIR_FORWARD, 140 );
+}
+
+/*================================================================================
+Slideshow 
+================================================================================*/
+
+/*void next_slide();
+
+void next_slide_loop(entity t, entity a)
+{
+	while(true)
+	{
+		next_slide();
+		sys.wait(5);
+	}
+}
+
+int current_slide = 1;
+
+void next_slide()
+	{
+	current_slide = current_slide + 1;
+	if(current_slide > 8) current_slide = 0;
+	                             
+	int i = 0;
+	for( ; i < 8 ; i++)
+		{
+		if(i == current_slide) 
+		{
+	sys.getEntity("gp_light_point_slideshow"+i).show();
+	sys.getEntity("gp_sound_vo_thehappypresenter_"+i).activate( $player1 );	
+	$sound_sp_projector_slide.activate( $acti );
+	}else
+		{
+		sys.getEntity("gp_light_point_slideshow"+i).hide();                                                                          
+		}
+	sys.wait(0.3);	
+	$sound_sp_projector_hide.activate( $acti );
+	}
+}*/
+
+	int current_slide = 1;
+
+void next_slide( entity acti, entity activator )
+{
+	current_slide = current_slide + 1;
+	if(current_slide > 8) current_slide = 0;
+	                             
+	int i = 0;
+	for( ; i < 8 ; i++)
+		{
+		if(i == current_slide) 
+		{
+	sys.getEntity("gp_light_point_slideshow"+i).show();
+	sys.getEntity("gp_sound_vo_thehappypresenter_"+i).activate( $player1 );	
+	$sound_sp_projector_slide.activate( $acti );
+	}else
+		{
+		sys.getEntity("gp_light_point_slideshow"+i).hide();                                                                          
+		}
+	sys.wait(0.3);	
+	$sound_sp_projector_hide.activate( $acti );
+	}
+}
+
+/*================================================================================
+Helicopter 
+================================================================================*/
+
+void call_gettinghot (entity ai, entity actiEnt )
+{
+	$gp_fx_helicopter_hurt.startFX( FX_WEAPON_GETTINGHOT );
+}
+
+void call_overheated (entity ai, entity actiEnt )
+{
+	$gp_fx_helicopter_hurt.startFX( FX_WEAPON_OVERHEATED );
+}
+
+
+
+
+/*================================================================================
+Block player from getting off the elevator down to the bossfight 
+================================================================================*/
+void call_blockelevator(entity activator, entity actiEnt ) {
+	$gp_func_dynamicclip_elevatorblocker.setWorldOrigin( $gp_func_dynamicclip_elevatorblocker.getWorldOrigin() + Vec( 0, 0, 300 ) );
+}
+
+
+#endif

@@ -1,0 +1,1130 @@
+/*
+================================================================================
+Map Script for m04p2_3.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+//-------------------------------------------------------------------------------
+//MISC
+//-------------------------------------------------------------------------------
+
+void call_electrocutie_event( entity activatedEntity, entity activator ) {
+	$gp_func_firstpersonevent_electrocutie.teleport( $player1.getOrigin(), $player1.getAngles() );
+	$gp_func_firstpersonevent_electrocutie.activate( $player1 );
+
+}
+
+void call_roadkill_1( entity activatedEntity, entity activator ) {
+
+	sys.print(" ROAD KILL! ");	
+	$gp_anim_roadkill_1.show();
+	
+	int state = sys.randomInt(2) + 4; 
+	$gp_target_startsoundshader_roadkill.activate( activator );
+	$gp_anim_roadkill_1.setAnimState( state, 200, false );
+}
+
+void RemoveAllThatEnters( entity activatedEntity, entity activator ) {
+     activator.remove();
+}
+
+void call_bind_fergus_to_ele( entity activatedEntity, entity activator ) {
+	$func_animatedsimple_character_fergus_elevator.bind( $gp_func_elevator );
+}
+
+void call_unbind_fergus_to_ele( entity activatedEntity, entity activator ) {
+	$func_animatedsimple_character_fergus_elevator.unbind();
+}
+
+void call_joint_controlswitch01_button_push( entity activatedEntity, entity activator )
+{
+	$joint_controlswitch01_button.time( 0.5 );
+	$joint_controlswitch01_button.accelTime( 0 );
+    $joint_controlswitch01_button.decelTime( 0 );
+	$joint_controlswitch01_button.move( DIR_BACK, 2 );
+}
+
+void call_prisonbuilding5_door( entity activatedEntity, entity activator )
+{
+	$func_movers_mover_c04_prisonbuilding5_door.time( 2.5 );
+	$func_movers_mover_c04_prisonbuilding5_door.accelTime( 0 );
+    $func_movers_mover_c04_prisonbuilding5_door.decelTime( 0 );
+	$func_movers_mover_c04_prisonbuilding5_door.move( DIR_UP, 368 );
+}
+
+void call_joint_controlswitch01_button_pull( entity activatedEntity, entity activator )
+{
+	$joint_controlswitch01_button.time( 0.5 );
+	$joint_controlswitch01_button.accelTime( 0 );
+    $joint_controlswitch01_button.decelTime( 0 );
+	$joint_controlswitch01_button.move( DIR_FORWARD, 2 );
+}
+
+void call_elec_handle( entity activatedEntity, entity activator )
+{
+     $joint_func_mover_elec_handle.time( 0.5 );
+     $joint_func_mover_elec_handle.accelTime( 0 );
+     $joint_func_mover_elec_handle.decelTime( 0 );
+     $joint_func_mover_elec_handle.rotateOnce( '-35 0 0' );
+}
+
+void call_guardquarters_door( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_guardquarters_door_joint.time( 1 );
+     $gp_func_movers_mover_guardquarters_door_joint.accelTime( 0 );
+     $gp_func_movers_mover_guardquarters_door_joint.decelTime( 0.5 );
+     $gp_func_movers_mover_guardquarters_door_joint.rotateOnce( '0 -103 0' );
+}
+
+void call_joint_achtung( entity activatedEntity, entity activator )
+{
+     $joint_achtung.time( 1.5 );
+     $joint_achtung.accelTime( 0 );
+     $joint_achtung.decelTime( 0.5 );
+     $joint_achtung.rotateOnce( '0 106 0' );
+}
+
+void call_joint_kelleraum_01( entity activatedEntity, entity activator )
+{
+     $joint_kelleraum_01.time( 1.5 );
+     $joint_kelleraum_01.accelTime( 0 );
+     $joint_kelleraum_01.decelTime( 0.5 );
+     $joint_kelleraum_01.rotateOnce( '0 -90 0' );
+}
+
+void call_secret_locker( entity activatedEntity, entity activator )
+{
+     $joint_func_mover_secret_locker.time( 1.2 );
+     $joint_func_mover_secret_locker.accelTime( 0.4 );
+     $joint_func_mover_secret_locker.decelTime( 0.8 );
+     $joint_func_mover_secret_locker.rotateOnce( '0 -125 0' );
+}
+
+void call_inside_hatch_01( entity activatedEntity, entity activator )
+{
+     $joint_inside_hatch_01.time( 0.5 );
+     $joint_inside_hatch_01.accelTime( 0 );
+     $joint_inside_hatch_01.decelTime( 0.3 );
+     $joint_inside_hatch_01.rotateOnce( '0 0 90' );
+}
+
+void call_inside_hatch_02( entity activatedEntity, entity activator )
+{
+     $joint_inside_hatch_02.time( 0.5 );
+     $joint_inside_hatch_02.accelTime( 0 );
+     $joint_inside_hatch_02.decelTime( 0.3 );
+     $joint_inside_hatch_02.rotateOnce( '0 0 -90' );
+}
+
+void call_gate02_part2_open_in( entity activatedEntity, entity activator )
+{
+     $joint_gate02_part2.time( 1 );
+     $joint_gate02_part2.accelTime( 0 );
+     $joint_gate02_part2.decelTime( 0.3 );
+     $joint_gate02_part2.rotateOnce( '0 -116 0' );
+}
+
+void call_gate02_part2_open_out( entity activatedEntity, entity activator )
+{
+     $joint_gate02_part2.time( 1 );
+     $joint_gate02_part2.accelTime( 0 );
+     $joint_gate02_part2.decelTime( 0.3 );
+     $joint_gate02_part2.rotateOnce( '0 116 0' );
+}
+
+void call_gate01_part2_open_in( entity activatedEntity, entity activator )
+{
+     $joint_gate01_part2.time( 1 );
+     $joint_gate01_part2.accelTime( 0 );
+     $joint_gate01_part2.decelTime( 0.3 );
+     $joint_gate01_part2.rotateOnce( '0 116 0' );
+}
+
+void call_gate01_part2_open_out( entity activatedEntity, entity activator )
+{
+     $joint_gate01_part2.time( 1 );
+     $joint_gate01_part2.accelTime( 0 );
+     $joint_gate01_part2.decelTime( 0.3 );
+     $joint_gate01_part2.rotateOnce( '0 -116 0' );
+}
+
+void call_bargate_part2( entity activatedEntity, entity activator )
+{
+     $joint_bargate.time( 1.5 );
+     $joint_bargate.accelTime( 0 );
+     $joint_bargate.decelTime( 0.3 );
+     $joint_bargate.rotateOnce( '0 93 0' );
+}
+
+void call_bargate_postcheckpoint( entity activatedEntity, entity activator )
+{
+     $joint_bargate.time( 0.1 );
+     $joint_bargate.accelTime( 0 );
+     $joint_bargate.decelTime( 0 );
+     $joint_bargate.rotateOnce( '0 93 0' );
+}
+
+void call_flip_table_physics( entity activatedEntity, entity activator )
+{
+     $info_null_asp_table1.bindToJoint( $func_animatedsimplephysics_table1, "", "origin", 1.0 );
+}
+
+//-------------------------------------------------------------------------------
+//Celldoors
+//-------------------------------------------------------------------------------
+
+void celldoors_up( entity activatedEntity, entity activator )
+{
+    //These are the cell doors, built as one mesh
+	$func_mover_celldoors.time( 1 );
+    $func_mover_celldoors.accelTime( 0 );
+    $func_mover_celldoors.decelTime( 0.5 );
+	$func_mover_celldoors.move( DIR_UP, 95 );
+	
+	//Unique doors 024 and 002 are used by prisoners later 	
+    $gp_func_mover_celldoor024.time( 1 );
+    $gp_func_mover_celldoor024.accelTime( 0 );
+    $gp_func_mover_celldoor024.decelTime( 0.5 );
+	$gp_func_mover_celldoor024.move( DIR_UP, 95 );
+	
+    $gp_func_mover_celldoor002.time( 1 );
+    $gp_func_mover_celldoor002.accelTime( 0 );
+    $gp_func_mover_celldoor002.decelTime( 0.5 );
+	$gp_func_mover_celldoor002.move( DIR_UP, 95 );
+}
+
+void celldoors_down( entity activatedEntity, entity activator )
+{
+    //These are the cell doors, built as one mesh
+	$func_mover_celldoors.time( 1 );
+    $func_mover_celldoors.accelTime( 0 );
+    $func_mover_celldoors.decelTime( 0.5 );
+	$func_mover_celldoors.move( DIR_DOWN, 95 );
+}
+
+//-------------------------------------------------------------------------------
+//c04gates
+//-------------------------------------------------------------------------------
+
+void c04_gate01_part2_down( entity activatedEntity, entity activator )
+
+{
+	$sound_sp_prisondoor_2.activate( $acti );
+	
+    $c04_gate01_part2.time( 1.5 );
+    $c04_gate01_part2.accelTime( 0 );
+    $c04_gate01_part2.decelTime( 0.5 );
+	$c04_gate01_part2.move( DIR_DOWN, 152 );
+}
+
+void c04_gate02_part2_down( entity activatedEntity, entity activator )
+{
+	$sound_sp_prisondoor_1.activate( $acti );
+	
+    $c04_gate02_part2.time( 1.5 );
+    $c04_gate02_part2.accelTime( 0 );
+    $c04_gate02_part2.decelTime( 0.5 );
+	$c04_gate02_part2.move( DIR_DOWN, 152 );
+}
+
+void c04_gate01_part2_down_postcheckpoint( entity activatedEntity, entity activator )
+{
+	
+    $c04_gate01_part2.time( 0.1 );
+    $c04_gate01_part2.accelTime( 0 );
+    $c04_gate01_part2.decelTime( 0 );
+	$c04_gate01_part2.move( DIR_DOWN, 152 );
+}
+
+void c04_gate02_part2_down_postcheckpoint( entity activatedEntity, entity activator )
+{
+	
+
+    $c04_gate02_part2.time( 0.1 );
+    $c04_gate02_part2.accelTime( 0 );
+    $c04_gate02_part2.decelTime( 0 );
+	$c04_gate02_part2.move( DIR_DOWN, 152 );
+}
+
+void c04_gate02_part3_down( entity activatedEntity, entity activator )
+{
+    $c04_gate02_part3.time( 1.5 );
+    $c04_gate02_part3.accelTime( 0 );
+    $c04_gate02_part3.decelTime( 0.5 );
+	$c04_gate02_part3.move( DIR_DOWN, 152 );
+}
+
+
+void gate01_part3_open( entity activatedEntity, entity activator )
+{
+    $gate01_part3.time( 6 );
+    $gate01_part3.accelTime( 2 );
+    $gate01_part3.decelTime( 0 );
+	$gate01_part3.move( DIR_UP, 80 );
+}
+
+void gate02_part3_open( entity activatedEntity, entity activator )
+{
+    $gate02_part3.time( 6 );
+    $gate02_part3.accelTime( 2 );
+    $gate02_part3.decelTime( 0 );
+	$gate02_part3.move( DIR_UP, 80 );
+}
+
+void call_joint_gate01_part2_open( entity activatedEntity, entity activator )
+{
+     $joint_gate01_part2.time( 0.2 );
+     $joint_gate01_part2.accelTime( 0 );
+     $joint_gate01_part2.decelTime( 0 );
+     $joint_gate01_part2.rotateOnce( '117 0 0' );
+}
+
+//-------------------------------------------------------------------------------
+//c04bars
+//-------------------------------------------------------------------------------
+
+void c04_bars_part2_down( entity activatedEntity, entity activator )
+{
+    $c04_bars_part2.time( 0.8 );
+    $c04_bars_part2.accelTime( 0.2 );
+    $c04_bars_part2.decelTime( 0 );
+	$c04_bars_part2.move( DIR_DOWN, 137 );
+}
+
+void c04_bars_part3_down( entity activatedEntity, entity activator )
+{
+    $c04_bars_part3.time( 0.8 );
+    $c04_bars_part3.accelTime( 0.2 );
+    $c04_bars_part3.decelTime( 0 );
+	$c04_bars_part3.move( DIR_DOWN, 80 );
+}
+
+//-------------------------------------------------------------------------------
+//M04Door01
+//-------------------------------------------------------------------------------
+
+void door01_open( entity activatedEntity, entity activator )
+{
+     $joint_door01.time( 2 );
+     $joint_door01.accelTime( 2 );
+     $joint_door01.decelTime( .5 );
+     $joint_door01.rotateOnce( '0 -90 0' );
+}
+
+void door01_close( entity activatedEntity, entity activator )
+{
+     $joint_door01.time( 2 );
+     $joint_door01.accelTime( 2 );
+     $joint_door01.decelTime( .5 );
+     $joint_door01.rotateOnce( '0 90 0' );
+}
+
+void door01_open_part3( entity activatedEntity, entity activator )
+{
+     $joint_door01_part3.time( 2 );
+     $joint_door01_part3.accelTime( 2 );
+     $joint_door01_part3.decelTime( .5 );
+     $joint_door01_part3.rotateOnce( '0 -90 0' );
+}
+
+void prisonentrance_door_01( entity activatedEntity, entity activator )
+{
+     $joint_prisonentrance_door_01.time( 1.5 );
+     $joint_prisonentrance_door_01.accelTime( 1 );
+     $joint_prisonentrance_door_01.decelTime( .5 );
+     $joint_prisonentrance_door_01.rotateOnce( '0 90 0' );
+}
+
+void prisonentrance_door_02( entity activatedEntity, entity activator )
+{
+     $joint_prisonentrance_door_02.time( 1.5 );
+     $joint_prisonentrance_door_02.accelTime( 1 );
+     $joint_prisonentrance_door_02.decelTime( .5 );
+     $joint_prisonentrance_door_02.rotateOnce( '0 -90 0' );
+}
+
+//-------------------------------------------------------------------------------
+//courtyard doors
+//-------------------------------------------------------------------------------
+
+void call_open_courtyard_doors( entity activatedEntity, entity activator )
+{
+     $joint_func_dynamic_c04_door_02.time( 1 );
+     $joint_func_dynamic_c04_door_02.accelTime( 0.2 );
+     $joint_func_dynamic_c04_door_02.decelTime( 0.3 );
+     $joint_func_dynamic_c04_door_02.rotateOnce( '0 90 0' );
+     $joint_func_dynamic_c04_door_01.time( 1 );
+     $joint_func_dynamic_c04_door_01.accelTime( 0.2 );
+     $joint_func_dynamic_c04_door_01.decelTime( 0.3 );
+     $joint_func_dynamic_c04_door_01.rotateOnce( '0 -90 0' );
+}
+
+void call_open_courtyard_doors_postcheckpoint( entity activatedEntity, entity activator )
+{
+     $joint_func_dynamic_c04_door_02.time( 0.1 );
+     $joint_func_dynamic_c04_door_02.accelTime( 0 );
+     $joint_func_dynamic_c04_door_02.decelTime( 0 );
+     $joint_func_dynamic_c04_door_02.rotateOnce( '0 90 0' );
+     $joint_func_dynamic_c04_door_01.time( 0.1 );
+     $joint_func_dynamic_c04_door_01.accelTime( 0 );
+     $joint_func_dynamic_c04_door_01.decelTime( 0 );
+     $joint_func_dynamic_c04_door_01.rotateOnce( '0 -90 0' );
+}
+
+void call_close_courtyard_doors( entity activatedEntity, entity activator )
+{
+     $joint_func_dynamic_c04_door_02.time( 1 );
+     $joint_func_dynamic_c04_door_02.accelTime( 0.4 );
+     $joint_func_dynamic_c04_door_02.decelTime( 0 );
+     $joint_func_dynamic_c04_door_02.rotateOnce( '0 -90 0' );
+     $joint_func_dynamic_c04_door_01.time( 1 );
+     $joint_func_dynamic_c04_door_01.accelTime( 0.4 );
+     $joint_func_dynamic_c04_door_01.decelTime( 0 );
+     $joint_func_dynamic_c04_door_01.rotateOnce( '0 90 0' );
+}
+
+void call_open_courtyard_leftspawn( entity activatedEntity, entity activator )
+{
+     $combat_func_mover_13.time( 1 );
+     $combat_func_mover_13.accelTime( 0.2 );
+     $combat_func_mover_13.decelTime( 0.3 );
+     $combat_func_mover_13.rotateOnce( '0 101 0' );
+}
+
+void call_close_courtyard_leftspawn( entity activatedEntity, entity activator )
+{
+     $combat_func_mover_13.time( 1 );
+     $combat_func_mover_13.accelTime( 0.4 );
+     $combat_func_mover_13.decelTime( 0 );
+     $combat_func_mover_13.rotateOnce( '0 -101 0' );
+}
+
+//-------------------------------------------------------------------------------
+//Entrance entrancedoor
+//-------------------------------------------------------------------------------
+
+void call_close_entrancedoor( entity activatedEntity, entity activator )
+{
+    $gp_func_mover_entrancedoor_part2.time( 2 );
+    $gp_func_mover_entrancedoor_part2.accelTime( 0 );
+    $gp_func_mover_entrancedoor_part2.decelTime( 0 );
+	$gp_func_mover_entrancedoor_part2.move( DIR_DOWN, 190 );
+}
+
+
+//-------------------------------------------------------------------------------
+//door_control_room
+//-------------------------------------------------------------------------------
+
+void door_control_room_01_part3_up( entity activatedEntity, entity activator )
+{
+    $door_control_room_01a_part3.time( 2 );
+    $door_control_room_01a_part3.accelTime( 0 );
+    $door_control_room_01a_part3.decelTime( 0 );
+	$door_control_room_01a_part3.move( DIR_UP, 70 );
+	$door_control_room_01b_part3.time( 2 );
+    $door_control_room_01b_part3.accelTime( 0 );
+    $door_control_room_01b_part3.decelTime( 0 );
+	$door_control_room_01b_part3.move( DIR_UP, 128 );
+}
+
+void door_control_room_01_part3_down( entity activatedEntity, entity activator )
+{
+    $door_control_room_01a_part3.time( 2 );
+    $door_control_room_01a_part3.accelTime( 0 );
+    $door_control_room_01a_part3.decelTime( 0 );
+	$door_control_room_01a_part3.move( DIR_DOWN, 70 );
+	$door_control_room_01b_part3.time( 2 );
+    $door_control_room_01b_part3.accelTime( 0 );
+    $door_control_room_01b_part3.decelTime( 0 );
+	$door_control_room_01b_part3.move( DIR_DOWN, 128 );
+}
+
+void door_control_room_02_part3_up( entity activatedEntity, entity activator )
+{
+    $door_control_room_02a_part3.time( 2 );
+    $door_control_room_02a_part3.accelTime( 0 );
+    $door_control_room_02a_part3.decelTime( 0 );
+	$door_control_room_02a_part3.moveAbsolute( DIR_UP, 70 );
+	$door_control_room_02b_part3.time( 2 );
+    $door_control_room_02b_part3.accelTime( 0 );
+    $door_control_room_02b_part3.decelTime( 0 );
+	$door_control_room_02b_part3.moveAbsolute( DIR_UP, 128 );
+}
+
+void door_control_room_02_part3_down( entity activatedEntity, entity activator )
+{
+    $door_control_room_02a_part3.time( 1.8 );
+    $door_control_room_02a_part3.accelTime( 0 );
+    $door_control_room_02a_part3.decelTime( 0 );
+	$door_control_room_02a_part3.moveAbsolute( DIR_UP, 7 );
+	$door_control_room_02b_part3.time( 1 );
+    $door_control_room_02b_part3.accelTime( 0 );
+    $door_control_room_02b_part3.decelTime( 0 );
+	$door_control_room_02b_part3.moveAbsolute( DIR_UP, 66 );
+}
+
+
+//-------------------------------------------------------------------------------
+//Panzer Hund
+//-------------------------------------------------------------------------------
+
+object panzerhund_move {
+	void	init();
+};
+
+void panzerhund_move::init() {
+	
+	self.time( 1 );
+	self.accelTime( 0 );
+	self.decelTime( 0 );
+	self.rotateOnce( '8 3 0' );
+	sys.waitFor( self );
+	sys.wait( .1 );
+		
+	while( 1 ){
+		self.time( 0.4 );
+		self.accelTime( 0.1 );
+		self.decelTime( 0.2 );
+		
+		self.rotateOnce( '-30 0 0' );
+		
+		sys.waitFor( self );
+		sys.wait( .1 );
+		
+		self.rotateOnce( '30 0 0' );
+		
+		sys.waitFor( self );
+		sys.wait( .1 );
+	}
+}
+
+//-------------------------------------------------------------------------------
+//Ramps
+//-------------------------------------------------------------------------------
+
+void ramp_01_fall( entity activatedEntity, entity activator )
+{
+     $joint_ramp_01.time( 0.2 );
+     $joint_ramp_01.accelTime( 0 );
+     $joint_ramp_01.decelTime( 0 );
+     $joint_ramp_01.rotateOnce( '30 0 0' );
+}
+
+void ramp_02_fall( entity activatedEntity, entity activator )
+{
+     $joint_ramp_02.time( 0.2 );
+     $joint_ramp_02.accelTime( 0 );
+     $joint_ramp_02.decelTime( 0 );
+     $joint_ramp_02.rotateOnce( '30 0 0' );
+}
+
+void ramp_03_fall( entity activatedEntity, entity activator )
+{
+     $joint_ramp_03.time( 0.2 );
+     $joint_ramp_03.accelTime( 0 );
+     $joint_ramp_03.decelTime( 0 );
+     $joint_ramp_03.rotateOnce( '30 0 0' );
+}
+
+//-------------------------------------------------------------------------------
+//Courtyard trigger
+//-------------------------------------------------------------------------------
+
+void courtyard_trigger( entity activatedEntity, entity activator )
+{
+    $mover_courtyard_trigger.time( 48 );
+    $mover_courtyard_trigger.accelTime( 0 );
+    $mover_courtyard_trigger.decelTime( 0 );
+	$mover_courtyard_trigger.move( DIR_FORWARD, 3000 );
+}
+
+//-------------------------------------------------------------------------------
+// Freeing chained prisoners
+//-------------------------------------------------------------------------------
+
+#define CHAINED_PRISONERS 5
+int freed_prisoners = 0;
+int animstate_non_fergus = 7;
+
+// This scriptobject is set on each chained prisoner.
+// They share a global counter to determine if they 
+// will turn into Fergus or randomize their animation 
+// response when being freed,
+
+object chainEvent {
+	void onTrigger( entity activator );
+};
+
+void chainEvent::onTrigger(entity activator) {
+	freed_prisoners++;
+	if ( freed_prisoners < CHAINED_PRISONERS ) {	
+		// using magic numbers 7,9,11,13,15 due to how the prisoners have their animations set up
+		// Todo: find a way to put these in a list and randomize.
+		self.setAnimState(animstate_non_fergus,-1,false);
+		animstate_non_fergus += 2;
+	} else {	
+		// Last prisoner freed is Fergus
+		self.setAnimState(2,-1,false);
+        $sound_music_cue09_switch2.activate( $activator );												
+																
+		// Teleport and Show the usable for removing Fergus's mask				
+		$use_free_fergus.teleport(self.getOrigin(), self.getAngles());
+		$gp_misc_interactivemarker_companion.bindToJoint(self, "", "spine2", 1.0);
+		$gp_prisoner_vo_pos.bindToJoint(self, "", "head", 1.0);
+	}
+}
+
+//-------------------------------------------------------------------------------
+//Coalloader functions
+//-------------------------------------------------------------------------------
+void coalloader_stop( entity activatedEntity, entity activator ) 
+{
+	$func_animatedsimple_coalloader.stopFX( FX_CINEMATIC_10 );
+}
+
+//-------------------------------------------------------------------------------
+//Elevator functions
+//-------------------------------------------------------------------------------
+
+#define ELEVATOR_SHAFT_HEIGHT 1026
+
+#define ELEVATOR_GATES_HALF_DISTANCE 65
+#define ELEVATOR_GATES_MOVE_TIME 0.6
+#define ELEVATOR_GATES_ACCEL_TIME 0
+#define ELEVATOR_GATES_DECEL_TIME 0.2
+
+#define ELEVATOR_ACCEL_TIME 3
+#define ELEVATOR_DECEL_TIME 3
+#define ELEVATOR_RIDE_TIME  10
+
+void call_elevatorgates_part2_open( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevatorgate_01_part2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_01_part2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_01_part2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_01_part2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_02_part2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_02_part2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_02_part2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_02_part2.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+void call_elevatorgates_part2_up_open( entity activatedEntity, entity activator )
+{	
+	
+	$sound_sp_elevgate_pt2_open.activate( $acti );
+	
+	$gp_func_elevatorgate_01_part2.time( 0.1 );
+    $gp_func_elevatorgate_01_part2.accelTime( 0 );
+    $gp_func_elevatorgate_01_part2.decelTime( 0 );
+    $gp_func_elevatorgate_01_part2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_02_part2.time( 0.1 );
+    $gp_func_elevatorgate_02_part2.accelTime( 0 );
+    $gp_func_elevatorgate_02_part2.decelTime( 0 );
+    $gp_func_elevatorgate_02_part2.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_03_part2.time( 0.1 );
+    $gp_func_elevatorgate_03_part2.accelTime( 0 );
+    $gp_func_elevatorgate_03_part2.decelTime( 0 );
+    $gp_func_elevatorgate_03_part2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_04_part2.time( 0.1 );
+    $gp_func_elevatorgate_04_part2.accelTime( 0 );
+    $gp_func_elevatorgate_04_part2.decelTime( 0 );
+    $gp_func_elevatorgate_04_part2.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+
+
+void call_elevatorgates_part3_open( entity activatedEntity, entity activator )
+{	
+	
+	
+	
+	$sound_sp_elevgate_pt3_open.activate( $acti );
+	
+	$gp_func_elevatorgate_01_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_01_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_01_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_01_part3.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_02_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_02_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_02_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_02_part3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+/*	$gp_func_elevatorgate_03_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_03_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_03_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_03_part3.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_04_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_04_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_04_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_04_part3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );*/
+}
+
+void call_elevatorgates_part3_close( entity activatedEntity, entity activator )
+
+{	
+	
+	$sound_sp_elevgate_pt3_close.activate( $acti );
+	
+	$gp_func_elevatorgate_01_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_01_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_01_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_01_part3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_02_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_02_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_02_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_02_part3.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+/*	$gp_func_elevatorgate_03_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_03_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_03_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_03_part3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_04_part3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_04_part3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_04_part3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_04_part3.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );*/
+}
+
+
+/*
+void elevator_part2_handle_down( entity activatedEntity, entity activator )
+{
+	$gp_joint_elevatorhandle.time( 0.2 );
+    $gp_joint_elevatorhandle.rotateOnce( '30 0 0' );
+}
+
+void elevator_part2_handle_up( entity activatedEntity, entity activator )
+{
+	$gp_joint_elevatorhandle.time( 0.75 );
+    $gp_joint_elevatorhandle.rotateOnce( '-30 0 0' );
+}
+
+void elevator_part2_flaps_lower_open( entity activatedEntity, entity activator )
+{
+	$gp_func_dynamic_elevator_blocker.hide();	
+	
+	$gp_joint_elevatorflap_1.time( 1 );
+    $gp_joint_elevatorflap_1.accelTime( 0 );
+    $gp_joint_elevatorflap_1.decelTime( 0 );
+    $gp_joint_elevatorflap_1.rotateOnce( '0 -90 0' );
+
+	$gp_joint_elevatorflap_2.time( 1 );
+    $gp_joint_elevatorflap_2.accelTime( 0 );
+    $gp_joint_elevatorflap_2.decelTime( 0 );
+    $gp_joint_elevatorflap_2.rotateOnce( '0 90 0' );
+}
+
+void elevator_part2_flaps_lower_close( entity activatedEntity, entity activator )
+{
+	$gp_joint_elevatorflap_1.time( 1 );
+    $gp_joint_elevatorflap_1.accelTime( 0 );
+    $gp_joint_elevatorflap_1.decelTime( 0 );
+    $gp_joint_elevatorflap_1.rotateOnce( '0 90 0' );
+
+	$gp_joint_elevatorflap_2.time( 1 );
+    $gp_joint_elevatorflap_2.accelTime( 0 );
+    $gp_joint_elevatorflap_2.decelTime( 0 );
+    $gp_joint_elevatorflap_2.rotateOnce( '0 -90 0' );
+}
+
+void elevator_part2_flaps_upper_open_part2( entity activatedEntity, entity activator )
+{
+	$gp_func_dynamic_elevator_blocker.hide();	
+
+	$gp_joint_elevatorflap_3.time( 1 );
+    $gp_joint_elevatorflap_3.accelTime( 0 );
+    $gp_joint_elevatorflap_3.decelTime( 0 );
+    $gp_joint_elevatorflap_3.rotateOnce( '0 -90 0' );
+
+	$gp_joint_elevatorflap_4.time( 1 );
+    $gp_joint_elevatorflap_4.accelTime( 0 );
+    $gp_joint_elevatorflap_4.decelTime( 0 );
+    $gp_joint_elevatorflap_4.rotateOnce( '0 90 0' );
+}
+
+void elevator_part2_flaps_upper_open_part3( entity activatedEntity, entity activator )
+{
+	$gp_func_dynamic_elevator_blocker.hide();	
+	
+	$gp_joint_elevatorflap_3.time( 1 );
+    $gp_joint_elevatorflap_3.accelTime( 0 );
+    $gp_joint_elevatorflap_3.decelTime( 0 );
+    $gp_joint_elevatorflap_3.rotateOnce( '0 -90 0' );
+
+	$gp_joint_elevatorflap_4.time( 1 );
+    $gp_joint_elevatorflap_4.accelTime( 0 );
+    $gp_joint_elevatorflap_4.decelTime( 0 );
+    $gp_joint_elevatorflap_4.rotateOnce( '0 90 0' );
+
+	$gp_joint_elevatorflap_5.time( 1 );
+    $gp_joint_elevatorflap_5.accelTime( 0 );
+    $gp_joint_elevatorflap_5.decelTime( 0 );
+    $gp_joint_elevatorflap_5.rotateOnce( '0 -90 0' );
+
+	$gp_joint_elevatorflap_6.time( 1 );
+    $gp_joint_elevatorflap_6.accelTime( 0 );
+    $gp_joint_elevatorflap_6.decelTime( 0 );
+    $gp_joint_elevatorflap_6.rotateOnce( '0 90 0' );
+}
+
+void elevator_part2_flaps_upper_close_part2( entity activatedEntity, entity activator )
+{
+	$gp_joint_elevatorflap_3.time( 1 );
+    $gp_joint_elevatorflap_3.accelTime( 0 );
+    $gp_joint_elevatorflap_3.decelTime( 0 );
+    $gp_joint_elevatorflap_3.rotateOnce( '0 90 0' );
+
+	$gp_joint_elevatorflap_4.time( 1 );
+    $gp_joint_elevatorflap_4.accelTime( 0 );
+    $gp_joint_elevatorflap_4.decelTime( 0 );
+    $gp_joint_elevatorflap_4.rotateOnce( '0 -90 0' );
+}
+
+void elevator_part2_flaps_upper_close_part3( entity activatedEntity, entity activator )
+{
+	$gp_joint_elevatorflap_3.time( 1 );
+    $gp_joint_elevatorflap_3.accelTime( 0 );
+    $gp_joint_elevatorflap_3.decelTime( 0 );
+    $gp_joint_elevatorflap_3.rotateOnce( '0 90 0' );
+
+	$gp_joint_elevatorflap_4.time( 1 );
+    $gp_joint_elevatorflap_4.accelTime( 0 );
+    $gp_joint_elevatorflap_4.decelTime( 0 );
+    $gp_joint_elevatorflap_4.rotateOnce( '0 -90 0' );
+
+	$gp_joint_elevatorflap_5.time( 1 );
+    $gp_joint_elevatorflap_5.accelTime( 0 );
+    $gp_joint_elevatorflap_5.decelTime( 0 );
+    $gp_joint_elevatorflap_5.rotateOnce( '0 90 0' );
+
+	$gp_joint_elevatorflap_6.time( 1 );
+    $gp_joint_elevatorflap_6.accelTime( 0 );
+    $gp_joint_elevatorflap_6.decelTime( 0 );
+    $gp_joint_elevatorflap_6.rotateOnce( '0 -90 0' );
+}
+
+void elevator_part2_gates_open_part2a( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevatorgate_1.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_1.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_1.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_1.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+void elevator_part2_gates_open_part2b( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevatorgate_1.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_1.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_1.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_1.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_4.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_4.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_4.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_4.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+void elevator_part2_gates_open_part3( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevatorgate_1.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_1.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_1.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_1.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_2.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_3.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_4.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_4.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_4.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_4.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+void elevator_part2_gates_close( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevatorgate_1.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_1.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_1.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_1.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_2.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_2.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_2.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_2.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_3.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_3.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_3.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_3.move( DIR_UP, ELEVATOR_GATES_HALF_DISTANCE );
+
+	$gp_func_elevatorgate_4.time( ELEVATOR_GATES_MOVE_TIME );
+    $gp_func_elevatorgate_4.accelTime( ELEVATOR_GATES_ACCEL_TIME );
+    $gp_func_elevatorgate_4.decelTime( ELEVATOR_GATES_DECEL_TIME );
+    $gp_func_elevatorgate_4.move( DIR_DOWN, ELEVATOR_GATES_HALF_DISTANCE );
+}
+
+// Would be great to be able to put these objects in a defined list and just loop through 'em...
+void elevator_part2_ride_up( entity activatedEntity, entity activator )
+{
+	$gp_func_elevator.time( ELEVATOR_RIDE_TIME );
+    $gp_func_elevator.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_func_elevator.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_func_elevator.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_1.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_1.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_1.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_1.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_2.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_2.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_2.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_2.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_3.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_3.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_3.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_3.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_4.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_4.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_4.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_4.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_5.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_5.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_5.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_5.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_6.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_6.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_6.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_6.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorhandle.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorhandle.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorhandle.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorhandle.move(DIR_UP, ELEVATOR_SHAFT_HEIGHT );
+}
+
+void elevator_part2_ride_down( entity activatedEntity, entity activator )
+{	
+	$gp_func_elevator.time( ELEVATOR_RIDE_TIME );
+    $gp_func_elevator.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_func_elevator.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_func_elevator.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+	$gp_joint_elevatorflap_1.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_1.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_1.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_1.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+ 	$gp_joint_elevatorflap_2.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_2.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_2.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_2.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_3.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_3.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_3.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_3.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_4.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_4.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_4.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_4.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_5.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_5.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_5.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_5.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+  	$gp_joint_elevatorflap_6.time( ELEVATOR_RIDE_TIME );
+    $gp_joint_elevatorflap_6.accelTime( ELEVATOR_ACCEL_TIME );
+    $gp_joint_elevatorflap_6.decelTime( ELEVATOR_DECEL_TIME );
+    $gp_joint_elevatorflap_6.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+
+ 	$gp_joint_elevatorhandle.time( ELEVATOR_RIDE_TIME );
+ 	$gp_joint_elevatorhandle.accelTime( ELEVATOR_ACCEL_TIME );
+	$gp_joint_elevatorhandle.decelTime( ELEVATOR_DECEL_TIME );
+	$gp_joint_elevatorhandle.move(DIR_DOWN, ELEVATOR_SHAFT_HEIGHT );
+}
+
+
+// Executed before one comes to Zellenblock (always), putting the elevator in the "Down" position
+void elevator_part2_force_set_down( entity activatedEntity, entity activator )
+{	
+	// open lower flaps
+	vector angle;
+	angle_x = 0;
+	angle_y = 90;
+	angle_z = 0;
+	$gp_joint_elevatorflap_1.teleport($gp_joint_elevatorflap_1.getOrigin(), $gp_joint_elevatorflap_1.getAngles() - angle);
+	$gp_joint_elevatorflap_2.teleport($gp_joint_elevatorflap_2.getOrigin(), $gp_joint_elevatorflap_2.getAngles() + angle);
+	
+	// close gate
+    vector v;
+    v_x = 0;
+    v_y = 0;    
+    v_z = ELEVATOR_GATES_HALF_DISTANCE;
+
+	$gp_func_elevatorgate_1.teleport($gp_func_elevatorgate_1.getOrigin() + v, $gp_func_elevatorgate_1.getAngles());
+	$gp_func_elevatorgate_2.teleport($gp_func_elevatorgate_2.getOrigin() - v, $gp_func_elevatorgate_2.getAngles());
+	$gp_func_elevatorgate_3.teleport($gp_func_elevatorgate_3.getOrigin() + v, $gp_func_elevatorgate_3.getAngles());
+	$gp_func_elevatorgate_4.teleport($gp_func_elevatorgate_4.getOrigin() - v, $gp_func_elevatorgate_4.getAngles());
+
+	// Setup the phys
+	$gp_func_dynamic_elevator_blocker.hide();	
+}
+
+// Executed if one skips the elevator and goes up in Zellenblock, putting the elevator in the "Up" position
+// Note that elevator_part2_force_set_down(...) function has been called prior to this one, so we need to do some resets.
+void elevator_part2_force_set_up( entity activatedEntity, entity activator )
+{
+	// open upper and close lower flaps
+	vector angle;
+	angle_x = 0;
+	angle_y = 90;
+	angle_z = 0;
+
+	$gp_joint_elevatorflap_1.teleport($gp_joint_elevatorflap_1.getOrigin(), $gp_joint_elevatorflap_1.getAngles() + angle);
+	$gp_joint_elevatorflap_2.teleport($gp_joint_elevatorflap_2.getOrigin(), $gp_joint_elevatorflap_2.getAngles() - angle);
+	$gp_joint_elevatorflap_3.teleport($gp_joint_elevatorflap_3.getOrigin(), $gp_joint_elevatorflap_3.getAngles() - angle);
+	$gp_joint_elevatorflap_4.teleport($gp_joint_elevatorflap_4.getOrigin(), $gp_joint_elevatorflap_4.getAngles() + angle);
+	$gp_joint_elevatorflap_5.teleport($gp_joint_elevatorflap_5.getOrigin(), $gp_joint_elevatorflap_5.getAngles() - angle);
+	$gp_joint_elevatorflap_6.teleport($gp_joint_elevatorflap_6.getOrigin(), $gp_joint_elevatorflap_6.getAngles() + angle);
+
+    // teleport elevator and flaps to upper position
+    vector v;
+    v_x = 0;
+    v_y = 0;    
+    v_z = ELEVATOR_SHAFT_HEIGHT;
+
+	$gp_joint_elevatorflap_1.teleport($gp_joint_elevatorflap_1.getOrigin() + v, $gp_joint_elevatorflap_1.getAngles());
+	$gp_joint_elevatorflap_2.teleport($gp_joint_elevatorflap_2.getOrigin() + v, $gp_joint_elevatorflap_2.getAngles());
+	$gp_joint_elevatorflap_3.teleport($gp_joint_elevatorflap_3.getOrigin() + v, $gp_joint_elevatorflap_3.getAngles());
+	$gp_joint_elevatorflap_4.teleport($gp_joint_elevatorflap_4.getOrigin() + v, $gp_joint_elevatorflap_4.getAngles());
+	$gp_joint_elevatorflap_5.teleport($gp_joint_elevatorflap_5.getOrigin() + v, $gp_joint_elevatorflap_5.getAngles());
+	$gp_joint_elevatorflap_6.teleport($gp_joint_elevatorflap_6.getOrigin() + v, $gp_joint_elevatorflap_6.getAngles());
+	$gp_joint_elevatorhandle.teleport($gp_joint_elevatorhandle.getOrigin() + v, $gp_joint_elevatorhandle.getAngles());
+	$gp_func_elevator.teleport($gp_func_elevator.getOrigin() + v, $gp_func_elevator.getAngles());
+
+	// adjust the gates
+    v_z = ELEVATOR_GATES_HALF_DISTANCE;
+
+	$gp_func_elevatorgate_1.teleport($gp_func_elevatorgate_1.getOrigin() - v, $gp_func_elevatorgate_1.getAngles());
+	$gp_func_elevatorgate_2.teleport($gp_func_elevatorgate_2.getOrigin() + v, $gp_func_elevatorgate_2.getAngles());
+	$gp_func_elevatorgate_3.teleport($gp_func_elevatorgate_3.getOrigin() - v, $gp_func_elevatorgate_3.getAngles());
+	$gp_func_elevatorgate_4.teleport($gp_func_elevatorgate_4.getOrigin() + v, $gp_func_elevatorgate_4.getAngles());
+
+	// switch elevator into "going down" mode
+	$gp_target_elevator_ride_up_switch_to_down.activate(activator);
+
+	// Setup the phys	
+	$gp_func_dynamic_elevator_blocker.hide();
+}
+
+*/
+
+//-------------------------------------------------------------------------------
+// Fergus kicks grating
+//-------------------------------------------------------------------------------
+
+void grating_kick( entity activatedEntity, entity activator )
+{
+	$joint_grating.time( 0.3 );
+    $joint_grating.rotateOnce( '90 0 0' );
+}
+
+
+void sudow( entity activatedEntity, entity activator )
+{
+	$player1.teleport( $fergus_info_null_2.getOrigin(), $fergus_info_null_2.getAngles() );
+	$ai_part3_zellenblock_b_fergus2.teleport( $fergus_info_null_1.getOrigin(), $fergus_info_null_1.getAngles() );
+	sys.waitFrame();
+	$ai_part3_zellenblock_b_fergus2.show();
+}
+
+// Fergus | Wyatt don't lock in player script 
+void friendly_waitoutside( entity activatedEntity, entity activator )
+{
+	sys.print( "Friend wait outside\n");
+	$ai_tungsten_c04_part_03_rifle_wyatt1.setOverrideScenePoint( $fergus_info_scenepoint_combat_waitoutside );
+	$ai_part3_zellenblock_b_fergus2.setOverrideScenePoint( $fergus_info_scenepoint_combat_waitoutside );
+}
+
+
+//-------------------------------------------------------------------------------
+//Backmans experimental stuff
+//-------------------------------------------------------------------------------
+void courtyard_teleport_player( entity activatedEntity, entity activator )
+{
+	sys.print("Teleport player to the courtyard");
+	$player1.teleport( $combat_courtyard_info_null_teleport.getOrigin(), $combat_courtyard_info_null_teleport.getAngles() );
+}
+
+void courtyard_teleport_player2( entity activatedEntity, entity activator )
+{
+	sys.print("Teleport player to the entrance");
+	$player1.teleport( $combat_courtyard_info_null_teleport1.getOrigin(), $combat_courtyard_info_null_teleport1.getAngles() );
+}
+
+void fergus_teleport_player1( entity activatedEntity, entity activator )
+{
+	sys.print("Teleport player test stuff");
+	$player1.teleport( $fergus_courtyard_info_null_teleport.getOrigin(), $fergus_courtyard_info_null_teleport.getAngles() );
+}
+
+//Remove clipbox on AI
+
+void call_removesolid( entity activatedEntity, entity activator )
+{
+	$combat_anim_dualshotgun_riot.setContents( 0 );
+}
+
+void call_officerfritz_collision( entity activatedEntity, entity activator )
+{
+	$func_animatedsimple_character_part3_fritz_struggle.setContents( 0 );
+}
+
+void call_toiletman_takedown( entity activatedEntity, entity activator )
+{
+	if ( $com02_ai_tungsten_c04_part_02_baton_prisonguard07_1.getHealth() > 0.0 ) {
+		$com02_func_firstpersonevent_toiletguard_takedown.activate( $player1 );
+	}
+}

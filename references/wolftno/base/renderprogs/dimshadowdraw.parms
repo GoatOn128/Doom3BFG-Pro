@@ -1,0 +1,16 @@
+dimshadowclipplane
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+fragmentpositiontowindow
+renderpositiontoviewtexture
+windowpostodimshadowblurs
+windowpostodimshadowblurt
+windowpostodimshadowblurr
+windowpostodimshadowblurq
+dimshadowfade
+viewdepthmap
+dimshadowdepthmap
+viewcolormap
+defaultsampler

@@ -1,0 +1,19 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [6];
+
+in vec4 in_Position;
+in vec4 in_Color;
+
+out vec4 vofi_Color;
+
+void main() {
+	vec4 position = in_Position * _va_[0 ] + _va_[1 ];
+	gl_Position.x = dot4( position, _va_[2 ] );
+	gl_Position.y = dot4( position, _va_[3 ] );
+	gl_Position.z = dot4( position, _va_[4 ] );
+	gl_Position.w = dot4( position, _va_[5 ] );
+	vofi_Color = swizzleColor( in_Color );
+}

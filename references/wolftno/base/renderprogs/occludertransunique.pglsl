@@ -1,0 +1,18 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2D samp_pagetablemap;
+uniform sampler2D samp_physicalmappingsmap;
+uniform sampler2D samp_physicaluniquepagesmap0;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec3 physCoord = VirtualToPhysical2( samp_pagetablemap, samp_physicalmappingsmap, vofi_TexCoord0.xy );
+	vec4 specular = texPhys( samp_physicaluniquepagesmap0, physCoord.xy );
+	clip( specular.w - 0.5 );
+	out_FragColor0 = vec4( 0.0 );
+}

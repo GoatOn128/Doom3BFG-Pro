@@ -1,0 +1,13 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	out_FragColor0 = vofi_Color * _fa_[0 ];
+}

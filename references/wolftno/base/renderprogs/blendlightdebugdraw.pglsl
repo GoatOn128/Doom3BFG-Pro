@@ -1,0 +1,9 @@
+#version 150
+
+#include "global.inc"
+
+out vec4 out_FragColor0;
+
+void main() {
+	out_FragColor0 = vec4( 1.0, 0.0, 0.0, 1.0 );
+}

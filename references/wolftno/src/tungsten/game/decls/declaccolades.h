@@ -1,0 +1,5 @@
+#pragma once
+#include "tungsten/game/clientgame/gamelayermanager.h"
+#include <string>
+class idDeclAccolade{public:idDeclAccolade();virtual~idDeclAccolade()=default;const char*GetDeclInfo()const;const char*GetIconName()const;static void Register(idDeclAccolade*decl);static void LoadAllDecls();static const idList<const idDeclAccolade*,5>&GetOrderedList(){return orderedList;}void SetOrdinal(int value){ordinal=value;}void SetIcon(std::string value){icon=std::move(value);}void SetName(std::string value){accoladeName=std::move(value);}int GetOrdinal()const{return ordinal;}int GetIndex()const{return index;}const std::string&GetName()const{return accoladeName;}private:int ordinal{0};std::string icon;int stat{-1};std::string accoladeName,description;int index{-1};static idList<const idDeclAccolade*,5>orderedList;static std::vector<idDeclAccolade*>registry;};
+class idSort_DeclAccoladePtr:public idSort<const idDeclAccolade*>{public:~idSort_DeclAccoladePtr()override;bool Less(const idDeclAccolade*const&a,const idDeclAccolade*const&b)const override{return a&&b?a->GetOrdinal()<b->GetOrdinal():a!=nullptr;}};

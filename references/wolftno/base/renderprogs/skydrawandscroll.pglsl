@@ -1,0 +1,47 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [7];
+uniform sampler2D samp_spare1map;
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_fademap;
+uniform sampler2D samp_transmap1;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	vec4 YCoCg = tex2D( samp_spare1map, vofi_TexCoord0.xy );
+	vec4 skyCol;
+	YCoCg.z = ( YCoCg.z * 31.875 ) + 1.0;
+	YCoCg.z = 1.0 / YCoCg.z;
+	YCoCg.xy *= YCoCg.z;
+	skyCol.x = dot4( YCoCg, matrixCoCg1YtoRGB1X );
+	skyCol.y = dot4( YCoCg, matrixCoCg1YtoRGB1Y );
+	skyCol.z = dot4( YCoCg, matrixCoCg1YtoRGB1Z );
+	skyCol.w = 1.0;
+	skyCol *= _fa_[0 ];
+	float dist = ( _fa_[1 ].x / normalize( vofi_TexCoord3.xyz ).z ) * _fa_[2 ].x;
+	dist = saturate( exp2( -dist ));
+	vec3 final = skyCol.xyz;
+	vec4 cloudCol = tex2D( samp_transmap, vofi_TexCoord1.xy ) * _fa_[3 ];
+	final += cloudCol.xyz * dist;
+	vec4 mask = tex2D( samp_fademap, vofi_TexCoord2.xy );
+	vec4 cloudCol1 = tex2D( samp_transmap1, vofi_TexCoord2.xy ) * _fa_[4 ];
+	final = mix( final, cloudCol1.xyz, mask.x * dist );
+	final.xyz = mix( final.xyz, _fa_[5 ].xyz, saturate( _fa_[6 ].x ) );
+	out_FragColor0.xyz = final;
+	out_FragColor0.w = 0.0;
+	out_FragColor1 = vec4( 0.0 );
+	{
+		out_FragColor2.xyz = vec3( 0.0, 0.0, 1.0 ).xyz * vec3( 0.5 ) + vec3( 0.5 );
+		out_FragColor2.w = dot( vec4( 0.0 ).rgb, vec3( 1.0 / 3.0 ) );
+	};
+}

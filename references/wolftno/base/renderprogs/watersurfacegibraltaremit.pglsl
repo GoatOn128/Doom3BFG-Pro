@@ -1,0 +1,37 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [4];
+uniform sampler2D samp_sparebumpmap;
+uniform sampler2D samp_sparebumpmap2;
+
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord4;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 bump;
+	bump.xy = tex2D( samp_sparebumpmap, vofi_TexCoord1.xy ).wy;
+	bump.zw = tex2D( samp_sparebumpmap2, vofi_TexCoord1.zw ).wy;
+	vec3 localNormal;
+	localNormal.xy = ( bump.xy + bump.zw ) - 0.5;
+	localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+	localNormal = normalize( localNormal );
+	vec3 toViewer = normalize( vofi_TexCoord2.xyz );
+	vec3 toLight = normalize( vofi_TexCoord4.xyz );
+	vec3 halfVec = SafeNormalize( toViewer + toLight );
+	float ndotv = dot( toViewer, localNormal );
+	vec3 specular = vec3( 0.0 );
+	float sunSpecular1 = pow( saturate( dot( halfVec, localNormal ) + _fa_[0 ].x ), _fa_[1 ].w );
+	float sunSpecular2 = pow( saturate( dot( halfVec, localNormal ) + _fa_[0 ].y ), _fa_[2 ].w );
+	specular += vec3( sunSpecular1 ) * _fa_[1 ].xyz * vec3( _fa_[0 ].z );
+	specular += vec3( sunSpecular2 ) * _fa_[2 ].xyz * vec3( _fa_[0 ].w );
+	float fresnel = pow( min( ( 1.0 - ndotv ) * _fa_[3 ].w, 1.0 ), 5.0 );
+	fresnel = fresnel + _fa_[3 ].x * ( 1.0 - fresnel );
+	specular *= vec3( fresnel );
+	out_FragColor0.xyz = specular;
+	out_FragColor0.w = 1.0;
+}

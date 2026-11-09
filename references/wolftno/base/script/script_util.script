@@ -1,0 +1,577 @@
+/***********************************************************************
+
+script_util.script
+
+This defines utility functions for scripts
+
+***********************************************************************/
+
+/*
+==================
+waitForButtonPress
+
+Waits for the user to press a button
+==================
+*/
+void waitForButtonPress() {
+	float buttons;
+
+	do {
+		buttons = $player1.getUserButtons();
+		sys.wait( 0.01 );
+	} while( !buttons );
+}
+
+/*
+==================
+abs
+
+Returns the absolute value of a number
+==================
+*/
+float abs( float value ) {
+	if ( value < 0 ) {
+		return value * -1;
+	}
+
+	return value;
+}
+
+/*
+==================
+unpause
+
+Utility function that works with onSignal to unpause a script
+==================
+*/
+void unpause() {
+}
+
+/*
+==================
+anglemod360
+
+Puts angles into the range of 0 to 360
+==================
+*/
+vector anglemod360( vector ang ) {
+	while( ang_x < 0 ) {
+		ang_x += 360;
+	}
+	while( ang_x >= 360 ) {
+		ang_x -= 360;
+	}
+	while( ang_y < 0 ) {
+		ang_y += 360;
+	}
+	while( ang_y >= 360 ) {
+		ang_y -= 360;
+	}
+	while( ang_z < 0 ) {
+		ang_z += 360;
+	}
+	while( ang_z >= 360 ) {
+		ang_z -= 360;
+	}
+
+	return ang;
+}
+
+/*
+==================
+anglemod180
+
+Puts angles into the range of -180 to 180
+==================
+*/
+vector anglemod180( vector ang ) {
+	while( ang_x < -180 ) {
+		ang_x += 360;
+	}
+	while( ang_x >= 180 ) {
+		ang_x -= 360;
+	}
+	while( ang_y < -180 ) {
+		ang_y += 360;
+	}
+	while( ang_y >= 180 ) {
+		ang_y -= 360;
+	}
+	while( ang_z < -180 ) {
+		ang_z += 360;
+	}
+	while( ang_z >= 180 ) {
+		ang_z -= 360;
+	}
+
+	return ang;
+}
+
+/*
+==================
+delayRemoveThread
+
+Service thread for delayRemove.
+==================
+*/
+void delayRemoveThread( entity ent, float mytime ) {
+	sys.wait( mytime );
+	ent.remove();
+}
+
+/*
+==================
+delayRemove
+
+Causes an entity to be removed after a specified amount of time.
+==================
+*/
+void delayRemove( entity ent, float mytime ) {
+	thread delayRemoveThread( ent, mytime );
+}
+
+
+/*
+==================
+fadeOutEnt
+
+Causes a entity to fade to black
+==================
+*/
+void fadeOutEnt( entity ent, vector color, float totalTime ) {
+	float i;
+	vector c;
+	float frac;
+	float numTics;
+	
+	// convert to the total number of game tics
+	numTics = totalTime * sys.getTicsPerSecond();
+
+	for( i = 0; i < numTics; i++ ) {
+		frac = ( numTics - i ) / numTics;
+		c = color * frac;
+		ent.setColor( c_x, c_y, c_z );
+		
+		// wait one game frame
+		sys.waitFrame();
+	}
+	
+	// make sure we are set to exactly black
+	ent.setColor( 0, 0, 0  );
+}
+
+/*
+==================
+fadeInEnt
+
+Causes a entity to from black to color
+==================
+*/
+void fadeInEnt( entity ent, vector color, float totalTime ) {
+	float i;
+	vector c;
+	float frac;
+	float numTics;
+	
+	// convert to the total number of game tics
+	numTics = totalTime * sys.getTicsPerSecond();	
+
+	for( i = 0; i < numTics; i++ ) {
+		frac = i / numTics;
+		c = color * frac;
+		ent.setColor( c_x, c_y, c_z  );
+		
+		// wait one game frame
+		sys.waitFrame();
+	}
+	
+	// make sure we are set to exactly the color
+	ent.setColor( color_x, color_y, color_z );
+}
+
+/*
+==================
+crossFadeEnt
+
+Causes a entity to from one color to another
+==================
+*/
+void crossFadeEnt( entity ent, vector source, vector dest, float totalTime ) {
+	float i;
+	vector c;
+	float frac;
+	float numTics;
+	
+	// convert to the total number of game tics
+	numTics = totalTime * sys.getTicsPerSecond();
+
+	for( i = 0; i < numTics; i++ ) {
+		frac = i / numTics;
+		c = dest * frac + source * ( 1 - frac );
+		ent.setColor( c_x, c_y, c_z  );
+		
+		// wait one game frame
+		sys.waitFrame();
+	}
+	
+	// make sure we are set to exactly the destination color
+	ent.setColor( dest_x, dest_y, dest_z );
+}
+
+/*
+==================
+CalcTimeForRotationAroundEntity
+
+Calculates the time to perform a rotation of an entity around an entity it is bound to given
+the angles to rotate and the desired speed.
+==================
+*/
+float CalcTimeForRotationAroundEntity( float distanceFromCenter, float angles, float desiredSpeed ) {
+	float distance;
+	
+	if ( desiredSpeed <= 0 ) {
+		return 0;
+	}
+	
+	distance = DEG2RAD( angles ) * distanceFromCenter;
+	
+	return distance / desiredSpeed;
+}
+
+/*
+==================
+RandomDelay
+==================
+*/
+float RandomDelay( float min, float max ) {
+	float t;
+	
+	t = sys.getTime();
+	t += min + sys.random( max - min );
+	
+	return t;
+}
+
+/*
+==================
+RandomTime
+==================
+*/
+float RandomTime( float delay ) {
+	float t;
+	
+	t = sys.getTime();
+	t += sys.random( delay );
+	
+	return t;
+}
+
+/*
+==================
+DelayTime
+==================
+*/
+float DelayTime( float delay ) {
+	float t;
+	
+	t = sys.getTime();
+	t += delay;
+	t += sys.random( 2 ) - 1;
+	
+	return t;
+}
+
+/*
+==================
+Vec
+
+Returns a vector comprised of the float params
+==================
+*/
+vector Vec( float fX, float fY, float fZ ) {
+   vector vec;
+
+   vec_x = fX;
+   vec_y = fY;
+   vec_z = fZ;
+
+   return vec;
+}
+
+/*
+==================
+Vec_x
+
+Returns the _x element of the given vector
+==================
+*/
+float Vec_x( vector vec ) {
+   return vec_x;
+}
+
+/*
+==================
+Vec_y
+
+Returns the _y element of the given vector
+==================
+*/
+float Vec_y( vector vec ) {
+   return vec_y;
+}
+
+/*
+==================
+Vec_z
+
+Returns the _z element of the given vector
+==================
+*/
+float Vec_z( vector vec ) {
+   return vec_z;
+}
+
+/*
+==================
+FMin
+==================
+*/
+float FMin( float f1, float f2 ) {
+	if ( f1 < f2 ) {
+		return f1;
+	}
+
+	return f2;
+}
+
+/*
+==================
+FMax
+==================
+*/
+float FMax( float f1, float f2 ) {
+	if ( f1 > f2 ) {
+		return f1;
+	}
+
+	return f2;
+}
+
+/*
+==================
+RandomRangeFloat
+==================
+*/
+float RandomRangeFloat( float f1, float f2 ) {
+	return FMin( f1, f2 ) + sys.random( abs( f1 - f2 ) );
+}
+
+/*
+==================
+RandomRangeVector
+==================
+*/
+vector RandomRangeVector( vector vecMin, vector vecMax ) {
+	return Vec( RandomRangeFloat( vecMin_x, vecMax_x ), RandomRangeFloat( vecMin_y, vecMax_y ), RandomRangeFloat( vecMin_z, vecMax_z ) );
+}
+/*
+==================
+GetPlayerViewForward
+==================
+*/
+vector GetPlayerViewForward() {
+	return sys.angToForward( $player1.getViewAngles() );
+}
+
+/*
+==================
+GetPlayerForward
+==================
+*/
+vector GetPlayerForward() {
+	vector playerViewAng = $player1.getViewAngles();
+	playerViewAng_x = 0; //ignore pitch
+	
+	return sys.angToForward( playerViewAng );
+}
+
+
+/*
+==================
+debug_stoptime
+==================
+*/
+void debug_stoptime( entity activatedEntity, entity activator ) {
+	sys.setcvar( "g_stopTime", "1" );
+}
+
+
+/*
+==================
+object moveSelf
+==================
+*/
+object moveSelf {	
+	void init();
+	void onTrigger( entity activator );
+	
+	float moveTime;
+	float moveAccelTime;
+	float moveDecelTime;
+	float distance;
+	int direction; // -1 UP | -2 DOWN | -3 LEFT | -4 RIGHT | -5 FORWARD | -6 BACK
+	boolean toggle; // If set, the object will move back the second time it's triggered
+};
+
+/*
+==================
+moveSelf::init
+==================
+*/
+void moveSelf::init() {
+	self.setParmsForTime( moveTime, moveAccelTime, moveDecelTime );
+}
+
+/*
+==================
+moveSelf::onTrigger
+==================
+*/
+void moveSelf::onTrigger( entity activator ) {
+	self.move( direction, distance );
+	if( toggle ) distance = -distance;
+}
+
+/*
+==================
+object rotateSelf
+==================
+*/
+object rotateSelf {	
+	void init();
+	void onTrigger( entity activator );
+	
+	float moveTime;
+	float moveAccelTime;
+	float moveDecelTime;
+	vector rotationVector;
+	boolean toggle; // If set, the object will rotate back the second time it's triggered
+};
+
+/*
+==================
+rotateSelf::init
+==================
+*/
+void rotateSelf::init() {
+	self.setParmsForTime( moveTime, moveAccelTime, moveDecelTime );
+}
+
+/*
+==================
+rotateSelf::onTrigger
+==================
+*/
+void rotateSelf::onTrigger( entity activator ) {
+	self.rotateOnce( rotationVector );
+	if( toggle ) rotationVector = -rotationVector;
+}
+
+
+
+/*
+==================
+object bobSelf
+==================
+*/
+object bobSelf {	
+	void init();
+	void onTrigger( entity activator );
+	
+	float bobSpeed;
+	float bobPhase;
+	vector bobVector;
+};
+
+/*
+==================
+bobSelf::init
+==================
+*/
+
+void bobSelf::init() {
+	self.bob(self.bobSpeed, self.bobPhase, self.bobVector);
+}
+
+/*
+==================
+bobSelf::onTrigger
+==================
+*/
+
+void bobSelf::onTrigger( entity activator ) {
+	self.bob(self.bobSpeed, self.bobPhase, self.bobVector);
+}
+
+
+
+/*
+==================
+object randomActivator
+==================
+*/
+object randomActivator {
+	void init();
+	void onTrigger( entity activator );
+	void stop();
+	
+	float delayMin;
+	float delayMax;
+	__noedit boolean activated;
+};
+
+/*
+==================
+randomActivator::init
+==================
+*/
+void randomActivator::init() {
+	if ( delayMin <= 0.0 ) {
+		delayMin = 1.0;
+	}
+	if ( delayMax < delayMin ) {
+		delayMax = delayMin;
+	}
+	activated = false;
+}
+
+/*
+==================
+randomActivator::onTrigger
+==================
+*/
+void randomActivator::onTrigger( entity activator ) {	
+	if ( activated ) {
+		// Additional activations should not do anything
+		return;
+	}
+
+	// Run until deactivated.
+	activated = true;
+	while ( activated ) {
+		entity target = self.getTarget( sys.randomInt( self.numTargets() ) );
+		target.activate( self );
+		
+		//wait( delayMin + sys.random( delayMax - delayMin ) );
+		sys.wait( RandomRangeFloat( delayMin, delayMax ) );
+	}
+}
+
+/*
+==================
+randomActivator::stop
+==================
+*/
+void randomActivator::stop() {
+	activated = false;
+}
