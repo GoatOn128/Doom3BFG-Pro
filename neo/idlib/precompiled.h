@@ -37,26 +37,6 @@ If you have questions concerning this license or the applicable additional terms
 #include "sys/sys_intrinsics.h"
 #include "sys/sys_threading.h"
 
-// idStudio is built into the executable, like the original DoomEdit tools.
-// Keep MFC out of ordinary engine translation units; only editor sources are
-// compiled with IDSTUDIO and see the MFC declarations.
-#if defined( IDSTUDIO )
-// The June 2010 DirectX SDK predates the JPEG table declarations expected by
-// current Windows Imaging Component headers pulled in by MFC.
-typedef struct DXGI_JPEG_DC_HUFFMAN_TABLE {
-	BYTE CodeCounts[12];
-	BYTE CodeValues[12];
-} DXGI_JPEG_DC_HUFFMAN_TABLE;
-typedef struct DXGI_JPEG_AC_HUFFMAN_TABLE {
-	BYTE CodeCounts[16];
-	BYTE CodeValues[162];
-} DXGI_JPEG_AC_HUFFMAN_TABLE;
-typedef struct DXGI_JPEG_QUANTIZATION_TABLE {
-	BYTE Elements[64];
-} DXGI_JPEG_QUANTIZATION_TABLE;
-#include "../tools/comafx/StdAfx.h"
-#endif
-
 //-----------------------------------------------------
 
 #define ID_TIME_T int64 // Signed because -1 means "File not found" and we don't want that to compare > than any other time
@@ -66,17 +46,6 @@ typedef struct DXGI_JPEG_QUANTIZATION_TABLE {
 
 // id lib
 #include "../idlib/Lib.h"
-
-#if defined( IDSTUDIO )
-// DoomEdit predates the idVec operator migration and uses these Quake-style
-// vector helpers throughout its geometry code.
-#define DotProduct( a, b )            ( (a)[0] * (b)[0] + (a)[1] * (b)[1] + (a)[2] * (b)[2] )
-#define VectorSubtract( a, b, c )     ( (c)[0] = (a)[0] - (b)[0], (c)[1] = (a)[1] - (b)[1], (c)[2] = (a)[2] - (b)[2] )
-#define VectorAdd( a, b, c )          ( (c)[0] = (a)[0] + (b)[0], (c)[1] = (a)[1] + (b)[1], (c)[2] = (a)[2] + (b)[2] )
-#define VectorCopy( a, b )            ( (b)[0] = (a)[0], (b)[1] = (a)[1], (b)[2] = (a)[2] )
-#define VectorScale( a, b, c )        ( (c)[0] = (a)[0] * (b), (c)[1] = (a)[1] * (b), (c)[2] = (a)[2] * (b) )
-#define VectorMA( a, s, b, c )        ( (c)[0] = (a)[0] + (s) * (b)[0], (c)[1] = (a)[1] + (s) * (b)[1], (c)[2] = (a)[2] + (s) * (b)[2] )
-#endif
 
 #include "sys/sys_filesystem.h"
 
