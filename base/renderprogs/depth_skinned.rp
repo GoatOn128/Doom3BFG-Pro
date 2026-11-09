@@ -1,5 +1,4 @@
-/*
-===========================================================================
+/*===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
@@ -28,7 +27,6 @@ If you have questions concerning this license or the applicable additional terms
 
 renderprog depth_skinned {
 	hlsl_vp {
-		#include "global.inc"
 
 		uniform matrices_ubo { float4 matrices[408]; };
 
@@ -87,7 +85,6 @@ renderprog depth_skinned {
 		}
 	}
 	hlsl_fp {
-		#include "global.inc"
 
 		uniform sampler2D samp0 : register(s0);
 		struct PS_OUT {

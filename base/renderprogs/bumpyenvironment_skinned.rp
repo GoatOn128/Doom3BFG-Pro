@@ -1,5 +1,4 @@
-/*
-===========================================================================
+/*===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
@@ -28,7 +27,6 @@ If you have questions concerning this license or the applicable additional terms
 
 renderprog bumpyenvironment_skinned {
 	hlsl_vp {
-		#include "global.inc"
 
 		uniform matrices_ubo { float4 matrices[408]; };
 
@@ -139,7 +137,6 @@ renderprog bumpyenvironment_skinned {
 		}
 	}
 	hlsl_fp {
-		#include "global.inc"
 
 		uniform samplerCUBE	samp0 : register(s0); // texture 0 is the cube map
 		uniform sampler2D	samp1 : register(s1); // normal map
