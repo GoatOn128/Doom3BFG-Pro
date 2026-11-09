@@ -29,6 +29,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 #pragma hdrstop
 
+#include "../renderer/DeclRenderProg.h"
+
 /*
 
 GUIs and script remain separately parsed
@@ -828,8 +830,11 @@ void idDeclManagerLocal::Init() {
 	RegisterDeclType( "email",				DECL_EMAIL,			idDeclAllocator<idDeclEmail> );
 	RegisterDeclType( "video",				DECL_VIDEO,			idDeclAllocator<idDeclVideo> );
 	RegisterDeclType( "audio",				DECL_AUDIO,			idDeclAllocator<idDeclAudio> );
+	RegisterDeclType( "renderprog",		DECL_RENDERPROG,		idDeclAllocator<idDeclRenderProg> );
 
 	RegisterDeclFolder( "materials",		".mtr",				DECL_MATERIAL );
+
+	RegisterDeclFolder( "renderprogs",	".rp",				DECL_RENDERPROG );
 
 	// add console commands
 	cmdSystem->AddCommand( "listDecls", ListDecls_f, CMD_FL_SYSTEM, "lists all decls" );
@@ -851,6 +856,7 @@ void idDeclManagerLocal::Init() {
 	cmdSystem->AddCommand( "listEmails", idListDecls_f<DECL_EMAIL>, CMD_FL_SYSTEM, "lists Emails", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 	cmdSystem->AddCommand( "listVideos", idListDecls_f<DECL_VIDEO>, CMD_FL_SYSTEM, "lists Videos", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 	cmdSystem->AddCommand( "listAudios", idListDecls_f<DECL_AUDIO>, CMD_FL_SYSTEM, "lists Audios", idCmdSystem::ArgCompletion_String<listDeclStrings> );
+	cmdSystem->AddCommand( "listRenderProgs", idListDecls_f<DECL_RENDERPROG>, CMD_FL_SYSTEM, "lists render progs", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 
 	cmdSystem->AddCommand( "printTable", idPrintDecls_f<DECL_TABLE>, CMD_FL_SYSTEM, "prints a table", idCmdSystem::ArgCompletion_Decl<DECL_TABLE> );
 	cmdSystem->AddCommand( "printMaterial", idPrintDecls_f<DECL_MATERIAL>, CMD_FL_SYSTEM, "prints a material", idCmdSystem::ArgCompletion_Decl<DECL_MATERIAL> );
@@ -866,6 +872,7 @@ void idDeclManagerLocal::Init() {
 	cmdSystem->AddCommand( "printEmail", idPrintDecls_f<DECL_EMAIL>, CMD_FL_SYSTEM, "prints an Email", idCmdSystem::ArgCompletion_Decl<DECL_EMAIL> );
 	cmdSystem->AddCommand( "printVideo", idPrintDecls_f<DECL_VIDEO>, CMD_FL_SYSTEM, "prints an Audio", idCmdSystem::ArgCompletion_Decl<DECL_VIDEO> );
 	cmdSystem->AddCommand( "printAudio", idPrintDecls_f<DECL_AUDIO>, CMD_FL_SYSTEM, "prints a Video", idCmdSystem::ArgCompletion_Decl<DECL_AUDIO> );
+	cmdSystem->AddCommand( "printRenderProg", idPrintDecls_f<DECL_RENDERPROG>, CMD_FL_SYSTEM, "prints a render prog", idCmdSystem::ArgCompletion_Decl<DECL_RENDERPROG> );
 
 	cmdSystem->AddCommand( "listHuffmanFrequencies", ListHuffmanFrequencies_f, CMD_FL_SYSTEM, "lists decl text character frequencies" );
 
@@ -2124,310 +2131,3 @@ void idDeclLocal::SetTextLocal( const char *text, const int length ) {
 	checksum = MD5_BlockChecksum( text, length );
 
 #ifdef GET_HUFFMAN_FREQUENCIES
-	for( int i = 0; i < length; i++ ) {
-		huffmanFrequencies[((const unsigned char *)text)[i]]++;
-	}
-#endif
-
-#ifdef USE_COMPRESSED_DECLS
-	int maxBytesPerCode = ( maxHuffmanBits + 7 ) >> 3;
-	byte *compressed = (byte *)_alloca( length * maxBytesPerCode );
-	compressedLength = HuffmanCompressText( text, length, compressed, length * maxBytesPerCode );
-	textSource = (char *)Mem_Alloc( compressedLength, TAG_DECLTEXT );
-	memcpy( textSource, compressed, compressedLength );
-#else
-	compressedLength = length;
-	textSource = (char *) Mem_Alloc( length + 1, TAG_DECLTEXT );
-	memcpy( textSource, text, length );
-	textSource[length] = '\0';
-#endif
-	textLength = length;
-}
-
-/*
-=================
-idDeclLocal::ReplaceSourceFileText
-=================
-*/
-bool idDeclLocal::ReplaceSourceFileText() {
-	int oldFileLength, newFileLength;
-	idFile *file;
-
-	common->Printf( "Writing \'%s\' to \'%s\'...\n", GetName(), GetFileName() );
-
-	if ( sourceFile == &declManagerLocal.implicitDecls ) {
-		common->Warning( "Can't save implicit declaration %s.", GetName() );
-		return false;
-	}
-
-	// get length and allocate buffer to hold the file
-	oldFileLength = sourceFile->fileSize;
-	newFileLength = oldFileLength - sourceTextLength + textLength;
-	idTempArray<char> buffer( Max( newFileLength, oldFileLength ) );
-	memset( buffer.Ptr(), 0, buffer.Size() );
-
-	// read original file
-	if ( sourceFile->fileSize ) {
-
-		file = fileSystem->OpenFileRead( GetFileName() );
-		if ( !file ) {
-			common->Warning( "Couldn't open %s for reading.", GetFileName() );
-			return false;
-		}
-
-		if ( file->Length() != sourceFile->fileSize || file->Timestamp() != sourceFile->timestamp ) {
-			common->Warning( "The file %s has been modified outside of the engine.", GetFileName() );
-			return false;
-		}
-
-		file->Read( buffer.Ptr(), oldFileLength );
-		fileSystem->CloseFile( file );
-
-		if ( MD5_BlockChecksum( buffer.Ptr(), oldFileLength ) != (unsigned int)sourceFile->checksum ) {
-			common->Warning( "The file %s has been modified outside of the engine.", GetFileName() );
-			return false;
-		}
-	}
-
-	// insert new text
-	char *declText = (char *) _alloca( textLength + 1 );
-	GetText( declText );
-	memmove( buffer.Ptr() + sourceTextOffset + textLength, buffer.Ptr() + sourceTextOffset + sourceTextLength, oldFileLength - sourceTextOffset - sourceTextLength );
-	memcpy( buffer.Ptr() + sourceTextOffset, declText, textLength );
-
-	// write out new file
-	file = fileSystem->OpenFileWrite( GetFileName(), "fs_basepath" );
-	if ( !file ) {
-		common->Warning( "Couldn't open %s for writing.", GetFileName() );
-		return false;
-	}
-	file->Write( buffer.Ptr(), newFileLength );
-	fileSystem->CloseFile( file );
-
-	// set new file size, checksum and timestamp
-	sourceFile->fileSize = newFileLength;
-	sourceFile->checksum = MD5_BlockChecksum( buffer.Ptr(), newFileLength );
-	fileSystem->ReadFile( GetFileName(), NULL, &sourceFile->timestamp );
-
-	// move all decls in the same file
-	for ( idDeclLocal *decl = sourceFile->decls; decl; decl = decl->nextInFile ) {
-		if (decl->sourceTextOffset > sourceTextOffset) {
-			decl->sourceTextOffset += textLength - sourceTextLength;
-		}
-	}
-
-	// set new size of text in source file
-	sourceTextLength = textLength;
-
-	return true;
-}
-
-/*
-=================
-idDeclLocal::SourceFileChanged
-=================
-*/
-bool idDeclLocal::SourceFileChanged() const {
-	int newLength;
-	ID_TIME_T newTimestamp;
-
-	if ( sourceFile->fileSize <= 0 ) {
-		return false;
-	}
-
-	newLength = fileSystem->ReadFile( GetFileName(), NULL, &newTimestamp );
-
-	if ( newLength != sourceFile->fileSize || newTimestamp != sourceFile->timestamp ) {
-		return true;
-	}
-
-	return false;
-}
-
-/*
-=================
-idDeclLocal::MakeDefault
-=================
-*/
-void idDeclLocal::MakeDefault() {
-	static int recursionLevel;
-	const char *defaultText;
-
-	declManagerLocal.MediaPrint( "DEFAULTED\n" );
-	declState = DS_DEFAULTED;
-
-	AllocateSelf();
-
-	defaultText = self->DefaultDefinition();
-
-	// a parse error inside a DefaultDefinition() string could
-	// cause an infinite loop, but normal default definitions could
-	// still reference other default definitions, so we can't
-	// just dump out on the first recursion
-	if ( ++recursionLevel > 100 ) {
-		common->FatalError( "idDecl::MakeDefault: bad DefaultDefinition(): %s", defaultText );
-	}
-
-	// always free data before parsing
-	self->FreeData();
-
-	// parse
-	self->Parse( defaultText, strlen( defaultText ), false );
-
-	// we could still eventually hit the recursion if we have enough Error() calls inside Parse...
-	--recursionLevel;
-}
-
-/*
-=================
-idDeclLocal::SetDefaultText
-=================
-*/
-bool idDeclLocal::SetDefaultText() {
-	return false;
-}
-
-/*
-=================
-idDeclLocal::DefaultDefinition
-=================
-*/
-const char *idDeclLocal::DefaultDefinition() const {
-	return "{ }";
-}
-
-/*
-=================
-idDeclLocal::Parse
-=================
-*/
-bool idDeclLocal::Parse( const char *text, const int textLength, bool allowBinaryVersion ) {
-	idLexer src;
-
-	src.LoadMemory( text, textLength, GetFileName(), GetLineNum() );
-	src.SetFlags( DECL_LEXER_FLAGS );
-	src.SkipUntilString( "{" );
-	src.SkipBracedSection( false );
-	return true;
-}
-
-/*
-=================
-idDeclLocal::FreeData
-=================
-*/
-void idDeclLocal::FreeData() {
-}
-
-/*
-=================
-idDeclLocal::List
-=================
-*/
-void idDeclLocal::List() const {
-	common->Printf( "%s\n", GetName() );
-}
-
-/*
-=================
-idDeclLocal::Print
-=================
-*/
-void idDeclLocal::Print() const {
-}
-
-/*
-=================
-idDeclLocal::Reload
-=================
-*/
-void idDeclLocal::Reload() {
-	this->sourceFile->Reload( false );
-}
-
-/*
-=================
-idDeclLocal::AllocateSelf
-=================
-*/
-void idDeclLocal::AllocateSelf() {
-	if ( self == NULL ) {
-		self = declManagerLocal.GetDeclType( (int)type )->allocator();
-		self->base = this;
-	}
-}
-
-/*
-=================
-idDeclLocal::ParseLocal
-=================
-*/
-void idDeclLocal::ParseLocal() {
-	bool generatedDefaultText = false;
-
-	AllocateSelf();
-
-	// always free data before parsing
-	self->FreeData();
-
-	declManagerLocal.MediaPrint( "parsing %s %s\n", declManagerLocal.declTypes[type]->typeName.c_str(), name.c_str() );
-
-	// if no text source try to generate default text
-	if ( textSource == NULL ) {
-		generatedDefaultText = self->SetDefaultText();
-	}
-
-	// indent for DEFAULTED or media file references
-	declManagerLocal.indent++;
-
-	// no text immediately causes a MakeDefault()
-	if ( textSource == NULL ) {
-		MakeDefault();
-		declManagerLocal.indent--;
-		return;
-	}
-
-	declState = DS_PARSED;
-
-	// parse
-	char *declText = (char *) _alloca( ( GetTextLength() + 1 ) * sizeof( char ) );
-	GetText( declText );
-	self->Parse( declText, GetTextLength(), true );
-
-	// free generated text
-	if ( generatedDefaultText ) {
-		Mem_Free( textSource );
-		textSource = NULL;
-		textLength = 0;
-	}
-
-	declManagerLocal.indent--;
-}
-
-/*
-=================
-idDeclLocal::Purge
-=================
-*/
-void idDeclLocal::Purge() {
-	// never purge things that were referenced outside level load,
-	// like the console and menu graphics
-	if ( parsedOutsideLevelLoad ) {
-		return;
-	}
-
-	referencedThisLevel = false;
-	MakeDefault();
-
-	// the next Find() for this will re-parse the real data
-	declState = DS_UNPARSED;
-}
-
-/*
-=================
-idDeclLocal::EverReferenced
-=================
-*/
-bool idDeclLocal::EverReferenced() const {
-	return everReferenced;
-}
