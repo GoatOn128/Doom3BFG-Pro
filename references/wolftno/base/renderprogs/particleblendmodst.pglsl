@@ -1,0 +1,79 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [14];
+uniform sampler2D samp_texturemap;
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_sparebumpmap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float fogVal = vofi_TexCoord0.z;
+	float frameFrac = vofi_TexCoord1.z;
+	vec2 texcoord0 = vofi_TexCoord0.xy;
+	vec2 texcoord1 = vofi_TexCoord1.xy;
+	vec2 texcoord2;
+	texcoord2.x = dot4( vofi_TexCoord2.xy, _fa_[0 ] );
+	texcoord2.y = dot4( vofi_TexCoord2.xy, _fa_[1 ] );
+	vec4 parm = tex2D( samp_texturemap, texcoord2 );
+	vec2 offset = parm.xy * vec2( 2.0 ) - vec2( 1.0 );
+	offset *= vec2( _fa_[2 ].x );
+	vec2 minst;
+	vec2 maxst;
+	minst = _fa_[3 ].zw;
+	maxst = _fa_[3 ].zw + _fa_[3 ].xy;
+	texcoord0 = min( max( texcoord0 + offset, minst ), maxst );
+	texcoord1 = min( max( texcoord1 + offset, minst ), maxst );
+	vec4 color = ComputeAnimCrossFadeColor( samp_transmap, texcoord0, texcoord1, frameFrac ); if ( _fa_[4 ].x != 0.0 ) {
+		vec3 globalNormal;
+		{
+			vec3 dp0 = dFdx( vofi_TexCoord4.xyz );
+			vec3 dp1 = dFdy( vofi_TexCoord4.xyz );
+			vec2 duv0 = dFdx( vofi_TexCoord0.xy );
+			vec2 duv1 = dFdy( vofi_TexCoord0.xy );
+			vec3 T = normalize( dp0 * duv1.y - dp1 * duv0.y );
+			vec3 B = normalize( dp1 * duv0.x - dp0 * duv1.x );
+			vec3 N = normalize( cross( T, B ) );
+			vec4 bumpMap0 = tex2D( samp_sparebumpmap, vofi_TexCoord0.xy );
+			vec4 bumpMap1 = tex2D( samp_sparebumpmap, vofi_TexCoord1.xy );
+			vec4 bumpMap = mix( bumpMap0, bumpMap1, frameFrac );
+			vec3 localNormal = vec3( bumpMap.wy * 2.0 - 1.0, 0.0 );
+			localNormal.z = sqrt( 1.0 - min( dot3( localNormal, localNormal ), 1.0 ) );
+			globalNormal.x = dot3( localNormal, vec3( T.x, B.x, N.x ) );
+			globalNormal.y = dot3( localNormal, vec3( T.y, B.y, N.y ) );
+			globalNormal.z = dot3( localNormal, vec3( T.z, B.z, N.z ) );
+			globalNormal = normalize( globalNormal );
+		};
+		vec3 ambientLight =
+		+ max( globalNormal.x * _fa_[5 ].xyz, 0 )
+		+ max( -globalNormal.x * _fa_[6 ].xyz, 0 )
+		+ max( globalNormal.y * _fa_[7 ].xyz, 0 )
+		+ max( -globalNormal.y * _fa_[8 ].xyz, 0 )
+		+ max( globalNormal.z * _fa_[9 ].xyz, 0 )
+		+ max( -globalNormal.z * _fa_[10 ].xyz, 0 );
+		vec3 primeLight = _fa_[11 ].rgb * max( 0, dot( _fa_[12 ].xyz, globalNormal ) );
+		color.rgb *= ambientLight + primeLight;
+	} else if ( _fa_[4 ].y != 0.0 ) {
+		vec3 averageLight = _fa_[5 ].xyz;
+		averageLight += _fa_[6 ].xyz;
+		averageLight += _fa_[7 ].xyz;
+		averageLight += _fa_[8 ].xyz;
+		averageLight += _fa_[9 ].xyz;
+		averageLight += _fa_[10 ].xyz;
+		averageLight += _fa_[11 ].rgb;
+		averageLight *= 1.0 / 6.0;
+		color.rgb *= averageLight.rgb;
+	}
+	color *= vofi_Color;
+	color.w = saturate( color.w * 4.0 );
+	color.xyz = mix( _fa_[13 ].xyz, color.xyz, fogVal );
+	out_FragColor0 = color;
+}

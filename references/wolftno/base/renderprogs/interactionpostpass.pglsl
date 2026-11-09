@@ -1,0 +1,23 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2DMS samp_viewtargetms;
+uniform sampler2D samp_viewtarget;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 color; if ( _fa_[0 ].x > 1.0 ) {
+		vec2 texcoord = gl_FragCoord.xy;
+		color = tex2DMSFetch( samp_viewtargetms, ivec2( texcoord ), 0 );
+	} else {
+		vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[1 ] );
+		color = tex2D( samp_viewtarget, texcoord );
+	}
+	out_FragColor0.xyz = pow3( color.xyz, 1.0 / 2.2 );
+	out_FragColor0.w = color.w;
+}

@@ -1,0 +1,152 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [12];
+uniform sampler2D samp_fracturedecaltexture;
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_sparebumpmap;
+uniform sampler2D samp_sparespecularmap;
+uniform sampler2D samp_sparespecularmap2;
+uniform sampler2D samp_texturemap;
+uniform samplerCube samp_dynamicenvmap;
+uniform sampler2D samp_fresnelmap;
+
+in vec4 vofi_TexCoord5;
+in vec4 vofi_TexCoord6;
+in vec4 vofi_TexCoord7;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 glassRI = vec4( 1.52, 0.042580, 0.957420, 0.657895 );
+	vec4 color;
+	vec4 decalData1;
+	vec4 decalData2;
+	vec4 decalData3;
+	vec3 vertexPos;
+	vec3 fromViewerN;
+	vec4 sampleDiffuse;
+	vec4 sampleNormal;
+	vec4 sampleSpecularReflect;
+	vec4 sampleSpecularRefract;
+	vec4 sampleParms;
+	vec3 localNormal;
+	vec3 globalNormal;
+	vec4 globalReflection;
+	vec4 globalRefraction;
+	vec3 reflectColor;
+	vec3 refractColor;
+	float fresh;
+	{
+		vertexPos.x = vofi_TexCoord5.w;
+		vertexPos.y = vofi_TexCoord6.w;
+		vertexPos.z = vofi_TexCoord7.w;
+	};
+	{
+		vec3 dir = _fa_[0 ].xyz - vertexPos.xyz;
+		vec2 tc;
+		tc.x = dot3( dir, _fa_[1 ].xyz ) * _fa_[0 ].w;
+		tc.y = dot3( dir, vofi_TexCoord5.xyz ) * _fa_[0 ].w;
+		float border = dot( saturate( abs( tc ) * vec2( 200.0 ) - vec2( 99.0 ) ), vec2( 1.0 ) );
+		tc = vec2( 0.5 ) + tc;
+		decalData1 = tex2D( samp_fracturedecaltexture, tc );
+		decalData1.a = max( decalData1.a - _fa_[1 ].w, 0.0 );
+		decalData1.xy = decalData1.xy * vec2( 2.0 ) - vec2( 1.0 );
+		decalData1.xy -= clamp( decalData1.xy, vec2( -0.02 ), vec2( 0.02 ) );
+		decalData1 = mix( vec4( 0.0, 0.0, 0.0, 1.0 ), decalData1, max( 0.0, _fa_[2 ].w - border ) );
+	};
+	{
+		vec3 dir = _fa_[3 ].xyz - vertexPos.xyz;
+		vec2 tc;
+		tc.x = dot3( dir, _fa_[4 ].xyz ) * _fa_[3 ].w;
+		tc.y = dot3( dir, vofi_TexCoord6.xyz ) * _fa_[3 ].w;
+		float border = dot( saturate( abs( tc ) * vec2( 200.0 ) - vec2( 99.0 ) ), vec2( 1.0 ) );
+		tc = vec2( 0.5 ) + tc;
+		decalData2 = tex2D( samp_fracturedecaltexture, tc );
+		decalData2.a = max( decalData2.a - _fa_[4 ].w, 0.0 );
+		decalData2.xy = decalData2.xy * vec2( 2.0 ) - vec2( 1.0 );
+		decalData2.xy -= clamp( decalData2.xy, vec2( -0.02 ), vec2( 0.02 ) );
+		decalData2 = mix( vec4( 0.0, 0.0, 0.0, 1.0 ), decalData2, max( 0.0, _fa_[5 ].w - border ) );
+	};
+	{
+		vec3 dir = _fa_[6 ].xyz - vertexPos.xyz;
+		vec2 tc;
+		tc.x = dot3( dir, _fa_[7 ].xyz ) * _fa_[6 ].w;
+		tc.y = dot3( dir, vofi_TexCoord7.xyz ) * _fa_[6 ].w;
+		float border = dot( saturate( abs( tc ) * vec2( 200.0 ) - vec2( 99.0 ) ), vec2( 1.0 ) );
+		tc = vec2( 0.5 ) + tc;
+		decalData3 = tex2D( samp_fracturedecaltexture, tc );
+		decalData3.a = max( decalData3.a - _fa_[7 ].w, 0.0 );
+		decalData3.xy = decalData3.xy * vec2( 2.0 ) - vec2( 1.0 );
+		decalData3.xy -= clamp( decalData3.xy, vec2( -0.02 ), vec2( 0.02 ) );
+		decalData3 = mix( vec4( 0.0, 0.0, 0.0, 1.0 ), decalData3, max( 0.0, _fa_[8 ].w - border ) );
+	};
+	{
+		float clipValue;
+		clipValue = min( decalData1.a, decalData2.a );
+		clipValue = min( decalData3.a, clipValue );
+		clip( clipValue - 0.01 );
+	};
+	sampleDiffuse = tex2D( samp_transmap, vofi_TexCoord0.xy );
+	sampleNormal = tex2D( samp_sparebumpmap, vofi_TexCoord0.xy );
+	sampleSpecularRefract = tex2D( samp_sparespecularmap, vofi_TexCoord0.xy );
+	sampleSpecularReflect = tex2D( samp_sparespecularmap2, vofi_TexCoord0.xy );
+	sampleParms = tex2D( samp_texturemap, vofi_TexCoord0.xy );
+	{
+		fromViewerN = normalize( vofi_TexCoord4.xyz );
+	};
+	{
+		localNormal = sampleNormal.wyz - 0.5;
+		localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+	};
+	localNormal.xy += decalData1.xy;
+	localNormal.xy += decalData2.xy;
+	localNormal.xy += decalData3.xy;
+	globalNormal.x = dot3( localNormal, vofi_TexCoord1 );
+	globalNormal.y = dot3( localNormal, vofi_TexCoord2 );
+	globalNormal.z = dot3( localNormal, vofi_TexCoord3 );
+	globalNormal = normalize( globalNormal );
+	{
+		globalReflection.xyz = fromViewerN - ( globalNormal * dot3( fromViewerN, globalNormal ) * 2.0 );
+	};
+	globalRefraction.xyz = refract( fromViewerN, globalNormal, glassRI.w );
+	{
+		globalReflection.w = floor( ( 1.0 - sampleSpecularReflect.w ) * 4.0 + _fa_[9 ].x );
+		{
+			reflectColor = texCUBElod( samp_dynamicenvmap, globalReflection ).xyz;
+		};
+		reflectColor += saturate( reflectColor - vec3( _fa_[10 ].x ) ) * vec3( _fa_[10 ].y );
+	}
+	{
+		globalRefraction.w = floor( ( 1.0 - sampleSpecularRefract.w ) * 4.0 + _fa_[9 ].x );
+		{
+			refractColor = texCUBElod( samp_dynamicenvmap, globalRefraction ).xyz;
+		};
+		refractColor += saturate( refractColor - vec3( _fa_[10 ].x ) ) * vec3( _fa_[10 ].y );
+	}
+	{
+		float ndotv = dot( fromViewerN, globalNormal );
+		ndotv = abs( ndotv );
+		float lut = tex2D( samp_fresnelmap, vec2( ndotv, 0.0 ) ).x;
+		fresh = glassRI.y + glassRI.z * lut;
+		fresh *= 1.0000001;
+	}
+	float fresAdd = fresh * sampleParms.a;
+	color = vec4( 0.0 );
+	color.xyz += reflectColor * mix( vec3( 0.058824 ), vec3( 1.0 ), fresh ) * sampleSpecularReflect.xyz;
+	color.xyz += refractColor * vec3( 1.0 - fresh ) * sampleSpecularRefract.xyz;
+	color.xyz += vec3( saturate( decalData1.z + decalData2.z + decalData3.z ) * 0.75 );
+	color.w = saturate( dot( color.xyz, vec3( 0.2, 0.7, 0.1 ) ) + fresAdd );
+	color += sampleDiffuse;
+	color *= vofi_Color;
+	color.xyz += vec3( fresAdd );
+	color.xyz = mix( _fa_[11 ].xyz, color.xyz, vofi_TexCoord0.w );
+	out_FragColor0 = saturate( color );
+}

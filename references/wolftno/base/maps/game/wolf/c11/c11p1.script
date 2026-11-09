@@ -1,0 +1,112 @@
+/*
+================================================================================
+Map Script for c11p1.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+//View free look 
+void freelook( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 30.0f, 30.0f );
+
+}
+
+//View free look 
+void freelooktight( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 15.0f, 15.0f );
+}
+
+void bouy1( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_bouy_1.time( 10.0 );
+     $gp_func_movers_mover_bouy_1.accelTime( 3 );
+     $gp_func_movers_mover_bouy_1.move( DIR_UP, 430 );
+}
+
+void bouy2( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_bouy_2.time( 10.0 );
+     $gp_func_movers_mover_bouy_2.accelTime( 3 );
+     $gp_func_movers_mover_bouy_2.move( DIR_UP, 430 );
+}
+
+void bouy3( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_bouy_3.time( 10.0 );
+     $gp_func_movers_mover_bouy_3.accelTime( 3 );
+     $gp_func_movers_mover_bouy_3.move( DIR_UP, 430 );
+}
+
+void bouy4( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_bouy_4.time( 10.0 );
+     $gp_func_movers_mover_bouy_4.accelTime( 3 );
+     $gp_func_movers_mover_bouy_4.move( DIR_UP, 430 );
+}
+
+void oktoflush( entity activatedEntity, entity activator )
+{
+	$gp_func_ledge_subevent_1.openDoor();
+}
+
+void water( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_moverjoint_water.time( 1.0 );
+     $gp_func_movers_moverjoint_water.accelTime( 0 );
+     $gp_func_movers_moverjoint_water.move( DIR_UP, 768 );
+}
+
+void waterdown( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_moverjoint_water.time( 1.0 );
+     $gp_func_movers_moverjoint_water.accelTime( 0 );
+     $gp_func_movers_moverjoint_water.move( DIR_DOWN, 768 );
+}
+
+
+void wiretrapchain( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_moverjoint_chain.time( 8.0 );
+     $gp_func_movers_moverjoint_chain.accelTime( 0 );
+     $gp_func_movers_moverjoint_chain.move( DIR_UP, 256 );
+}
+
+
+void water1( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_moverjoint_airlockwater.time( 0.01 );
+     $gp_func_movers_moverjoint_airlockwater.accelTime( 0 );
+     $gp_func_movers_moverjoint_airlockwater.move( DIR_UP, 512 );
+}
+
+void wiretrap( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_1.time( 20.0 );
+     $gp_func_movers_mover_1.rotate( '0 0 -90' );
+}
+
+void reactorwater( entity activatedEntity, entity activator )
+{
+	$func_movers_moverjoint_reactorwater.time( 15 );
+	$func_movers_moverjoint_reactorwater.accelTime( 0 );
+	$func_movers_moverjoint_reactorwater.move( DIR_UP, 180 );
+}
+
+void fastreactorwater( entity activatedEntity, entity activator )
+{
+     $func_movers_moverjoint_reactorwater.time( 0.01 );
+     $func_movers_moverjoint_reactorwater.accelTime( 0 );
+     $func_movers_moverjoint_reactorwater.move( DIR_UP, 180 );
+}
+
+void risingreactorwater( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_moverjoint_risingreactorwater.time( 40 );
+     $gp_func_movers_moverjoint_risingreactorwater.accelTime( 0 );
+     $gp_func_movers_moverjoint_risingreactorwater.move( DIR_UP, 90 );
+}

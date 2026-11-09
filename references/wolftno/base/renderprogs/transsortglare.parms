@@ -1,0 +1,14 @@
+exposure
+glareprescale
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+fogstart
+fogend
+fogscale
+particlestscalebias
+renderpositiontoviewtexture
+viewdepthmap
+transmap
+defaultsampler

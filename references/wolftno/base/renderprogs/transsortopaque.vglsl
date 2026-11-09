@@ -1,0 +1,44 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [5];
+
+in vec4 in_Position;
+in vec4 in_Tangent;
+in vec2 in_TexCoord;
+in vec2 in_TexCoord1;
+in vec4 in_Normal;
+in vec4 in_Color;
+
+out vec4 vofi_TexCoord0;
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord2;
+out vec4 vofi_Color;
+
+void main() {
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+	float eyeDist = gl_Position.w;
+	float frameFrac = in_Tangent.z;
+	float alphascale = in_Tangent.w;
+	float thickness = ( ( 1.0 - alphascale ) * 127.0 ) / eyeDist;
+	vofi_TexCoord0.xy = in_TexCoord.xy * _va_[4 ].x + _va_[4 ].y;
+	vofi_TexCoord0.z = 0.0;
+	vofi_TexCoord0.w = alphascale;
+	vofi_TexCoord1.xy = in_TexCoord1.xy * _va_[4 ].x + _va_[4 ].y;
+	vofi_TexCoord1.z = frameFrac;
+	vofi_TexCoord1.w = 0.0;
+	vofi_TexCoord2.x = in_Normal.x * 10.0 + 1.0;
+	vofi_TexCoord2.y = in_Normal.y * 10.0 + 1.0;
+	vofi_TexCoord2.z = 1.0 - in_Normal.z;
+	vofi_TexCoord2.w = in_Normal.w;
+	gl_Position.z -= thickness;
+	float particleFade = saturate( abs( eyeDist ) / ( ( 1.0 - alphascale ) * 127.0 ) );
+	float f = in_Tangent.x;
+	float fade = f + ( 1.0 - f ) * particleFade;
+	vofi_Color = swizzleColor( in_Color );
+	vofi_Color.w *= fade;
+}

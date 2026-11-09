@@ -1,0 +1,14 @@
+vertexxyzscale
+vertexxyzbias
+vertexmorphscale
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+modelfade
+renderpositiontoviewtexture
+dither256map
+transmap1
+viewdepthmap
+defaultsampler
+defaultsamplerZ

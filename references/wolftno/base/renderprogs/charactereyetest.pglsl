@@ -1,0 +1,210 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [26];
+uniform sampler2D samp_transmap1;
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_transmap2;
+uniform samplerCube samp_dynamicenvmap;
+uniform sampler2D samp_selfshadowmap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord6;
+in vec4 vofi_TexCoord5;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord4;
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	vec4 normalTex = tex2D( samp_transmap1, vofi_TexCoord0.xy );
+	vec2 texCoords = vofi_TexCoord0.xy - ( vofi_TexCoord6.xy * normalTex.w * 0.15 );
+	texCoords = texCoords - vec2( 0.5 );
+	float pupilDilateClamp = clamp( _fa_[0 ].x, -0.3, -0.05 );
+	float dilateMask = saturate( length( texCoords * ( 2.5 / pupilDilateClamp ) ) );
+	float dilateMask2 = 1.0 - saturate( length( vec3( texCoords, 0.0 ) * 5.3 ) );
+	vec2 dilation = normalize( vec3( texCoords, 0.0 ) ).xy * dilateMask * dilateMask2 * pupilDilateClamp;
+	texCoords += dilation;
+	texCoords += 0.5;
+	vec4 diffuseTex = tex2D( samp_transmap, texCoords );
+	vec4 shadowTex = tex2D( samp_transmap2, vofi_TexCoord5.xy );
+	vec3 eyeColor = diffuseTex.xyz * mix( _fa_[1 ].xyz, _fa_[2 ].xyz, vec3( diffuseTex.w ) );
+	eyeColor *= vec3( 2.0 );
+	eyeColor = pow3( abs( eyeColor ), 2.2 );
+	shadowTex.xyz = pow3( abs( shadowTex.xyz ), 2.2 );
+	vec3 localNormal = normalTex.xyz * 2.0 - 1.0;
+	vec3 specNormal;
+	specNormal.x = dot3( localNormal, vofi_TexCoord1 );
+	specNormal.y = dot3( localNormal, vofi_TexCoord2 );
+	specNormal.z = dot3( localNormal, vofi_TexCoord3 );
+	specNormal = normalize( specNormal );
+	localNormal.xy = mix( localNormal.xy * vec2( -2.0 ), localNormal.xy, vec2( diffuseTex.w ) );
+	localNormal = normalize( localNormal );
+	vec3 globalNormal;
+	globalNormal.x = dot3( localNormal, vofi_TexCoord1 );
+	globalNormal.y = dot3( localNormal, vofi_TexCoord2 );
+	globalNormal.z = dot3( localNormal, vofi_TexCoord3 );
+	globalNormal = normalize( globalNormal );
+	vec3 fromViewer = normalize( vofi_TexCoord4.xyz );
+	vec4 globalReflection;
+	globalReflection.xyz = normalize( fromViewer - ( specNormal * dot3( fromViewer, specNormal ) * 2.0 ) );
+	globalReflection.w = 0.0;
+	vec3 envColor;
+	{
+		envColor = texCUBElod( samp_dynamicenvmap, globalReflection ).xyz;;
+		envColor = pow3( abs( envColor ), 2.2 );
+	};
+	float fresnel;
+	fresnel = 1.0 - saturate( dot( -fromViewer, specNormal ) );
+	envColor *= ( 1.0 - diffuseTex.w ) + 0.2;
+	envColor *= ( vofi_TexCoord5.w + 0.5 );
+	envColor *= fresnel;
+	float specularScale = 16 * saturate( 1.05 - diffuseTex.w );
+	float specularPower = 128.0;
+	vec3 ambientLight =
+	+ max( globalNormal.x * _fa_[3 ].xyz, 0 )
+	+ max( -globalNormal.x * _fa_[4 ].xyz, 0 )
+	+ max( globalNormal.y * _fa_[5 ].xyz, 0 )
+	+ max( -globalNormal.y * _fa_[6 ].xyz, 0 )
+	+ max( globalNormal.z * _fa_[7 ].xyz, 0 )
+	+ max( -globalNormal.z * _fa_[8 ].xyz, 0 );
+	vec4 color = vec4( 0.0 );
+	vec3 diffuseLight = vec3( 0.0 );
+	vec3 specularLight = vec3( 0.0 );
+	float acceptDimShadow = 0.0; if ( _fa_[9 ].x > 0 ) {
+		vec3 worldPosition;
+		{
+			worldPosition = vofi_TexCoord4.xyz + _fa_[10 ].xyz;
+		};
+		vec3 selfShadow;
+		vec3 thickness;
+		float ambientOcclusion;
+		{ if( _fa_[9 ].y > 0 ) {
+				vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[11 ] );
+				vec4 encoded = tex2D( samp_selfshadowmap, texcoord );
+				encoded.xyz *= 2.0;
+				selfShadow = max( encoded.xyz - 1.0, vec3( 0.0 ) );
+				thickness = encoded.xyz + vec3( _fa_[12 ].y );
+				ambientOcclusion = 1.0 - _fa_[13 ].x * ( 1.0 - encoded.w );
+			} else {
+				selfShadow = vec3( 1.0 );
+				thickness = vec3( 100 );
+				ambientOcclusion = 1.0;
+			}
+		};
+		vec3 light0Dir = _fa_[14 ].xyz - worldPosition;
+		vec3 light1Dir = _fa_[15 ].xyz - worldPosition;
+		vec3 light2Dir = _fa_[16 ].xyz - worldPosition;
+		vec3 light0DirNormalized = normalize( light0Dir );
+		vec3 light1DirNormalized = normalize( light1Dir );
+		vec3 light2DirNormalized = normalize( light2Dir );
+		float light0Dist = length( light0Dir );
+		float light1Dist = length( light1Dir );
+		float light2Dist = length( light2Dir );
+		float light0Attenuation = 1.0 - ( min( light0Dist, _fa_[17 ].w ) / max( _fa_[17 ].w, 0.001 ) );
+		float light1Attenuation = 1.0 - ( min( light1Dist, _fa_[18 ].w ) / max( _fa_[18 ].w, 0.001 ) );
+		float light2Attenuation = 1.0 - ( min( light2Dist, _fa_[19 ].w ) / max( _fa_[19 ].w, 0.001 ) );
+		float light0DirNormalizedDotGlobalNormal = dot3( light0DirNormalized, globalNormal );
+		float light0Factor = saturate( light0DirNormalizedDotGlobalNormal ) * light0Attenuation;
+		float light1Factor = saturate( dot3( light1DirNormalized, globalNormal ) ) * light1Attenuation;
+		float light2Factor = saturate( dot3( light2DirNormalized, globalNormal ) ) * light2Attenuation;
+		vec3 light0Color = light0Factor * _fa_[17 ].xyz * saturate( selfShadow.x + _fa_[14 ].w );
+		vec3 light1Color = light1Factor * _fa_[18 ].xyz * saturate( selfShadow.y + _fa_[15 ].w );
+		vec3 light2Color = light2Factor * _fa_[19 ].xyz * saturate( selfShadow.z + _fa_[16 ].w );
+		float light0Specular;
+		float light1Specular;
+		float light2Specular;
+		{
+			float oneOverPi8 = 0.039808917197;
+			float glossPowMax = max( specularPower, 0.000001 );
+			light0Specular = pow( max( max( dot( globalReflection.xyz, light0DirNormalized ), 0.0 ), 0.0 ), glossPowMax );
+			light0Specular *= ( glossPowMax + 8.0 ) * oneOverPi8;
+			light0Specular *= specularScale;
+		};
+		{
+			float oneOverPi8 = 0.039808917197;
+			float glossPowMax = max( specularPower, 0.000001 );
+			light1Specular = pow( max( max( dot( globalReflection.xyz, light1DirNormalized ), 0.0 ), 0.0 ), glossPowMax );
+			light1Specular *= ( glossPowMax + 8.0 ) * oneOverPi8;
+			light1Specular *= specularScale;
+		};
+		{
+			float oneOverPi8 = 0.039808917197;
+			float glossPowMax = max( specularPower, 0.000001 );
+			light2Specular = pow( max( max( dot( globalReflection.xyz, light2DirNormalized ), 0.0 ), 0.0 ), glossPowMax );
+			light2Specular *= ( glossPowMax + 8.0 ) * oneOverPi8;
+			light2Specular *= specularScale;
+		};
+		ambientLight *= ambientOcclusion;
+		diffuseLight += light0Color;
+		diffuseLight += light1Color;
+		diffuseLight += light2Color;
+		diffuseLight += ambientLight;
+		specularLight += light0Color * vec3( light0Specular );
+		specularLight += light1Color * vec3( light1Specular );
+		specularLight += light2Color * vec3( light2Specular );
+		specularLight += diffuseLight * envColor;
+		float lightFactor = 0.0;
+		{
+			lightFactor += dot3( light0Dir, globalNormal ) * light0Attenuation;
+		};
+		{
+			lightFactor += dot3( light1Dir, globalNormal ) * light1Attenuation;
+		};
+		{
+			lightFactor += dot3( light2Dir, globalNormal ) * light2Attenuation;
+		};
+		{
+			if( _fa_[9 ].z < 1.0 ) {
+				acceptDimShadow = 0.0;
+			} else {
+				float tmpLightFactor = saturate( lightFactor );
+				vec3 tmpAmbient = ambientLight;
+				acceptDimShadow = saturate( ( 1.0 - ( tmpAmbient.x, tmpAmbient.y, tmpAmbient.z )*(1.0/3.0) )
+				- ( saturate( tmpLightFactor - _fa_[20 ].y ) + 0.5 + _fa_[20 ].x ) ) * 0.75;
+			}
+		};
+	} else {
+		vec3 fakeSpecularDir = normalize( vec3( _fa_[21 ].x, _fa_[21 ].y, _fa_[21 ].z * 0.1 ) );
+		float physicalSpecular;
+		{
+			float oneOverPi8 = 0.039808917197;
+			float glossPowMax = max( 128.0, 0.000001 );
+			physicalSpecular = pow( max( max( dot3( globalReflection.xyz, fakeSpecularDir ), 0.0 ), 0.0 ), glossPowMax );
+			physicalSpecular *= ( glossPowMax + 8.0 ) * oneOverPi8;
+			physicalSpecular *= specularScale;
+		};
+		float primeLightFactor = saturate( dot3( _fa_[21 ], globalNormal ) * 0.5 + 0.5 );
+		vec3 primeLight = ( primeLightFactor * primeLightFactor ) * _fa_[22 ].xyz;
+		{
+			acceptDimShadow = 1.0 - ( saturate( primeLightFactor - _fa_[20 ].y ) + 0.5 + _fa_[20 ].x );
+		};
+		diffuseLight += ambientLight + primeLight;
+		specularLight += ( diffuseLight * envColor ) + ( _fa_[22 ].xyz * physicalSpecular );
+	}
+	{
+		diffuseLight.xyz *= _fa_[23 ].xyz;
+	};
+	{
+		specularLight.xyz *= _fa_[24 ].xyz * _fa_[25 ].xyz;
+	};;;
+	color.xyz += diffuseLight * eyeColor;
+	color.xyz += specularLight;
+	color.xyz *= shadowTex.xyz;
+	color.w = acceptDimShadow;
+	color.xyz = pow3( color.xyz, 1.0 / 2.2 );
+	{
+		out_FragColor0 = color;
+		out_FragColor1 = vec4( 0.0 );
+		{
+			out_FragColor2.xyz = globalNormal.xyz * vec3( 0.5 ) + vec3( 0.5 );
+			out_FragColor2.w = dot( vec3( diffuseTex.w ).rgb, vec3( 1.0 / 3.0 ) );
+		};
+	};
+}

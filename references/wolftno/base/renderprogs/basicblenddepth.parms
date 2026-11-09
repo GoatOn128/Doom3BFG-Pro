@@ -1,0 +1,16 @@
+vertexxyzscale
+vertexxyzbias
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+fogstart
+fogend
+fogscale
+vertexstscalebias
+smatrix
+tmatrix
+color
+fogcolor
+transmap
+defaultsampler

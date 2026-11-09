@@ -23,7 +23,7 @@ STATUS = os.environ.get("STATUS", "unknown")
 
 ERROR_RE = re.compile(
     "error:|fatal error:|error C[0-9]+|Error C[0-9]+|error LNK[0-9]+|"
-    "error MSB[0-9]+|CMake Error|undefined reference|undefined symbol|"
+    "error MSB[0-9]+|error RC[0-9]+|error D[0-9]+|Command line error|CMake Error|undefined reference|undefined symbol|"
     "Undefined symbols|duplicate symbol|symbol\\(s\\) not found|"
     "unresolved external|no such file|cannot open|LLVM ERROR|Stack dump:|"
     ">>> referenced|referenced from|UNCRUSTIFY_FAILED|Build FAILED"
@@ -92,7 +92,7 @@ def main():
             # print no matching error line (crashes, out of memory)
             # stay visible in the digest this way
             f.write("\n### failure context\n\n")
-            target_re = re.compile(r"(CMake Error at [^:]+|FAILED: .+|.+ : error (?:C|LNK|MSB)[0-9]+)")
+            target_re = re.compile(r"(CMake Error at [^:]+|FAILED: .+|.+ : error (?:C|LNK|MSB|RC|D)[0-9]+)")
             ctx = OrderedDict()
             seen_file = set()
             for i, l in enumerate(lines):

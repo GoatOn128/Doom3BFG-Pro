@@ -1,0 +1,17 @@
+vertexstscalebias
+vertexxyzscale
+vertexxyzbias
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+modelmatrixx
+modelmatrixy
+modelmatrixz
+globalvieworigin
+normalrotate
+newpowerscale
+reflectioncolor
+sparebumpmap
+dynamicenvmap
+defaultsampler

@@ -1,0 +1,135 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [20];
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_oceannormalmap;
+uniform sampler2D samp_oceandetailnormalmap1;
+uniform sampler2D samp_oceandetailnormalmap2;
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_viewcolormap;
+uniform sampler2D samp_fresnelmap;
+uniform samplerCube samp_oceanenvmap;
+uniform sampler2D samp_oceanfoammap;
+uniform samplerCube samp_oceanenvmapunderwater;
+
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord3;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 dummy = _fa_[0 ];
+	dummy = _fa_[1 ];
+	dummy = _fa_[2 ];
+	vec3 localpos = vofi_TexCoord2.xyz;
+	vec3 AttrMap = tex2D( samp_transmap, vofi_TexCoord0.zw ).rgb;
+	float Alpha = AttrMap.r;
+	vec4 OceanMap = tex2D( samp_oceannormalmap, vofi_TexCoord0.xy );
+	vec2 n2comp = OceanMap.xy;
+	n2comp = (n2comp*2.0 - vec2(1.0, 1.0));
+	vec2 n2compdetail = n2comp;
+	vec2 NormalDetailMap = tex2D( samp_oceandetailnormalmap1, vofi_TexCoord1.yx * _fa_[3 ].x ).ga;
+	NormalDetailMap = (NormalDetailMap*2.0 - vec2(1.0, 1.0));
+	n2compdetail += NormalDetailMap * _fa_[3 ].y;
+	vec2 NormalDetailMap2 = tex2D( samp_oceandetailnormalmap2, vofi_TexCoord1.yx * _fa_[4 ].x ).ga;
+	NormalDetailMap2 = (NormalDetailMap2*2.0 - vec2(1.0, 1.0));
+	n2compdetail += NormalDetailMap2 * _fa_[4 ].y;
+	vec3 normal = vec3(n2compdetail.x, n2compdetail.y, sqrt(clamp(1.0 - dot(n2compdetail, n2compdetail), 0, 1)) );
+	vec2 n2compdetailrefr = n2comp;
+	n2compdetailrefr += NormalDetailMap * _fa_[3 ].z;
+	n2compdetailrefr += NormalDetailMap2 * _fa_[4 ].z;
+	vec3 normalrefr = vec3(n2compdetailrefr.x, n2compdetailrefr.y, sqrt(clamp(1.0 - dot(n2compdetailrefr, n2compdetailrefr), 0, 1)) );
+	vec2 window = screenPosToTexcoord( gl_FragCoord.xy, _fa_[5 ] );
+	vec3 viewL = normalize( vofi_TexCoord3.xyz );
+	vec3 vrefr = refract( -viewL.xyz, normalrefr.xyz, 1.0/1.33 );
+	vec3 refrdiff = vrefr + viewL.xyz;
+	vec2 oceanUVProj = vec2(dot(refrdiff, _fa_[6 ].xyz), dot(refrdiff, _fa_[7 ].xyz));
+	bool bFrontFacing = ReadFacing( gl_FrontFacing );
+	float pertfact = bFrontFacing ? _fa_[8 ].x : _fa_[8 ].z;
+	float pertdivofs = bFrontFacing ? _fa_[8 ].y : _fa_[8 ].w;
+	float pertscale = pertfact / (vofi_TexCoord2.w + pertdivofs);
+	vec2 window_pert = window - oceanUVProj * pertscale;
+	float window_z_pert = tex2Ddepth_fast( samp_viewdepthmap, window_pert )* 2.0 - 1.0;
+	float window_z = tex2Ddepth_fast( samp_viewdepthmap, window )* 2.0 - 1.0;
+	float sampleZ =
+	(window_z + _fa_[9 ].z == 0.0) ?
+	1000000.0 :
+	window_z * _fa_[9 ].w / ( window_z + _fa_[9 ].z );
+	float sampleZ_pert =
+	(window_z_pert + _fa_[9 ].z == 0.0) ?
+	1000000.0 :
+	window_z_pert * _fa_[9 ].w / ( window_z_pert + _fa_[9 ].z );
+	float bgdist = sampleZ_pert - vofi_TexCoord2.w;
+	if (bgdist < 10.0)
+	{
+		window_pert = window;
+		bgdist = sampleZ - vofi_TexCoord2.w;
+	}
+	vec4 screen_pert = tex2Dlod( samp_viewcolormap, vec4(window_pert.xy, 0, 0));
+	screen_pert.rgb = screen_pert.rgb * screen_pert.rgb;
+	vec4 screen = tex2Dlod( samp_viewcolormap, vec4(window.xy, 0, 0));
+	screen.rgb = screen.rgb*screen.rgb;
+	float waterfogdist = bFrontFacing ? bgdist : vofi_TexCoord2.w;
+	float waterfog = 1.0-saturate(exp2(-max(0.01, waterfogdist* _fa_[2 ].w)));
+	float ndotv = dot(normal, viewL.xyz);
+	float fres = tex2D( samp_fresnelmap, vec2(max(0.0, ndotv)*255.0/256.0 + 0.5/256.0, 0.0)).x;
+	fres = fres*0.97+0.03;
+	vec3 vrefl = reflect( -viewL.xyz, normal.xyz );
+	vrefl.z = abs(vrefl.z);
+	vec3 vReflection = texCUBE( samp_oceanenvmap, vrefl ).rgb;
+	vReflection.xyz *= 1.0;
+	vReflection = vReflection*vReflection;
+	vReflection = (vReflection*AttrMap.g + vReflection)*0.5;
+	vec3 sunvec = _fa_[10 ].rgb - localpos;
+	sunvec = normalize(sunvec);
+	vec3 h = normalize(viewL.xyz + sunvec);
+	float spec1 = pow(saturate(dot(h, normal)+ _fa_[11 ].x), _fa_[12 ].w);
+	float spec2 = pow(saturate(dot(h, normal)+ _fa_[11 ].x), _fa_[13 ].w);
+	vec3 sun = spec1 * _fa_[12 ].rgb + spec2 * _fa_[13 ].rgb;
+	sun *= AttrMap.g;
+	vReflection.xyz += sun;
+	vec4 FoamMap = tex2D( samp_oceanfoammap, vofi_TexCoord1.xy * _fa_[14 ].w );
+	FoamMap.rgb = FoamMap.rgb * FoamMap.rgb;
+	float foamness = saturate(dot(n2comp, n2comp)* _fa_[14 ].x)* _fa_[14 ].y + saturate(localpos.z * _fa_[15 ].x) + _fa_[14 ].z;
+	foamness += _fa_[16 ].y*saturate(1.0 - abs(bgdist) * _fa_[16 ].x);
+	foamness = saturate(foamness);
+	foamness *= FoamMap.a;
+	vec3 vRefract = screen_pert.rgb;
+	float outAlpha = 1.0;
+	vec3 outCol = vec3(0.0, 0.0, 0.0);
+	if (bFrontFacing)
+	{
+		float depthdiffalpha =
+		saturate((sampleZ - vofi_TexCoord2.w) * _fa_[17 ].x) +
+		saturate(-(sampleZ - vofi_TexCoord2.w) * _fa_[17 ].y);
+		outCol = vRefract;
+		outCol = mix(outCol, _fa_[18 ].rgb, waterfog);
+		outCol = mix(outCol, FoamMap.xyz, max( foamness, 1.0 - depthdiffalpha ) );
+		outCol *= AttrMap.g;
+		outCol = mix(outCol, vReflection.xyz, fres);
+		outCol = mix( _fa_[19 ].xyz* _fa_[19 ].xyz, outCol.xyz, vofi_TexCoord3.w );
+		outCol = mix(screen.rgb, outCol, depthdiffalpha*Alpha);
+	}
+	else
+	{
+		vec3 vrefl_back = reflect( -viewL.xyz, -normal.xyz );
+		float fresbackside = saturate(1.0 - saturate(dot(viewL, -normal)-0.55) * 4.0);
+		vec4 vReflection = texCUBE( samp_oceanenvmapunderwater, vrefl_back );
+		vReflection.rgb = vReflection.rgb * vReflection.rgb;
+		vReflection.rgb = mix( _fa_[19 ].xyz* _fa_[19 ].xyz, vReflection.rgb, saturate(-vrefl_back.z));
+		outAlpha *= normal.z*normal.z;
+		outAlpha = outAlpha*outAlpha * (1.0-foamness);
+		outCol = mix(vRefract, vReflection.rgb, fresbackside);
+		outCol = mix(outCol, FoamMap.xyz, foamness*FoamMap.a);
+		outCol = mix( _fa_[19 ].xyz* _fa_[19 ].xyz, outCol.xyz, vofi_TexCoord3.w );
+		outCol = mix(screen.rgb, outCol, Alpha);
+	}
+	outCol.xyz = sqrt(outCol.xyz);
+	out_FragColor0.xyz = outCol.xyz;
+	out_FragColor0.w = outAlpha;
+}

@@ -1,0 +1,246 @@
+/*
+================================================================================
+Map Script for c08.map
+================================================================================
+*/
+
+
+// gp_snd_cement_loops
+
+void cement_mixer_level_01 ( entity activatedEntity, entity activator ) {
+	sys.print("Cement mixer level 01");
+	$gp_snd_cement_loops.startSoundShader( @sound( "anim_events/c08/cement_mixer/mixer_loop_level_01" ), SND_CHANNEL_BODY);
+}
+
+void cement_mixer_level_02 ( entity activatedEntity, entity activator ) {
+	sys.print("Cement mixer level 02");
+	$gp_snd_cement_loops.startSoundShader( @sound( "anim_events/c08/cement_mixer/mixer_loop_level_02" ), SND_CHANNEL_BODY);
+}
+
+void cement_mixer_level_03 ( entity activatedEntity, entity activator ) {
+	sys.print("Cement mixer level 03");
+	$gp_snd_cement_loops.startSoundShader( @sound( "anim_events/c08/cement_mixer/mixer_loop_level_03" ), SND_CHANNEL_BODY);
+}
+
+void cement_mixer_stop ( entity activatedEntity, entity activator ) {
+	sys.print("Cement mixer stop");
+	$gp_snd_cement_loops.startSoundShader( @sound( "anim_events/c08/cement_mixer/mixer_level_03_stop" ), SND_CHANNEL_BODY);
+}
+
+
+void main() {
+
+}
+
+
+void HideActivator( entity activatedEntity, entity activator ) {
+	activator.hide();
+}
+
+void TeleportToCrowdTest( entity activatedEntity, entity activator ) {
+	sys.print("Teleport player to crowd test\r");
+	$player1.teleport( $gp1_info_null_crowd_test.getOrigin(), $gp1_info_null_crowd_test.getAngles() );
+
+}
+
+void TeleportToFaustRide( entity activatedEntity, entity activator ) {
+	sys.print("Teleport player to Faust ride\r");
+	$player1.teleport( $gp5_info_null_faustride.getOrigin(), $gp5_info_null_faustride.getAngles() );
+
+}
+
+void sethealth80( entity activatedEntity, entity activator )
+{
+     $player1.setHealth ( 80 );
+}
+
+
+// Scripts related to herr Faust
+// Start moving along the spline
+void FaustStart( entity activatedEntity, entity activator )
+{
+	sys.print("FaustStart\r");
+	$func_mover_faust.time( 90.0 );
+	$func_mover_faust.accelTime( 2 );
+	$func_mover_faust.decelTime( 2 );
+	$func_mover_faust.followSpline($gp1_spline_faust, 0, 0);
+}
+
+void FaustEnter( entity activatedEntity, entity activator )
+{
+	sys.print("FaustEnter\r");
+}
+
+void FaustExit( entity activatedEntity, entity activator )
+{
+	sys.print("FaustExit\r");
+}
+
+void TrainDoorExitOpen1( entity activatedEntity, entity activator )
+{
+	 $sound_sp_train_door.activate( activator );	
+     $gp1_gp7_func_movers_mover_traindoor_1.time( 2.0 );
+     $gp1_gp7_func_movers_mover_traindoor_1.accelTime( 1 );
+     $gp1_gp7_func_movers_mover_traindoor_1.decelTime( 1 );
+     $gp1_gp7_func_movers_mover_traindoor_1.move( DIR_BACK, 50 );
+}
+
+void TrainDoorExitOpen2( entity activatedEntity, entity activator )
+{
+     $gp1_gp7_func_movers_mover_traindoor_2.time( 2.0 );
+     $gp1_gp7_func_movers_mover_traindoor_2.accelTime( 1 );
+     $gp1_gp7_func_movers_mover_traindoor_2.decelTime( 1 );
+     $gp1_gp7_func_movers_mover_traindoor_2.move( DIR_FORWARD, 50 );
+}
+
+void BuildElevator1( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_3.time( 5.0 );
+     $gp_func_movers_mover_3.accelTime( 0 );
+     $gp_func_movers_mover_3.decelTime( 0 );
+     $gp_func_movers_mover_3.move( DIR_UP, 578 );
+}
+
+
+void BuildElevator2( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_6.time( 5.0 );
+	 $gp_func_movers_mover_6.accelTime( 0 );
+     $gp_func_movers_mover_6.decelTime( 0 );
+     $gp_func_movers_mover_6.move( DIR_UP, 578 );
+}
+
+void CommandDrawer( entity activatedEntity, entity activator )
+{
+	 $sound_sp_engeldrawer.activate( $acti );	
+     $gp_func_movers_mover_9.time( 1.0 );
+	 $gp_func_movers_mover_9.accelTime( 1 );
+     $gp_func_movers_mover_9.decelTime( 1 );
+     $gp_func_movers_mover_9.move( DIR_BACK, 26 );
+}
+
+void CommandPainting( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_8.time( 3.0 );
+     $gp_func_movers_mover_8.move( DIR_DOWN, 80 );
+}
+
+
+void MoveFaust( entity activatedEntity, entity activator )
+{
+	$gp_faust_crem_door_dummy.time( 33.5 );
+	$gp_faust_crem_door_dummy.accelTime( 0 );
+	$gp_faust_crem_door_dummy.decelTime( 2 );
+	$gp_faust_crem_door_dummy.followSpline($gp_faust_hatch_spline, 0, 0);
+}
+
+void FaustElev01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_roboelevator_2.time( 5.0 );
+     $gp_func_mover_roboelevator_2.accelTime( 1 );
+     $gp_func_mover_roboelevator_2.decelTime( 1 );
+     $gp_func_mover_roboelevator_2.move( DIR_DOWN, 479 );
+}
+
+void FaustElev02( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_roboelevator_2.time( 5.0 );
+     $gp_func_mover_roboelevator_2.accelTime( 1 );
+     $gp_func_mover_roboelevator_2.decelTime( 1 );
+     $gp_func_mover_roboelevator_2.move( DIR_UP, 479 );
+}
+
+
+void FaustElevFaust01( entity activatedEntity, entity activator )
+{
+     $gp_faust_elev_dummy.time( 5.0 );
+     $gp_faust_elev_dummy.accelTime( 1 );
+     $gp_faust_elev_dummy.decelTime( 1 );
+     $gp_faust_elev_dummy.move( DIR_UP, 479 );
+}
+
+
+void MoveFaustElev( entity activatedEntity, entity activator )
+{
+	$gp_faust_elev_dummy.time( 15.5 );
+	$gp_faust_elev_dummy.accelTime( 0 );
+	$gp_faust_elev_dummy.decelTime( 2 );
+	$gp_faust_elev_dummy.followSpline($gp_faust_elev_spline, 0, 0);
+}
+
+void PushPlayer( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_playertrench_01.time( 21.0 );
+     $gp_func_movers_mover_playertrench_01.accelTime( 1 );
+     $gp_func_movers_mover_playertrench_01.decelTime( 1 );
+     $gp_func_movers_mover_playertrench_01.move( DIR_BACK, 950 );
+}
+
+
+
+void playerstopfactory( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_playerstop_factory.time( 8.0 );
+     $gp_func_movers_mover_playerstop_factory.accelTime( 1 );
+     $gp_func_movers_mover_playerstop_factory.decelTime( 1 );
+     $gp_func_movers_mover_playerstop_factory.move( DIR_BACK, 200 );
+}
+
+
+void PushPlayer2( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_playertrench_02.time( 2.0 );
+     $gp_func_movers_mover_playertrench_02.accelTime( 1 );
+     $gp_func_movers_mover_playertrench_02.decelTime( 1 );
+     $gp_func_movers_mover_playertrench_02.move( DIR_RIGHT, 196 );
+}
+
+void CommandSafe( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_18.time( 1.0 );
+	 $gp_func_movers_mover_18.accelTime( 1 );
+     $gp_func_movers_mover_18.decelTime( 1 );
+     $gp_func_movers_mover_18.rotateOnce( '0 150 0' );
+}
+
+void stopsoundset( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_character_execution_set.stopSound( SND_CHANNEL_ANY, 0 );
+}
+
+void stopsoundtorture( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_character_torturevictim.stopSound( SND_CHANNEL_ANY, 0 );
+}
+
+void bindset( entity activatedEntity, entity activator ) {
+    $gp_func_animatedsimple_character_execution_set.bind( $gp_info_null_set_mount );
+}
+
+
+//EXECUTION View free look 
+void FreeLook( entity activatedEntity, entity activator ) 
+{
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 10.0f, 5.0f );
+}
+//Release PL from FPE 
+void FPErelease( entity 	activatedEntity, entity activator ) {
+	$gp_func_firstpersonevent_execution.forceEndFirstPersonEvent();
+}
+
+//Remove tutorial screen 
+void clearmixingtutorial( entity activatedEntity, entity activator ) 
+{
+//$player1.endSpecificTutorial( playertutorial/cementmixer );
+    $target_tutorial_gui_1.hideIfActive();
+}
+
+void knifekilledcombine ( entity activatedEntity, entity activator ) 
+{	$gp_target_use_get_knife.activate( $player1 );
+}
+
+void call_set_player_playerhealth_21( entity activatedEntity, entity activator )
+{
+	$player1.setHealth(21);
+}

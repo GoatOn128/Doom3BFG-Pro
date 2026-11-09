@@ -1,0 +1,48 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [14];
+
+in vec4 in_Position;
+in vec4 in_Tangent;
+in vec4 in_Normal;
+in vec2 in_TexCoord;
+in vec2 in_TexCoord1;
+in vec4 in_Color;
+
+out vec4 vofi_TexCoord0;
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord4;
+out vec4 vofi_Color;
+
+void main() {
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+	float eyeDist = gl_Position.w;
+	float frameFrac = in_Tangent.z;
+	float alphascale = in_Tangent.w;
+	vec4 genericParm = in_Normal;
+	float thickness = ( ( 1.0 - alphascale ) * 127.0 ) / eyeDist;
+	float fade = saturate( abs( eyeDist ) / ( ( 1.0 - alphascale ) * 127.0 ) );
+	float fogTerm = -( clamp( eyeDist - _va_[4 ].x, 0.0, _va_[5 ].x ) * _va_[6 ].x );
+	float fogVal = saturate( exp2( fogTerm ) );
+	vofi_TexCoord0.xy = in_TexCoord.xy * _va_[7 ].x + _va_[7 ].y;
+	vofi_TexCoord0.z = fogVal;
+	vofi_TexCoord0.w = alphascale;
+	vofi_TexCoord1.xy = in_TexCoord1.xy * _va_[7 ].x + _va_[7 ].y;
+	vofi_TexCoord1.z = frameFrac;
+	vofi_TexCoord1.w = 0.0;
+	vec4 vertColor = swizzleColor( in_Color ); if ( _va_[8 ].x != 0.0 )
+	{
+		vec3 globalOrigin;
+		globalOrigin.x = dot4( in_Position, _va_[9 ] );
+		globalOrigin.y = dot4( in_Position, _va_[10 ] );
+		globalOrigin.z = dot4( in_Position, _va_[11 ] );
+		vofi_TexCoord4.xyz = globalOrigin;
+	}
+	vofi_Color.xyz = vertColor.xyz * _va_[12 ].xyz *4 * _va_[13 ].xyz;
+	vofi_Color.w = ( vertColor.w * _va_[12 ].w * 4.0 ) * fade;
+}

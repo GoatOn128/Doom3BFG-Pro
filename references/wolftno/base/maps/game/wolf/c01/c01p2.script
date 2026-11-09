@@ -1,0 +1,409 @@
+/*
+================================================================================
+Map Script for c01p2_low.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+/*================================================================================
+FLOATING BLOATED BODIES, WE SHOULD MAKE THEM MORE BLOATED!! 	
+================================================================================*/
+
+object floatingBodies
+{
+	float bobSpeed;
+	float bobVectorX;
+	float bobVectorY;
+	float bobVectorZ;
+	float bobPhase;
+	
+	void init();
+};
+
+void floatingBodies::init()
+{
+	vector movement = '1 1 1';
+	movement_x+= bobVectorX;
+	movement_y+= bobVectorY;		
+	movement_z+= bobVectorZ;
+	
+	self.bob( bobSpeed, bobPhase, movement); 
+}
+
+/*================================================================================
+Bunker cannons, set angles.
+================================================================================*/
+void call_switch_artillery_lower( entity activatedEntity, entity activator )
+{
+	sys.print("Setting joints");
+//	$func_animatedsimple_character_1.unbind();
+	$gp_func_animatedsimple_generic_artillery_lower.pauseAnim( true, -1, false );
+    vector yawAngle = $gp_func_animatedsimple_generic_artillery_lower.getJointAngle( 1 );
+	vector pitchAngle = $gp_func_animatedsimple_generic_artillery_lower.getJointAngle( 2 );
+	vector startAngles;
+	startAngles_y = yawAngle_y + 90.87;
+	startAngles_x = pitchAngle_x;
+	sys.print("Val: " + startAngles_x + " " + startAngles_y + "\n" );
+	$gp_prop_useable_turret_artillery_lower.setStartAngles( startAngles );
+	$gp_prop_useable_turret_artillery_lower.show();
+	sys.waitFrame();
+	sys.waitFrame();
+	$gp_func_animatedsimple_generic_artillery_lower.hide();
+}
+
+void call_switch_artillery_upper( entity activatedEntity, entity activator )
+{
+	sys.print("Setting joints");
+//	$func_animatedsimple_character_1.unbind();
+	$gp_func_animatedsimple_generic_artillery_upper.pauseAnim( true, -1, false );
+    vector yawAngle = $gp_func_animatedsimple_generic_artillery_upper.getJointAngle( 1 );
+	vector pitchAngle = $gp_func_animatedsimple_generic_artillery_upper.getJointAngle( 2 );
+	vector startAngles;
+	startAngles_y = yawAngle_y + 134.5;
+	startAngles_x = pitchAngle_x;
+	sys.print("Val: " + startAngles_x + " " + startAngles_y + "\n" );
+	$gp_prop_useable_turret_artillery_upper.setStartAngles( startAngles );
+	$gp_prop_useable_turret_artillery_upper.show();
+	sys.waitFrame();
+	sys.waitFrame();
+	$gp_func_animatedsimple_generic_artillery_upper.hide();
+}
+
+void call_bulkdoor_01_destroyed ( entity activatedEntity, entity acti )
+{
+ $bulkdoor_01_destroyed.setEndAnimState();
+}
+
+
+// Script for moving some explosions and sound to surround the player
+// killing him nice and easy. If there was a way to call GetForwardDir() in this
+// crummy script system I wouldn't have to do four explosions
+void PlayerMineEffect( entity activatedEntity, entity activator ) {
+	sys.print("Aouw! Stepped on a mine did we?\r");
+	$gp_mine_fx_null.teleport( $player1.getOrigin(), $player1.getAngles() );
+}
+
+// open bunker door ( should be opened already when one gets there, so it opens superduper fast)
+// But we do not position itself in open state from the beginning, so we have control of it's position 
+// after closing it.
+void script_bunkerdoor_open( entity activatedEntity, entity activator ) {
+	
+	sys.print( "Opening bunker door.");
+
+	$gp_bunkerdoor_joint.time( 0.1 );
+	$gp_bunkerdoor_joint.rotateOnce( ' 0 83 0' );			
+}
+
+// open bunker door
+void script_bunkerdoor_close( entity activatedEntity, entity activator ) {
+
+	sys.print( "Closing bunker door.");
+	$gp_bunkerdoor_joint.time( 5.0 );
+	$gp_bunkerdoor_joint.accelTime( 1.0 );
+	$gp_bunkerdoor_joint.decelTime( 1.0 );
+	$gp_bunkerdoor_joint.rotateOnce( ' 0 -83 0' );				
+}
+
+void call_surfacefire( entity activatedEntity, entity activator )
+{
+	$pos_watertrails.teleport( $player1.getOrigin(), $player1.getAngles() );
+}
+
+//Push the ammo traversal
+void ammo_push ( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_ammo.time( 10 );
+    $gp_func_mover_ammo.accelTime( 1 );
+    $gp_func_mover_ammo.decelTime( 6 );
+	$gp_func_mover_ammo.move( DIR_RIGHT, 1100 );
+}
+
+//The elevator goes up
+void elevator_up ( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_elevator.time( 45 );
+    $gp_func_mover_elevator.accelTime( 0 );
+    $gp_func_mover_elevator.decelTime( 4 );
+	$gp_func_mover_elevator.move( DIR_UP, 955 );
+}
+
+void call_elevator_up_checkpoint ( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_elevator.time( 0.2 );
+    $gp_func_mover_elevator.accelTime( 0 );
+    $gp_func_mover_elevator.decelTime( 0 );
+	$gp_func_mover_elevator.move( DIR_UP, 955 );
+}
+
+//This door opens when PL has taken out the first cannon
+void call_open_postcannondoor( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_joint_postcannondoor.time( 2 );
+     $gp_func_mover_joint_postcannondoor.accelTime( 0.2 );
+     $gp_func_mover_joint_postcannondoor.decelTime( 0.7 );
+     $gp_func_mover_joint_postcannondoor.rotateOnce( '0 103 0' );
+}
+
+void call_open_postcannondoor_checkpoint( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_joint_postcannondoor.time( 0.1 );
+     $gp_func_mover_joint_postcannondoor.accelTime( 0 );
+     $gp_func_mover_joint_postcannondoor.decelTime( 0 );
+     $gp_func_mover_joint_postcannondoor.rotateOnce( '0 103 0' );
+}
+
+//This door closes when PL has moved past the first cannon
+void close_postcannondoor( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_joint_postcannondoor.time( 2 );
+     $gp_func_mover_joint_postcannondoor.accelTime( 0.2 );
+     $gp_func_mover_joint_postcannondoor.decelTime( 0.7 );
+     $gp_func_mover_joint_postcannondoor.rotateOnce( '0 -103 0' );
+}
+
+void call_condor9_01 ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_condor9_01.time( 4 );
+    $gp_func_movers_mover_condor9_01.accelTime( 0 );
+    $gp_func_movers_mover_condor9_01.decelTime( 0 );
+	$gp_func_movers_mover_condor9_01.followSpline($gp_spline_path_with_orientation_condor9_01, 0, 0);
+}
+
+void call_condor9_02 ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_condor9_02.time( 5 );
+    $gp_func_movers_mover_condor9_02.accelTime( 0 );
+    $gp_func_movers_mover_condor9_02.decelTime( 0 );
+	$gp_func_movers_mover_condor9_02.followSpline($gp_spline_path_with_orientation_condor9_02, 0, 0);
+}
+
+void call_condor9_03 ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_condor9_03.time( 8 );
+    $gp_func_movers_mover_condor9_03.accelTime( 1 );
+    $gp_func_movers_mover_condor9_03.decelTime( 0 );
+	$gp_func_movers_mover_condor9_03.followSpline($gp_spline_path_with_orientation_condor9_03, 0, 0);
+}
+
+void call_condor9_squad1 ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_condor9_squad1a.time( 4 );
+    $gp_func_movers_mover_condor9_squad1a.accelTime( 0 );
+    $gp_func_movers_mover_condor9_squad1a.decelTime( 0 );
+	$gp_func_movers_mover_condor9_squad1a.followSpline($gp_spline_path_with_orientation_condor9_squad1a, 0, 0);
+	$gp_func_movers_mover_condor9_squad1b.time( 6 );
+    $gp_func_movers_mover_condor9_squad1b.accelTime( 0 );
+    $gp_func_movers_mover_condor9_squad1b.decelTime( 0 );
+	$gp_func_movers_mover_condor9_squad1b.followSpline($gp_spline_path_with_orientation_condor9_squad1b, 0, 0);
+	$gp_func_movers_mover_condor9_squad1c.time( 5 );
+    $gp_func_movers_mover_condor9_squad1c.accelTime( 0 );
+    $gp_func_movers_mover_condor9_squad1c.decelTime( 0 );
+	$gp_func_movers_mover_condor9_squad1c.followSpline($gp_spline_path_with_orientation_condor9_squad1c, 0, 0);
+}
+
+void call_trenchdogfight_01a ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_trenchdogfight_01a.time( 9 );
+    $gp_func_movers_mover_trenchdogfight_01a.accelTime( 2 );
+    $gp_func_movers_mover_trenchdogfight_01a.decelTime( 0 );
+	$gp_func_movers_mover_trenchdogfight_01a.followSpline($gp_spline_path_with_orientation_trenchdogfight_01a, 0, 0);
+}
+
+void call_trenchdogfight_01b ( entity activatedEntity, entity activator )
+{
+	$gp_func_movers_mover_trenchdogfight_01b.time( 9 );
+    $gp_func_movers_mover_trenchdogfight_01b.accelTime( 2 );
+    $gp_func_movers_mover_trenchdogfight_01b.decelTime( 0 );
+	$gp_func_movers_mover_trenchdogfight_01b.followSpline($gp_spline_path_with_orientation_trenchdogfight_01b, 0, 0);
+}
+
+void open_secretdoor ( entity activatedEntity, entity activator )
+{
+     $joint_secret_door.time( 6 );
+     $joint_secret_door.accelTime( 3 );
+     $joint_secret_door.decelTime( 2 );
+     $joint_secret_door.rotateOnce( '0 -90 0' );
+	 $gp_func_fx_rumblesecretdoor.activate(activator);
+}
+
+
+void open_explosivesdoor ( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_joint_explosivesdoor.time( 4 );
+     $gp_func_mover_joint_explosivesdoor.accelTime( 1.2 );
+     $gp_func_mover_joint_explosivesdoor.decelTime( 1 );
+     $gp_func_mover_joint_explosivesdoor.rotateOnce( '0 120 0' );
+}
+
+void close_leantutorialdoor ( entity activatedEntity, entity activator )
+{
+     $combat_func_movers_leantutorialdoor.time( 1 );
+     $combat_func_movers_leantutorialdoor.accelTime( 0.5 );
+     $combat_func_movers_leantutorialdoor.decelTime( 0.2 );
+     $combat_func_movers_leantutorialdoor.rotateOnce( '0 15 0' );
+}
+
+void open_leantutorialdoor ( entity activatedEntity, entity activator )
+{
+     $combat_func_movers_leantutorialdoor.time( 4 );
+     $combat_func_movers_leantutorialdoor.accelTime( 1.2 );
+     $combat_func_movers_leantutorialdoor.decelTime( 1 );
+     $combat_func_movers_leantutorialdoor.rotateOnce( '0 -120 0' );
+}
+
+
+//Allow player to exit the plane turret manually
+void call_enable_exit_turret ( entity activatedEntity, entity activator )
+{
+	sys.print("Allowing player to exit plane turret");
+	$gp_prop_useable_turret_brokencockpit_checkpoint.enableManualExit( true );
+	$gp_prop_useable_turret_brokencockpit.enableManualExit( true );
+}
+
+
+//Running the AA explosions going off in the air
+//Random time between explosions, particles selected randomly
+void aa_explosions (entity activatedEntity, entity activator)
+{
+	int i = 1;
+	while (i > 0)
+	{
+		int iWaitingseconds = sys.randomInt(8);
+		int iParticleeffectid = sys.randomInt(10);
+		string sEffectname = "fx_func_emitter_" + iParticleeffectid;
+		sys.getEntity(sEffectname).activate(activator);
+		sys.wait(iWaitingseconds);				
+	}
+}
+
+/*
+void aa_playertriggerhurt5knockback (entity activatedEntity, entity activator)
+{
+		vector vFakedir;
+		sys.print("triggerhurt5_knockback IN YOUR FACE!");
+		$player1.damage($c01_gp__target_actionscript_11, $c01_gp__target_actionscript_11, "decls/damage/damage/triggerhurt/triggerhurt5_knockback", 1, vFakedir);
+}
+*/
+
+void state3 ( entity activatedEntity, entity activator )
+{
+	sys.print("Running state 3\n");
+}
+
+void state1 ( entity activatedEntity, entity activator )
+{
+	sys.print("Running state 1\n");
+}
+
+void playerloop ( entity activatedEntity, entity activator )
+{
+	sys.print("Strafe right now!\n");
+}
+
+void running_relay_playerstrafesright ( entity activatedEntity, entity activator )
+{
+	sys.print("running_relay_playerstrafesright\n");
+}
+
+void print_relay ( entity activatedEntity, entity activator )
+{
+	sys.print("Current relay: ");
+	sys.print(activatedEntity.getName());	
+	sys.print("\n");
+}
+
+void call_lever1_up ( entity activatedEntity, entity activator )
+{
+	
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_fail.activate( $acti );
+     $func_movers_moverjoint_lever1.time( 0.95 );
+     $func_movers_moverjoint_lever1.accelTime( 0 );
+     $func_movers_moverjoint_lever1.decelTime( 0 );
+     $func_movers_moverjoint_lever1.rotateOnce( '0 0 90' );
+}
+
+void call_lever1_down ( entity activatedEntity, entity activator )
+{
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_success.activate( $acti );
+     $func_movers_moverjoint_lever1.time( 0.95 );
+     $func_movers_moverjoint_lever1.accelTime( 0 );
+     $func_movers_moverjoint_lever1.decelTime( 0 );
+     $func_movers_moverjoint_lever1.rotateOnce( '0 0 -90' );
+}
+
+void call_lever2_up ( entity activatedEntity, entity activator )
+{
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_success.activate( $acti );
+     $func_movers_moverjoint_lever2.time( 0.95 );
+     $func_movers_moverjoint_lever2.accelTime( 0 );
+     $func_movers_moverjoint_lever2.decelTime( 0 );
+     $func_movers_moverjoint_lever2.rotateOnce( '0 0 90' );
+}
+
+void call_lever2_down ( entity activatedEntity, entity activator )
+{
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_fail.activate( $acti );
+     $func_movers_moverjoint_lever2.time( 0.95 );
+     $func_movers_moverjoint_lever2.accelTime( 0 );
+     $func_movers_moverjoint_lever2.decelTime( 0 );
+     $func_movers_moverjoint_lever2.rotateOnce( '0 0 -90' );
+}
+
+void call_lever3_up ( entity activatedEntity, entity activator )
+{
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_fail.activate( $acti );
+     $func_movers_moverjoint_lever3.time( 0.95 );
+     $func_movers_moverjoint_lever3.accelTime( 0 );
+     $func_movers_moverjoint_lever3.decelTime( 0 );
+     $func_movers_moverjoint_lever3.rotateOnce( '0 0 90' );
+}
+
+void call_lever3_down ( entity activatedEntity, entity activator )
+{
+     $sound_sp_secretdoor_leverup.activate( $acti );
+	 $sound_tr_success.activate( $acti );
+     $func_movers_moverjoint_lever3.time( 0.95 );
+     $func_movers_moverjoint_lever3.accelTime( 0 );
+     $func_movers_moverjoint_lever3.decelTime( 0 );
+     $func_movers_moverjoint_lever3.rotateOnce( '0 0 -90' );
+}
+
+
+void gibb_gp_ai_tungsten_c01_part_01_soldier_42 ( entity activatedEntity, entity activator )
+{
+	// Uses: solider_generic
+	$gp_ai_tungsten_c01_part_01_soldier_42.triggerGore( "body_gib" );
+}
+
+void call_turretdeath ( entity activatedEntity, entity activator )
+{
+	entity empty;
+	$target_use_exitturret.activate( empty );
+	$target_use_exitturret_checkpoint.activate( empty );
+	$gp_func_firstpersonevent_turret_death.activate( empty );
+}
+
+void call_hitMonitorEye ( entity activatedEntity, entity acti )
+{
+ 	 $monitor_func_animatedsimple_bm_88_position.stopFX( FX_AI_START_DYING );
+}
+
+void call_monitor_fx( entity activatedEntity, entity activator )
+{
+	$monitor_func_animatedsimple_bm_falling_towards_gun.startFX(FX_CINEMATIC_6);
+	$monitor_func_animatedsimple_bm_falling_towards_gun.startFX(FX_CINEMATIC_5);
+	$monitor_func_animatedsimple_bm_falling_towards_gun.startFX(FX_TESLA_ABORT);
+}
+
+//void call_crashedplane_danglingpart ( entity activatedEntity, entity activator )
+//{
+//	$joint_crashedplane_danglingpart.sway(4, 0, '0 2 3');
+//}

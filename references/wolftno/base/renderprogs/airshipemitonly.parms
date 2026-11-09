@@ -1,0 +1,17 @@
+vertexstscalebias
+vertexxyzscale
+vertexxyzbias
+vertexmorphscale
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+fogstart
+fogend
+fogscale
+coverage
+texturemap
+fademap
+spare1map
+defaultsampler
+defaultsamplerX

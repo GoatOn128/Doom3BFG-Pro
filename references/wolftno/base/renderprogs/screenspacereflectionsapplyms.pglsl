@@ -1,0 +1,13 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2DMS samp_ssrmapms;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	out_FragColor0 = tex2DMSFetch( samp_ssrmapms, ivec2( gl_FragCoord.xy ), 0 );
+}

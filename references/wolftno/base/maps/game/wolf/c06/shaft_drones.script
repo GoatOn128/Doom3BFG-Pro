@@ -1,0 +1,99 @@
+#ifndef C06P1_SHAFT_DRONES
+#define C06P1_SHAFT_DRONES
+
+#ifndef C06_MAIN
+#include "c06p1.script"
+#endif
+
+/*
+================================================================================
+Dronezzz
+================================================================================
+*/
+
+object Drone
+{
+	int Num;
+	int IntroTime;
+	int PatrolTime;
+	
+	void Intro();
+	void Patrol();
+};
+
+void Drone::init()
+{
+	if(!self.IntroTime) 
+		self.IntroTime = 12;
+}
+
+
+void Drone::Intro()
+{
+	entity drone = sys.getEntity("shaft_gp_drone_" + self.Num);	
+	entity follower = sys.getEntity("shaft_gp_drone_intropath_follower_" + self.Num);
+	entity spline = sys.getEntity("shaft_gp_drone_intropath_" + self.Num);	
+
+	drone.show();
+	follower.setOrigin(drone.getOrigin());
+	drone.bindPosition(follower);
+	
+	float t = self.IntroTime;
+	follower.time( t );
+	follower.decelTime( t * 0.5);
+	
+	follower.followSpline(spline, false, true);
+	
+	sys.wait(t);
+	
+	if(self.PatrolTime){
+		thread self.Patrol();
+	}
+		
+}
+
+void Drone::Patrol()
+{
+	
+	entity drone = sys.getEntity("shaft_gp_drone_" + self.Num);	
+	entity follower = sys.getEntity("shaft_gp_drone_intropath_follower_" + self.Num);
+	entity spline = sys.getEntity("shaft_gp_drone_patrolpath_" + self.Num);	
+
+	float t = self.PatrolTime;
+	follower.time( t );
+	follower.decelTime( t * 0.5);
+	follower.accelTime( t * 0.5);
+	
+	while(!drone.isDead())
+	{
+		follower.followSpline(spline, false, true);
+		sys.wait(t);
+	}
+	
+		
+}
+
+
+/*
+================================================================================
+Here be dragons, beware!
+================================================================================
+*/
+
+// Trollh4x :D
+
+#define macro_spawn_drone(x) \
+void spawn_shaft_gp_drone_##x (entity targ, entity acti) \
+{ \
+	entity drone = $shaft_gp_drone_##x ; \
+	drone.callFunction("Intro");\
+}
+
+
+macro_spawn_drone(1)
+macro_spawn_drone(2)
+macro_spawn_drone(3)
+
+
+
+#endif

@@ -1,0 +1,45 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [13];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_waterparmmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 viewTexCoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	vec4 windowPosition;
+	windowPosition.z = tex2Ddepth( samp_viewdepthmap, viewTexCoord.xy );
+	windowPosition.z = min( (1.0-(1e-7)), windowPosition.z );
+	windowPosition.w = 1.0;
+	windowPosition.xy = screenPosToTexcoord( gl_FragCoord.xy, _fa_[1 ] );
+	vec4 globalPosition;
+	globalPosition.x = dot4( windowPosition, _fa_[2 ] );
+	globalPosition.y = dot4( windowPosition, _fa_[3 ] );
+	globalPosition.z = dot4( windowPosition, _fa_[4 ] );
+	globalPosition.w = dot4( windowPosition, _fa_[5 ] );
+	globalPosition.xyz /= globalPosition.w;
+	vec3 world_up = vec3( _fa_[6 ].z, _fa_[7 ].z, _fa_[8 ].z );
+	float depth = dot( vofi_TexCoord3.xyz - globalPosition.xyz, world_up );
+	float skyFade = floor( windowPosition.z + 0.000001 );
+	float fogFade = 0.0;
+	float fade = 1.0 - saturate( ( depth - _fa_[9 ].x ) / max( _fa_[9 ].y - _fa_[9 ].x, 0.000001 ) );
+	fogFade = saturate( fogFade + fade + skyFade );
+	clip( ( 1.0 - fogFade ) - 0.01 );
+	vec4 waterParms = tex2D( samp_waterparmmap, vofi_TexCoord0.xy );
+	float colorFade = saturate( ( depth - _fa_[10 ].x ) / max( _fa_[10 ].y - _fa_[10 ].x, 0.000001 ) );
+	colorFade += colorFade - ( colorFade * colorFade );
+	colorFade = saturate( colorFade + skyFade );
+	vec3 color = mix( _fa_[11 ].xyz, _fa_[12 ].xyz, colorFade );
+	color = mix( color, vec3( 1.0 ), saturate( fogFade + 1.0 - ( vofi_Color.w * waterParms.w ) ) );
+	color = mix( vec3( 1.0 ), color, vofi_TexCoord3.w );
+	out_FragColor0.xyz = color;
+	out_FragColor0.w = 1.0;
+}

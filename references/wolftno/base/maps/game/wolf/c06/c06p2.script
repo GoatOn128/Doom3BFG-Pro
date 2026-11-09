@@ -1,0 +1,788 @@
+/*
+================================================================================
+Map Script for c06p2.map
+================================================================================
+*/
+
+
+#include "c06p2_shaft.script"
+
+
+void main() {
+
+}
+
+
+float ClampAngle( float angle ) {
+	angle = angle % 360.0;
+	if ( angle > 180 ) {
+		angle -= 360;
+	} 
+	if ( angle < -180 ) {
+		angle += 360;
+	} 
+	return angle;
+}
+
+// Not exposed to script, should fix.
+#define AISTIMULUS_HEARING 	1
+#define AISTIMULUS_SIGHT	8
+
+//================================================================================
+//LAB 1 (starting lab)
+//================================================================================
+
+void call_blastdoor_startpos ( entity activatorEntity, entity activator )
+{
+	$gp_mover_lab_blastdoor_left.time( 0.1 );
+	$gp_mover_lab_blastdoor_left.move( DIR_BACK, 52 );	
+	
+	$gp_mover_lab_blastdoor_right.time( 0.1 );
+	$gp_mover_lab_blastdoor_right.move( DIR_FORWARD, 52 );
+}
+
+void call_blastdoor ( entity activatorEntity, entity activator )
+{
+	$gp_mover_lab_blastdoor_left.time( 0.5 );
+	$gp_mover_lab_blastdoor_left.accelTime( 0.2 );
+	$gp_mover_lab_blastdoor_left.move( DIR_FORWARD, 52 );	
+	
+	$gp_mover_lab_blastdoor_right.time( 0.5 );
+	$gp_mover_lab_blastdoor_right.accelTime( 0.2 );
+	$gp_mover_lab_blastdoor_right.move( DIR_BACK, 52 );
+}
+
+void call_lkw( entity activatedEntity, entity activator ) 
+{
+	sys.wait( 2 );
+	
+	$fx_lkw_light.activate( activator );
+	$gp_use_pickup_lkw.makeActivatable( false );
+	
+	$sound_sp_laser_rises.activate( activator );
+	
+	$gp_moverjoint_lkw_mount_ring.time(1.0f);
+	$gp_moverjoint_lkw_mount_ring.accelTime( 0.5f );
+	$gp_moverjoint_lkw_mount_ring.decelTime( 0.5f );
+	$gp_moverjoint_lkw_mount_ring.rotateOnce('0 0 40');
+	
+	sys.wait( 1.3f );
+
+	$sound_sp_laser_turns.activate( activator );
+	$sound_sp_laser_cut.activate( activator );
+	$sound_sp_laser_cut_success.activate( activator );
+	
+	$gp_dummy_fire_laser.activate( activator );
+	$fx_lkw_trail.activate( activator );
+	
+	$gp_moverjoint_lkw_mount_rotating.time(3.0f);
+	$gp_moverjoint_lkw_mount_rotating.rotateOnce('720 0 0');
+	
+	$gp_activate_hurt_lkwlaser.activate( activator );	
+	
+	sys.wait( 3.5f );
+	
+	$sound_sp_laser_down.activate( activator );
+	$gp_moverjoint_lkw_mount_ring.time(1.0f);
+	$gp_moverjoint_lkw_mount_ring.accelTime( 0.5f );
+	$gp_moverjoint_lkw_mount_ring.decelTime( 0.5f );
+	$gp_moverjoint_lkw_mount_ring.rotateOnce('0 0 -40');
+	
+	$fx_laserkw_noblock_temp.activate( activator );	
+	$fx_lkw_trail.activate( activator );
+	
+	$gp_inactivate_hurt_lkwlaser.activate( activator );
+		
+	sys.wait( 1.0f );	
+	
+	$gp_prop_use_lkwbutton.show();
+	$gp_use_pickup_lkw.makeActivatable( true );
+	$gp_show_use_pickup_lkw.activate( activator );
+	$fx_lkw_light.activate( activator );
+}
+
+void call_cutlkwchain( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_enginepath_lkwbarrier.setAnimState( 0, 0, false );
+	
+	$fx_laserkw.makeActivatable( true );
+	$fx_laserkw_blocked.makeActivatable( false );
+	$gp_show_use_pickup_lkw.makeActivatable( true );
+	$gp_dynamic_lkw_barrier.remove();
+	$fx_lkw_trail.remove();
+	
+	$sound_fade_success_layer.activate( activator );
+}
+
+void call_lockpick_lkw( entity activatedEntity, entity activator ) 
+{
+	$gp_mover_lkw_hatch.time( 1.5f );
+	$gp_mover_lkw_hatch.decelTime( 1.0f );
+	$gp_mover_lkw_hatch.move( DIR_BACK, 10 );
+	
+	sys.wait( 1.8f );
+	$gp_mover_lkw_hatch.time( 1.0f );
+	$gp_mover_lkw_hatch.decelTime( 1.0f );
+	$gp_mover_lkw_hatch.move( DIR_LEFT, 130 );
+	
+	$gp_use_pickup_lkw.show();
+}
+
+
+
+//================================================================================
+// HANGAR 
+//================================================================================
+
+void call_hangarelevator( entity activatedEntity, entity activator ) 
+{
+	$gp_moverjoint_elevatorhandle.time( 0.8 );
+	$gp_moverjoint_elevatorhandle.rotateOnce( '-70 0 0' );
+	
+	sys.wait( 0.8 );
+	$gp_mover_hangarelevator.time( 6.0f );
+	$gp_mover_hangarelevator.accelTime( 2.0f );
+	$gp_mover_hangarelevator.decelTime( 1.5f );
+	$gp_mover_hangarelevator.move( DIR_UP, 1550 );
+	
+	$gp_animatedsimple_stealthhelicopter_klaus.setAnimState( 0, 0, false );
+	$gp_ai_hangar_helicopterland.show();
+}
+
+void call_hangarevent( entity activatedEntity, entity activator ) 
+{
+	//KLAUS
+	$gp_ai_tungsten_c06_part_02_klaus.show();
+	$gp_ai_scriptedanimweb_klaus.activate( activator );
+	$gp_animatedsimple_hangglider_klaus.setAnimState( 0, 0, false );
+	
+	//WYATT/FERGUS	
+	$gp_ai_tungsten_c06_part_02_fergus.show();
+	$gp_ai_tungsten_c06_part_02_wyatt.show();
+	$gp_ai_scriptedanimweb_fergus.activate( activator );
+	$gp_ai_scriptedanimweb_wyatt.activate( activator );
+	$gp_animatedsimple_hangglider_ferguswyatt.setAnimState( 0, 0, false );
+	
+	//CAROLINE
+	$gp_animatedsimple_hangglider_caroline.setAnimState( 0, 0, false );
+	$gp_animatedsimple_caroline.show();
+	$gp_animatedsimple_caroline.setAnimState( 0, 0, false );
+	
+	$gp_mover_hangarroof_up.time( 5.0f );
+	$gp_mover_hangarroof_up.accelTime( 1.5f );
+	$gp_mover_hangarroof_up.decelTime( 1.5f );
+	$gp_mover_hangarroof_up.move( DIR_BACK, 640 );
+	
+	$gp_mover_hangarroof_down.time( 5.0f );
+	$gp_mover_hangarroof_down.accelTime( 0.5f );
+	$gp_mover_hangarroof_down.decelTime( 1.5f );
+	$gp_mover_hangarroof_down.moveToPos( $gp_info_null_hangarroof.getOrigin() );	
+}
+
+void call_hangarroof( entity activatedEntity, entity activator ) 
+{
+	$gp_mover_hangarroof_up.time( 5.0f );
+	$gp_mover_hangarroof_up.accelTime( 1.5f );
+	$gp_mover_hangarroof_up.decelTime( 1.5f );
+	$gp_mover_hangarroof_up.move( DIR_BACK, 640 );
+	
+	$gp_mover_hangarroof_down.time( 5.0f );
+	$gp_mover_hangarroof_down.accelTime( 0.5f );
+	$gp_mover_hangarroof_down.decelTime( 1.5f );
+	$gp_mover_hangarroof_down.moveToPos( $gp_info_null_hangarroof.getOrigin() );	
+}
+
+void call_carrycaroline( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_caroline.hide();
+	$gp_relay_caroline_gesturereminders.remove();
+	$gp_use_nextmap.show();
+}
+
+void call_hangar_stealthhelicopter_fergus( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_stealthhelicopter_fergus.setAnimState( 0, 0, false );
+	$gp_anim_changestate_fergus_airborne.activate( activator );
+}
+
+void call_hangar_stealthhelicopter_klaus( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_stealthhelicopter_klaus.setAnimState( 1, 0, false );
+	$gp_anim_changestate_klaus_airborne.activate( activator );
+}
+
+void open_vents(entity targ, entity activ)
+{	
+	entity vent;
+	int i;
+	for(i = 3 ; i > 0 ; i--)
+	{ 
+		vent = sys.getEntity("gp_monitor_vents_"+i);
+
+		vent.time(2);
+		vent.accelTime(1.5);
+		vent.decelTime(0.25);
+		vent.rotateOnce('0 0 93');
+		sys.wait(0.5);
+	}	
+}
+
+
+//Lift Platform
+void exit_lift ( entity actiEnt, entity acti )
+
+
+{
+	
+	$sound_sp_hangarelev_front.activate( $acti );	
+	$sound_sp_hangarelev_rear.activate( $acti );
+	$c06p2_exit_lift.time( 10.0f );
+	$c06p2_exit_lift.accelTime( 2.0f );
+	$c06p2_exit_lift.decelTime( 2.0f );
+	$c06p2_exit_lift.move( DIR_DOWN, 480 );
+}
+
+
+
+//================================================================================
+//	Spawn Scripts
+//================================================================================
+
+#define MAX_ACTIVE_AIS 10
+
+// Should've extended this one to have detectplayer as wll
+void c06p2spawn( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy ) {	
+	if ( !ai.isHidden() ) {
+		return;
+	}
+
+	if ( checkLimit && sys.numActiveAIs() >= MAX_ACTIVE_AIS ) {
+		sys.print("Spawn fail. To many AIs active.\n");
+		return;
+	}
+		
+	ai.teleport( pos.getOrigin(), pos.getAngles() );
+	$sys.waitFrame();
+	ai.show();
+	ai.setPerceptionFlag( blind );
+	ai.setOverrideScenePoint( scenePoint );	
+	if ( detectEnemy ) {
+		ai.detectPlayer();
+	}
+}
+
+int numElitesSpawned = 1;
+int spawnPos = 1;
+boolean alarmOff = false;
+boolean alarmCalled = false;
+boolean alarmOK = false;
+
+// The alarm can be turned on by any of the AIs in the main hall upon detecting the player
+void sound_Alarm( entity activatedEntity, entity activator ) {	
+	if ( alarmCalled || !alarmOK ) {
+		return;
+	}
+	
+	// hack for now, wake up the other dudes.	
+	
+	$cb_ai_rifle_8.detectPlayer();
+	$cb_ai_rifle_9.detectPlayer();
+	$cb_ai_rifle_10.detectPlayer();
+	$cb_ai_rifle_11.detectPlayer();
+	$cb_ai_robot_5.detectPlayer();
+	
+	alarmCalled = true;
+	
+	sys.print("ALARM!\n");
+	
+	while ( !alarmOff ) {
+		sys.wait( 4.0f );			
+		if ( sys.numActiveAIs() >= MAX_ACTIVE_AIS ) {
+			sys.print( "Too many AIs active. Postponing Elite spawning.\n" );
+			continue;
+		}
+		
+		if ( numElitesSpawned >= 5 ) {
+			sys.print( "All elites spawned Cancelling alarm.\n" );
+			alarmOff = true;
+			return;
+		}
+			
+		string aiName = "cb_ai_elite_" + numElitesSpawned;
+		entity ai = sys.getEntity( aiName );	
+	  
+		// determine where player is	
+		vector playerPos = sys.getPlayerPos();
+		string spawnPosName = "";
+		if ( $cb_volume_reinforcement_section_1.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_section1_" + spawnPos;
+			sys.print( "Player in SECTION 1\n" );
+		} else if ( $cb_volume_reinforcement_section_2.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_section2_" + spawnPos;		
+			sys.print( "Player in SECTION 2\n" );
+		} else if ( $cb_volume_reinforcement_section_3_1.isPointInVolume( playerPos ) || 
+					$cb_volume_reinforcement_section_3_2.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_section3_" + spawnPos;		
+			sys.print( "Player in SECTION 3\n" );
+		} else {
+			sys.print("Player not in any volume, delaying spawn of reinforcements");
+			continue;
+		}		
+		
+		c06p2spawn( ai, sys.getEntity( spawnPosName ), false, $NULL, true, true );
+		
+		sys.print( "Spawning AI " + aiName );
+		sys.print(" at location " + spawnPosName +"\n");		
+		spawnPos++;
+		if ( spawnPos > 5 ) {
+			spawnPos = 1;
+		}
+		numElitesSpawned++;
+	}	
+}
+
+boolean spawnedAmbience = false;
+boolean inSafetyVolume = true;
+
+void mainroom_spawn( entity activatedEntity, entity activator ) {
+	$cb_triggers_eventlistener_1.makeActivatable( true );
+	
+	//THESE HAVE SCRIPTED ANIMWEB!
+	c06p2spawn( $cb_ai_pistol_1, $cb_pos_ai_pistol_1, inSafetyVolume, $cb_sproam_yurgen_researchlab6, false, false ); //earlier pos: $cb_pos_ai_patrol_1	
+	c06p2spawn( $cb_ai_rifle_1, $cb_pos_ai_rifle_1, inSafetyVolume, $cb_sproam_hans_researchlab6, false, false ); //earlier pos: $cb_pos_ai_patrol_2 this one was earlier rifle_2
+	c06p2spawn( $cb_ai_pistol_2, $cb_pos_ai_pistol_2, inSafetyVolume, $null, true, false );
+	c06p2spawn( $cb_ai_rifle_2, $cb_pos_ai_rifle_2, inSafetyVolume, $null, true, false ); //earlier pos: $cb_pos_ai_patrol_3 this one was earlier rifle_3
+	c06p2spawn( $cb_ai_airforce_elite_rolf_smoking, $cb_pos_ai_hans_smoking, inSafetyVolume, $null, false, false );
+	c06p2spawn( $cb_ai_airforce_commander_yurgen_smoking, $cb_pos_ai_yurgen_smoking, inSafetyVolume, $null, false, false );
+	
+	c06p2spawn( $cb_ai_robot_1, $cb_pos_ai_robot_1, inSafetyVolume, $cb_info_scenepoint_roam_21, false, false );
+}
+
+void amb_spawn_1( entity activatedEntity, entity activator ) {
+	if ( spawnedAmbience ) {
+		return;
+	}
+	sys.print( "Spawn amb v. 1\n" );
+	spawnedAmbience = true;
+
+	
+	c06p2spawn( $cb_ai_rifle_4, $cb_pos_ai_patrol_4, inSafetyVolume, $cb_info_scenepoint_roam_15, true, false );
+//	c06p2spawn( $cb_ai_rifle_5, $cb_pos_ai_patrol_5, inSafetyVolume, $cb_info_scenepoint_roam_19, true, false ); pistol replaces this one
+}
+
+void amb_spawn_2( entity activatedEntity, entity activator ) {
+	if ( spawnedAmbience ) {
+		return;
+	}
+
+	sys.print( "Spawn amb v. 2\n" );
+	spawnedAmbience = true;
+	c06p2spawn( $cb_ai_rifle_3, $cb_pos_ai_patrol_3, inSafetyVolume, $cb_info_scenepoint_roam_9, true, false );
+	c06p2spawn( $cb_ai_rifle_4, $cb_pos_ai_patrol_6, inSafetyVolume, $cb_info_scenepoint_roam_23, true, false );
+	c06p2spawn( $cb_ai_rifle_5, $cb_pos_ai_patrol_7, inSafetyVolume, $cb_info_scenepoint_roam_24, true, false );
+}
+
+void amb_spawn_3( entity activatedEntity, entity activator ) {
+	if ( spawnedAmbience ) {
+		return;
+	}	
+	sys.print( "Spawn amb v. 3\n" );
+	spawnedAmbience = true;
+
+	c06p2spawn( $cb_ai_rifle_3, $cb_pos_ai_patrol_3, inSafetyVolume, $cb_info_scenepoint_roam_9, true, false );
+	c06p2spawn( $cb_ai_rifle_4, $cb_pos_ai_patrol_6, inSafetyVolume, $cb_info_scenepoint_roam_23, true, false );
+	c06p2spawn( $cb_ai_rifle_5, $cb_pos_ai_patrol_8, inSafetyVolume, $cb_info_scenepoint_roam_26, true, false );
+}
+
+void amb_cleanup( entity activatedEntity, entity activator ) {
+	$cb_ai_.remove();
+	$cb_ai_rifle_2.remove();
+	$cb_ai_rifle_3.remove();
+	$cb_ai_rifle_4.remove();
+	$cb_ai_rifle_5.remove();
+	$cb_ai_pistol_1.remove();
+	$cb_ai_robot_1.remove();
+	
+	$cb_trigger_amb_backtrack1.makeActivatable( true );
+	$cb_trigger_amb_backtrack2.makeActivatable( true );
+}
+
+void setLeftSafetyVolume_Leaving( entity activatedEntity, entity activator ) {
+	inSafetyVolume = false;
+	
+	// clear perceptionflags on all characters
+	$cb_ai_rifle_1.setPerceptionFlag( false );
+	$cb_ai_rifle_2.setPerceptionFlag( false );
+	$cb_ai_rifle_3.setPerceptionFlag( false );
+	$cb_ai_rifle_4.setPerceptionFlag( false );
+	$cb_ai_rifle_5.setPerceptionFlag( false );
+	$cb_ai_rifle_6.setPerceptionFlag( false );
+	$cb_ai_rifle_7.setPerceptionFlag( false );
+	$cb_ai_pistol_1.setPerceptionFlag( false );
+	$cb_ai_robot_2.setPerceptionFlag( false );
+	$cb_ai_robot_1.setPerceptionFlag( false );
+	$cb_ai_robot_3.setPerceptionFlag( false );
+}
+
+void setLeftSafetyVolume_Shooting( entity activatedEntity, entity activator ) {
+	setLeftSafetyVolume_Leaving( activatedEntity, activator );
+	$cb_ai_rifle_1.detectPlayer();
+	$cb_ai_rifle_2.detectPlayer();
+	$cb_ai_rifle_3.detectPlayer();
+	sys.waitFrame();
+	$cb_ai_rifle_4.detectPlayer();
+	$cb_ai_rifle_5.detectPlayer();
+	$cb_ai_rifle_6.detectPlayer();
+	sys.waitFrame();
+	$cb_ai_rifle_7.detectPlayer();
+	$cb_ai_pistol_1.detectPlayer();
+	$cb_ai_robot_2.detectPlayer();
+	sys.waitFrame();
+	
+	$cb_ai_robot_1.detectPlayer();
+	$cb_ai_robot_3.detectPlayer();
+	
+	sound_Alarm( activatedEntity, activator );
+}
+
+
+void maintenance_spawn( entity activatedEntity, entity activator ) {
+	
+	// add maintence worker as well...?
+	
+	c06p2spawn( $cb_ai_robot_2, $cb_pos_ai_robot_2, inSafetyVolume, $cb_monitorhead_robot_scenepoint_roam_1, false, false );
+	c06p2spawn( $cb_ai_robot_4, $cb_pos_ai_robot_4, true, $NULL, false, false );
+}
+
+void backtrack_1_spawn( entity activatedEntity, entity activator ) {
+	c06p2spawn( $cb_ai_robot_3, $cb_pos_ai_robot_3_var1, inSafetyVolume, $cb_info_scenepoint_roam_20, false, false );
+	c06p2spawn( $cb_ai_rifle_6, $cb_pos_ai_rifle_6_var1, inSafetyVolume, $cb_info_scenepoint_roam_15, true, false );
+	c06p2spawn( $cb_ai_rifle_7, $cb_pos_ai_rifle_7_var1, inSafetyVolume, $cb_info_scenepoint_roam_12, true, false );
+		
+	$cb_trigger_amb_backtrack2.makeActivatable( false );
+}
+
+void backtrack_2_spawn( entity activatedEntity, entity activator ) {
+	c06p2spawn( $cb_ai_robot_3, $cb_pos_ai_robot_3_var2, inSafetyVolume, $cb_info_scenepoint_roam_26, false, false );
+	c06p2spawn( $cb_ai_rifle_6, $cb_pos_ai_rifle_6_var2, inSafetyVolume, $cb_info_scenepoint_roam_10, true, false );
+	c06p2spawn( $cb_ai_rifle_7, $cb_pos_ai_rifle_7_var2, inSafetyVolume, $cb_info_scenepoint_roam_2, true, false );
+
+	$cb_trigger_amb_backtrack1.makeActivatable( false );
+}
+
+void main_cleanup( entity activatedEntity, entity activator ) {
+	amb_cleanup( activatedEntity, activator );
+	$cb_ai_rifle_6.remove();
+	$cb_ai_rifle_7.remove();
+	$cb_ai_robot_3.remove();
+
+	$cb_triggers_trigger_upper_hall.makeActivatable( true );
+	$cb_triggers_trigger_lower_hall.makeActivatable( true );
+}
+
+void spawn_upper_hall( entity activatedEntity, entity activator ) {
+	alarmOK = true;
+	$cb_ai_robot_4.remove();
+	$cb_triggers_eventlistener_2.makeActivatable( true );
+	c06p2spawn( $cb_ai_rifle_8, $cb_pos_ai_rifle_8_var1, true,   $cb_info_scenepoint_roam_18, true, false );
+	c06p2spawn( $cb_ai_rifle_9, $cb_pos_ai_rifle_9_var1, true,   $cb_info_scenepoint_roam_15, true, false );
+	c06p2spawn( $cb_ai_rifle_10, $cb_pos_ai_rifle_10_var1, true, $cb_info_scenepoint_roam_11, true, false );
+	c06p2spawn( $cb_ai_rifle_11, $cb_pos_ai_rifle_11_var1, true, $cb_info_scenepoint_roam_1, true, false );
+	c06p2spawn( $cb_ai_robot_5, $cb_pos_ai_robot_5_var1, true, $cb_info_scenepoint_roam_21, false, false );
+}
+
+// call this when opening the doors!
+void wake_hall( entity activatedEntity, entity activator ) {
+	$cb_ai_rifle_8.setPerceptionFlag( false );
+	$cb_ai_rifle_9.setPerceptionFlag( false );
+	$cb_ai_rifle_10.setPerceptionFlag( false );
+	$cb_ai_rifle_11.setPerceptionFlag( false );
+	$cb_ai_robot_5.setPerceptionFlag( false );	
+}
+
+void detect_hall( entity activatedEntity, entity activator ) {
+	wake_hall( activatedEntity, activator );
+	
+	$cb_ai_rifle_8.detectPlayer();
+	$cb_ai_rifle_9.detectPlayer();
+	$cb_ai_rifle_10.detectPlayer();
+	$cb_ai_rifle_11.detectPlayer();
+	$cb_ai_robot_5.detectPlayer();
+	
+	sound_Alarm( activatedEntity, activator );
+}
+
+void spawn_lower_hall( entity activatedEntity, entity activator ) {
+	alarmOK = true;
+	$cb_ai_robot_2.remove();
+	$cb_triggers_eventlistener_3.makeActivatable( true );
+	c06p2spawn( $cb_ai_rifle_8, $cb_pos_ai_rifle_8_var2, true,   $cb_info_scenepoint_roam_9, true, false );
+	c06p2spawn( $cb_ai_rifle_9, $cb_pos_ai_rifle_9_var2, true,   $cb_info_scenepoint_roam_26, true, false );
+	c06p2spawn( $cb_ai_rifle_10, $cb_pos_ai_rifle_10_var2, true, $cb_info_scenepoint_roam_5, true, false );
+	c06p2spawn( $cb_ai_rifle_11, $cb_pos_ai_rifle_11_var2, true, $cb_info_scenepoint_roam_11, true, false );
+	c06p2spawn( $cb_ai_robot_5, $cb_pos_ai_robot_5_var2, true, $cb_info_scenepoint_roam_22, false, false );
+}
+void clear_lower_floor( entity activatedEntity, entity activator ) {
+	alarmOff = true;
+
+	int i = 1;
+	for( ; i <= 20 ; i++ ) {
+		string aiName = "cb_ai_elite_" + i;
+		entity ai = sys.getEntity( aiName );
+		if ( ai != $NULL ) {
+			ai.remove();		
+		}
+	}
+	
+	$cb_ai_rifle_8.remove();
+	$cb_ai_rifle_9.remove();
+	$cb_ai_rifle_10.remove();
+	$cb_ai_rifle_11.remove();
+	$cb_ai_robot_2.remove();	
+	$cb_ai_robot_4.remove();	
+	$cb_ai_robot_5.remove();	
+}
+
+void spawn_upper_floor( entity activatedEntity, entity activator ) {
+	c06p2spawn( $cb_ai_elite_x_1, $cb_pos_ai_rifle_x_1, false, $cb_info_scenepoint_roam_28, false, true ); //earlier the pos was cb_pos_ai_rifle_x_1
+	sys.waitFrame();
+	// dude from helicopter removed due to event dude coming in.
+//	c06p2spawn( $cb_ai_rifle_x_2, $cb_pos_ai_rifle_x_2, false, $cb_info_scenepoint_roam_30, false, false );
+//	sys.waitFrame();
+	
+	// Left balcony guy removed for a while
+//	c06p2spawn( $cb_ai_rifle_x_3, $cb_pos_ai_rifle_x_3, false, $NULL, false, false );
+//	sys.waitFrame();
+	c06p2spawn( $cb_ai_rifle_x_4, $cb_pos_ai_rifle_x_4, false, $NULL, false, false );
+	sys.waitFrame();
+	// right balcony dude removed for a while
+//	c06p2spawn( $cb_ai_rifle_x_5, $cb_pos_ai_rifle_x_5, false, $NULL, false, false );
+	sys.waitFrame();
+	c06p2spawn( $cb_ai_rifle_x_6, $cb_pos_ai_rifle_x_6, false, $cb_info_scenepoint_roam_29, false, false );
+}
+
+// hangar alarm
+int numElitesSpawned_hangar = 1;
+boolean alarmOff_hangar = false;
+boolean alarmCalled_hangar = false;
+
+void spawn_robot( entity activatedEntity, entity activator ) {
+	
+	sys.wait( 5.0f );	
+				
+	sys.print(" Spawn Robot ");
+	alarmOff_hangar = true;
+	c06p2spawn( $cb_ai_robot_x_1, $cb_pos_ai_robot_x_1, true, $NULL, false, true );	
+	
+	$cb_func_hangardoor_upper.time( 3.5f );
+	$cb_func_hangardoor_upper.accelTime( 1.0f );
+	$cb_func_hangardoor_upper.decelTime( 1.0f );
+	$cb_func_hangardoor_upper.move( DIR_UP, 200.0f );
+
+	$cb_func_hangardoor_lower.time( 3.5f );
+	$cb_func_hangardoor_lower.accelTime( 1.0f );
+	$cb_func_hangardoor_lower.decelTime( 1.0f );
+	$cb_func_hangardoor_lower.move( DIR_DOWN, 128.0f );
+	
+	sys.wait( 4.0f );
+	$cb_ai_robot_x_1.setOverrideScenePoint( $cb_info_scenepoint_combat_robot );
+	$cb_ai_robot_x_1.setPerceptionFlag( false );
+}
+
+#define MAX_HANGAR_REINFORCEMENT 5
+void sound_Alarm_hangar( entity activatedEntity, entity activator ) {	
+	if ( alarmCalled_hangar ) {
+		return;
+	}
+	
+	alarmCalled_hangar = true;
+	
+	sys.print("ALARM in hangar!\n");
+	while ( !alarmOff_hangar ) {
+		sys.wait( 4.0f );			
+		if ( sys.numActiveAIs() >= MAX_ACTIVE_AIS ) {
+			sys.print( "Too many AIs active. Postponing Elite spawning.\n" );
+			continue;
+		}
+		
+		if ( numElitesSpawned_hangar > MAX_HANGAR_REINFORCEMENT ) {			
+			//spawn_robot( $NULL, $NULL );			
+			sys.print( "All elites spawned Cancelling alarm.\n" );
+			alarmOff_hangar = true;
+			return;
+		}
+			
+		string aiName = "cb_ai_elite_x_" + numElitesSpawned_hangar;
+		entity ai = sys.getEntity( aiName );	
+
+		// determine where player is	
+		vector playerPos = sys.getPlayerPos();
+		string spawnPosName = "";
+		entity secScenePoint = $NULL;
+		if ( $cb_volume_hangar_section_1.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_x_section1_1";
+			sys.print( "Player in SECTION X 1\n" );
+			
+			secScenePoint = $cb_info_scenepoint_combat_run_section1;			
+			
+		} else if ( $cb_volume_hangar_section_2.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_x_section2_1";
+			sys.print( "Player in SECTION X 2\n" );
+			
+			secScenePoint = $cb_info_scenepoint_combat_run_section2;				
+			
+		} else if ( $cb_volume_hangar_section_3.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_x_section3_1";
+			sys.print( "Player in SECTION X 3\n" );
+						
+			secScenePoint = $cb_info_scenepoint_combat_run_section3;				
+			
+		} else if ( $cb_volume_hangar_section_4.isPointInVolume( playerPos ) ) {
+			spawnPosName = "cb_elite_x_section4_1";
+			
+			secScenePoint = $cb_info_scenepoint_combat_run_section4;							
+			sys.print( "Player in SECTION X 4\n" );
+		} else {
+			sys.print("Player not in any volume, delaying spawn of reinforcements");
+			continue;
+		}		
+		
+		// AAS seems a bit broken, they cannot move to the upper level :(
+		c06p2spawn( ai, sys.getEntity( spawnPosName ), false, secScenePoint, true, true );
+		
+		sys.print( "Spawning AI " + aiName );
+		sys.print(" at location " + spawnPosName +"\n");		
+		numElitesSpawned_hangar++;
+	}	
+}
+
+boolean hangarDetected = false;
+void hangar_detect( entity activatedEntity, entity activator ) {
+	if ( hangarDetected ) {
+		return;
+	}
+	hangarDetected = true;
+	sys.print("Hangar Detect");
+	
+	$cb_ai_rifle_x_3.setOverrideScenePoint( $cb_info_scenepoint_combat_113 );
+	$cb_ai_rifle_x_3.detectPlayer();
+	$cb_ai_rifle_x_4.setOverrideScenePoint( $cb_info_scenepoint_combat_115 );
+	$cb_ai_rifle_x_4.detectPlayer();
+	$cb_ai_rifle_x_5.setOverrideScenePoint( $cb_info_scenepoint_combat_120 );
+	$cb_ai_rifle_x_5.detectPlayer();
+	$cb_ai_rifle_x_6.detectPlayer();
+	
+	sound_Alarm_hangar( activatedEntity, activator );
+}
+
+void call_robots_combatmode( entity activatorEntity, entity activator ) {
+	// Widen robot FOV so they won't appear retarded when fighting
+	$cb_ai_tungsten_c06_part_02_robot_guardrobot_aastest_1.setFOV( 180.0 );
+	$cb_ai_tungsten_c06_part_02_robot_guardrobot_aastest128_1.setFOV( 180.0 );
+}
+
+
+object heavyrobot {
+	void init();
+	void onTrigger( entity activator ){};	
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );	
+
+	void updateGunSight();
+	__noedit boolean isDying;
+	__noedit float revengeSightTime;
+};
+
+
+void heavyrobot::init() {
+	isDying = false;
+	revengeSightTime = 0.0;
+	sys.wait( 15.0 );
+	thread updateGunSight();
+}
+
+void heavyrobot::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ){
+	if ( killed == 1 ) {
+		isDying = true;
+	} else {
+		// When damaged, we can "see" from our guns for a while
+		revengeSightTime = sys.getTime() + 10.0f;
+	}	
+};	
+
+
+void heavyrobot::updateGunSight() {
+	// Fake sight from guns since level has way too much stuff at robot eye height
+	boolean teslaSight = false;
+	while ( !isDying ) {
+		
+		// Only allow this when recently damaged
+		if ( sys.getTime() < revengeSightTime ) {
+			// Alternate between laser and tesla gun
+			entity sightPos = $cb_info_null_heavyrobot_gunaim;
+			if ( teslaSight ) {
+				sightPos = $cb_info_null_heavyrobot_teslaaim;
+			} 
+			teslaSight = !teslaSight;
+
+			// Check angle
+			if ( ClampAngle( sightPos.angleTo( $player1 ) ) < 30.0 ) {
+				// Check LOS towards player head height
+				vector aimPoint = $player1.getWorldOrigin();
+				aimPoint_z = Vec_z( $player1.getAimPoint( AIMPOINT_HEAD ) );
+				if ( sys.tracePoint( sightPos.getWorldOrigin(), aimPoint, CLIPMASK_SHOT, $player1 ) == 1.0f ) {
+					self.fakeSenseStimulus( AISTIMULUS_SIGHT, $player1, $player1.getWorldOrigin(), 0.45 );   	
+				}
+			}
+		}
+		
+		sys.wait( 0.5 );	
+	}
+}
+
+
+//cb_volume_hangar_section_1
+
+//================================================================================
+// CHECKPOINTS
+//================================================================================
+
+void call_lkwlab_cleanup( entity activatedEntity, entity activator ) 
+{
+	$gp_remove_lkstuff.activate( activator );
+	$gp_mover_lkw_block.remove();
+	$gp_mover_lkw_barrier.remove();
+}
+
+void call_checkpoint_junction( entity activatedEntity, entity activator ) 
+{
+	call_lkwlab_cleanup( activatedEntity, activator ); 
+	mainroom_spawn( activatedEntity, activator ); 
+}
+
+void call_checkpoint_hangar_robotboss( entity activatedEntity, entity activator ) 
+{
+	call_lkwlab_cleanup( activatedEntity, activator ); 
+	spawn_robot( activatedEntity, activator ); 
+}
+
+void call_checkpoint_elevatorshaft ( entity activatorEntity, entity activator )
+{
+	$elevator_1.time( 0.2 );
+	$elevator_1.move( DIR_DOWN, 1920 );
+}
+
+//================================================================================
+//	Menutriggers 
+//================================================================================
+
+void call_menutrigger2( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_caroline.show();
+	$gp_animatedsimple_caroline.setAnimState( 1, 0, false );
+	$gp_use_carrycaroline.show();
+}
+
+void call_playeractivate( entity activatedEntity, entity activator ) 
+{
+	$cc_target_relay_end.activate( $player1 );
+}

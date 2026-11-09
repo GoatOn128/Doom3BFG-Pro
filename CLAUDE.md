@@ -1,22 +1,24 @@
-# SCP-idTech3 agent notes
+# Doom3BFG-Pro agent notes
 
 ## Project
 
-A Win32 (x86) CMake build of the RTCW single-player engine. Modules: engine/ (wolf exe), gamedll/game|cgame|ui|botlib (DLLs), tools/bspc, tools/extractfuncs. Third-party code lives in external/ and is never edited.
+Darklight: a Win32 (x86) CMake build of the DOOM 3: BFG Edition engine with idTech 5 work on top (AAS2 pathfinding, virtual texturing, idStudio editor integration). Engine code lives in neo/ (idlib, framework, renderer, cm, sound, swf, sys, ui, aas2file, gamelib, tools). The game (neo/game) builds as an object library and links straight into the exe; there are no game DLLs. Third-party code lives in neo/extern/ (zlib, jpeg-6, jxrlib) and is never edited. Game data lives in base/.
 
 ## Build facts
 
-- Generator: Visual Studio 17 2022, architecture Win32. Presets in CMakePresets.json: cmake --preset visual-studio then cmake --build --preset visual-studio-release.
-- Release compiles with /W4, Debug with /W3. Zero warnings is the bar; treat every warning as a fix item, not noise.
-- Engine exe: bin/WolfSP.exe. Game DLLs: main/qagamex86.dll, cgamex86.dll, uix86.dll, botlibx86.dll.
-- Shared config (defines, warning level, output dirs) is the configure_target() function in the root CMakeLists.txt.
+- The CMake source directory is neo/; the repo root has no CMakeLists.txt. Configure with: cmake -S neo -B out -A Win32. cmake_msvc.cmd wraps this and picks the installed VS generator (2019/2022/2026).
+- No hardcoded generator: the installed Visual Studio is the one that works, whatever version ships.
+- Compiles with /W3; C4244, C4267, C4305 and C4996 are disabled project-wide in neo/CMakeLists.txt (darklight_configure_target). Treat any remaining warning as a fix item, not noise.
+- Static runtime (/MT) by default; toggle with DARKLIGHT_MSVC_STATIC_RUNTIME.
+- idStudio (MFC) is OFF by default; enable with -DDARKLIGHT_BUILD_IDSTUDIO=ON (Windows + MSVC only).
+- Exe output: out/bin/Darklight.exe, every config. The engine runs from the repo root (base/ next to it).
+- Only the Windows platform layer exists (neo/sys/win32, XAudio2 sound backend). There is no posix/linux/osx/macos system layer yet, so non-Windows builds cannot link; CI is Windows-only until one lands.
 
 ## CI rules
 
 - CI runs on every push unless the commit message contains [skip ci]. Intermediate commits on a branch should carry [skip ci]; only the final push of a change lets CI run.
 - After any CI run, read build-digest.md first (repo root on main, ci-logs/ branch otherwise), then the matching section of build-windows.log. Fix ALL errors AND warnings, commit, push, repeat until green with zero warnings.
 - Never edit build-digest.md, build-windows.log or any CI-published file by hand.
-- Do not edit anything under external/ or references/. References are read-only study material.
 
 ## Workflow
 
@@ -27,4 +29,4 @@ A Win32 (x86) CMake build of the RTCW single-player engine. Modules: engine/ (wo
 ## Code conventions
 
 - Comments only where they earn their place, in plain English.
-- Keep the existing file layout: engine code in engine/, game code in gamedll/, tools in tools/. Never move third-party code out of external/.
+- Keep the existing file layout: engine code in neo/, game code in neo/game, tools in neo/tools. Never move third-party code out of neo/extern/.
