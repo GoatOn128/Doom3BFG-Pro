@@ -28,6 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __RENDERPROGS_H__
 #define __RENDERPROGS_H__
 
+#include "RenderProgParm.h"
+
 
 static const int PC_ATTRIB_INDEX_VERTEX		= 0;
 static const int PC_ATTRIB_INDEX_NORMAL		= 2;
@@ -256,7 +258,7 @@ protected:
 
 	GLuint	LoadShader( GLenum target, const char * name, const char * startToken );
 	bool	CompileGLSL( GLenum target, const char * name );
-	GLuint	LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms );
+	GLuint	LoadGLSLShader( GLenum target, const char * name, idList<int> & uniforms, const char * programHLSL, const ID_TIME_T sourceTimeStamp );
 	void	LoadGLSLProgram( const int programIndex, const int vertexShaderIndex, const int fragmentShaderIndex );
 
 	static const GLuint INVALID_PROGID = 0xFFFFFFFF;

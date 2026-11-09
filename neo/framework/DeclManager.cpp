@@ -29,6 +29,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 #pragma hdrstop
 
+#include "../renderer/DeclRenderProg.h"
+
 /*
 
 GUIs and script remain separately parsed
@@ -828,8 +830,11 @@ void idDeclManagerLocal::Init() {
 	RegisterDeclType( "email",				DECL_EMAIL,			idDeclAllocator<idDeclEmail> );
 	RegisterDeclType( "video",				DECL_VIDEO,			idDeclAllocator<idDeclVideo> );
 	RegisterDeclType( "audio",				DECL_AUDIO,			idDeclAllocator<idDeclAudio> );
+	RegisterDeclType( "renderprog",		DECL_RENDERPROG,		idDeclAllocator<idDeclRenderProg> );
 
 	RegisterDeclFolder( "materials",		".mtr",				DECL_MATERIAL );
+
+	RegisterDeclFolder( "renderprogs",	".rp",				DECL_RENDERPROG );
 
 	// add console commands
 	cmdSystem->AddCommand( "listDecls", ListDecls_f, CMD_FL_SYSTEM, "lists all decls" );
@@ -851,6 +856,7 @@ void idDeclManagerLocal::Init() {
 	cmdSystem->AddCommand( "listEmails", idListDecls_f<DECL_EMAIL>, CMD_FL_SYSTEM, "lists Emails", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 	cmdSystem->AddCommand( "listVideos", idListDecls_f<DECL_VIDEO>, CMD_FL_SYSTEM, "lists Videos", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 	cmdSystem->AddCommand( "listAudios", idListDecls_f<DECL_AUDIO>, CMD_FL_SYSTEM, "lists Audios", idCmdSystem::ArgCompletion_String<listDeclStrings> );
+	cmdSystem->AddCommand( "listRenderProgs", idListDecls_f<DECL_RENDERPROG>, CMD_FL_SYSTEM, "lists render progs", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 
 	cmdSystem->AddCommand( "printTable", idPrintDecls_f<DECL_TABLE>, CMD_FL_SYSTEM, "prints a table", idCmdSystem::ArgCompletion_Decl<DECL_TABLE> );
 	cmdSystem->AddCommand( "printMaterial", idPrintDecls_f<DECL_MATERIAL>, CMD_FL_SYSTEM, "prints a material", idCmdSystem::ArgCompletion_Decl<DECL_MATERIAL> );
@@ -866,6 +872,7 @@ void idDeclManagerLocal::Init() {
 	cmdSystem->AddCommand( "printEmail", idPrintDecls_f<DECL_EMAIL>, CMD_FL_SYSTEM, "prints an Email", idCmdSystem::ArgCompletion_Decl<DECL_EMAIL> );
 	cmdSystem->AddCommand( "printVideo", idPrintDecls_f<DECL_VIDEO>, CMD_FL_SYSTEM, "prints an Audio", idCmdSystem::ArgCompletion_Decl<DECL_VIDEO> );
 	cmdSystem->AddCommand( "printAudio", idPrintDecls_f<DECL_AUDIO>, CMD_FL_SYSTEM, "prints a Video", idCmdSystem::ArgCompletion_Decl<DECL_AUDIO> );
+	cmdSystem->AddCommand( "printRenderProg", idPrintDecls_f<DECL_RENDERPROG>, CMD_FL_SYSTEM, "prints a render prog", idCmdSystem::ArgCompletion_Decl<DECL_RENDERPROG> );
 
 	cmdSystem->AddCommand( "listHuffmanFrequencies", ListHuffmanFrequencies_f, CMD_FL_SYSTEM, "lists decl text character frequencies" );
 

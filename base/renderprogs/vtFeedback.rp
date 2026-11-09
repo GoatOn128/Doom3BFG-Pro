@@ -1,0 +1,54 @@
+renderprog vtFeedback {
+	hlsl_vp {
+#include "global.inc"
+
+struct VS_IN {
+	float4 position : POSITION;
+	float2 texcoord : TEXCOORD0;
+};
+
+struct VS_OUT {
+	float4 position : POSITION;
+	float2 texcoord0 : TEXCOORD0;
+};
+
+void main( VS_IN vertex, out VS_OUT result ) {
+	result.position.x = dot4( vertex.position, rpMVPmatrixX );
+	result.position.y = dot4( vertex.position, rpMVPmatrixY );
+	result.position.z = dot4( vertex.position, rpMVPmatrixZ );
+	result.position.w = dot4( vertex.position, rpMVPmatrixW );
+	result.texcoord0 = vertex.texcoord;
+}
+	}
+	hlsl_fp {
+#include "global.inc"
+
+uniform float4 rpUser0 : register(c128); // VMTR atlas scale.xy and bias.zw
+uniform float4 rpUser1 : register(c129); // source, virtual width, feedback-to-view scale x/y
+
+struct PS_IN {
+	half4 position : VPOS;
+	float2 texcoord0 : TEXCOORD0;
+};
+
+struct PS_OUT {
+	half4 color : COLOR;
+};
+
+void main( PS_IN fragment, out PS_OUT result ) {
+	float2 atlasTexCoord = frac( fragment.texcoord0 ) * rpUser0.xy + rpUser0.zw;
+	float2 pageCoord = atlasTexCoord * rpUser1.y;
+	float pageFootprint = max( length( ddx( pageCoord ) ) * rpUser1.z,
+		length( ddy( pageCoord ) ) * rpUser1.w );
+	float requestedLevel = clamp( floor( log2( max( pageFootprint, 1.0 ) ) ),
+		0.0, floor( log2( rpUser1.y ) ) );
+	float2 page = floor( pageCoord );
+	float highX = floor( page.x / 256.0 );
+	float highY = floor( page.y / 256.0 );
+	float lowX = page.x - highX * 256.0;
+	float lowY = page.y - highY * 256.0;
+	result.color = half4( lowX, lowY, highY * 16.0 + highX,
+		rpUser1.x * 16.0 + requestedLevel ) / 255.0;
+}
+	}
+}
