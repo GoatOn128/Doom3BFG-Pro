@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 
 #include "tr_local.h"
+#include "DeclRenderProg.h"
 
 
 
@@ -257,18 +258,17 @@ void idRenderProgManager::LoadVertexShader( int index ) {
 	if ( vertexShaders[index].progId != INVALID_PROGID ) {
 		return; // Already loaded
 	}
-	// read the shader source text from the renderprogs folder
-	idStr inFile;
-	inFile.Format( "renderprogs\\%s", vertexShaders[index].name.c_str() );
-	inFile.StripFileExtension();
-	inFile += ".vertex";
-	ID_TIME_T timeStamp = 0;
-	void * buffer = NULL;
-	if ( fileSystem->ReadFile( inFile.c_str(), &buffer, &timeStamp ) <= 0 ) {
+	// get the shader source text from the renderprog decl
+	idStr declName = vertexShaders[index].name;
+	declName.StripFileExtension();
+	const idDeclRenderProg * prog = static_cast< const idDeclRenderProg * >( declManager->FindType( DECL_RENDERPROG, declName, false ) );
+	if ( prog == NULL ) {
 		return;
 	}
-	vertexShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_VERTEX_SHADER, vertexShaders[index].name, vertexShaders[index].uniforms, ( const char * ) buffer, timeStamp );
-	Mem_Free( buffer );
+	// use the timestamp of the decl file for the GLSL shader cache
+	ID_TIME_T timeStamp = 0;
+	fileSystem->ReadFile( prog->GetFileName(), NULL, &timeStamp );
+	vertexShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_VERTEX_SHADER, vertexShaders[index].name, vertexShaders[index].uniforms, prog->GetVertexSource(), timeStamp );
 }
 
 /*
@@ -280,18 +280,17 @@ void idRenderProgManager::LoadFragmentShader( int index ) {
 	if ( fragmentShaders[index].progId != INVALID_PROGID ) {
 		return; // Already loaded
 	}
-	// read the shader source text from the renderprogs folder
-	idStr inFile;
-	inFile.Format( "renderprogs\\%s", fragmentShaders[index].name.c_str() );
-	inFile.StripFileExtension();
-	inFile += ".pixel";
-	ID_TIME_T timeStamp = 0;
-	void * buffer = NULL;
-	if ( fileSystem->ReadFile( inFile.c_str(), &buffer, &timeStamp ) <= 0 ) {
+	// get the shader source text from the renderprog decl
+	idStr declName = fragmentShaders[index].name;
+	declName.StripFileExtension();
+	const idDeclRenderProg * prog = static_cast< const idDeclRenderProg * >( declManager->FindType( DECL_RENDERPROG, declName, false ) );
+	if ( prog == NULL ) {
 		return;
 	}
-	fragmentShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_FRAGMENT_SHADER, fragmentShaders[index].name, fragmentShaders[index].uniforms, ( const char * ) buffer, timeStamp );
-	Mem_Free( buffer );
+	// use the timestamp of the decl file for the GLSL shader cache
+	ID_TIME_T timeStamp = 0;
+	fileSystem->ReadFile( prog->GetFileName(), NULL, &timeStamp );
+	fragmentShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_FRAGMENT_SHADER, fragmentShaders[index].name, fragmentShaders[index].uniforms, prog->GetFragmentSource(), timeStamp );
 }
 
 /*
