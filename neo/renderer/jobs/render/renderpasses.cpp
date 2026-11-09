@@ -1981,7 +1981,7 @@ static int RB_DrawShaderPasses( const drawSurf_t * const * const drawSurfs, cons
 
 				GL_State( stageGLState );
 			
-				renderProgManager.BindShader( newStage->glslProgram, newStage->glslProgram );
+				renderProgManager.BindShader( newStage->glslProgram );
 
 				for ( int j = 0; j < newStage->numVertexParms; j++ ) {
 					float parm[4];
@@ -1998,12 +1998,54 @@ static int RB_DrawShaderPasses( const drawSurf_t * const * const drawSurfs, cons
 					SetVertexParm( RENDERPARM_ENABLE_SKINNING, skinningParm.ToFloatPtr() );
 				}
 
+				// new stages that sample _currentRender need the current framebuffer
+				// resolved first, the regular resolve only happens later for
+				// post-process sorts so the texture would still hold stale data here
+				bool needsCurrentRender = false;
+				for ( int j = 0; j < newStage->numFragmentProgramImages; j++ ) {
+					if ( newStage->fragmentProgramImages[j] == globalImages->currentRenderImage ) {
+						needsCurrentRender = true;
+						break;
+					}
+				}
+				if ( needsCurrentRender && !backEnd.currentRenderCopied ) {
+					const idScreenRect & viewport = backEnd.viewDef->viewport;
+					const int w = viewport.x2 - viewport.x1 + 1;
+					const int h = viewport.y2 - viewport.y1 + 1;
+
+					GL_SelectTexture( 0 );
+					globalImages->currentRenderImage->CopyFramebuffer( viewport.x1, viewport.y1, w, h );
+					backEnd.currentRenderCopied = true;
+
+					// screen power of two correction factor (no longer relevant now)
+					float screenCorrectionParm[4];
+					screenCorrectionParm[0] = 1.0f;
+					screenCorrectionParm[1] = 1.0f;
+					screenCorrectionParm[2] = 0.0f;
+					screenCorrectionParm[3] = 1.0f;
+					SetFragmentParm( RENDERPARM_SCREENCORRECTIONFACTOR, screenCorrectionParm ); // rpScreenCorrectionFactor
+
+					// window coord to 0.0 to 1.0 conversion
+					float windowCoordParm[4];
+					windowCoordParm[0] = 1.0f / w;
+					windowCoordParm[1] = 1.0f / h;
+					windowCoordParm[2] = 0.0f;
+					windowCoordParm[3] = 1.0f;
+					SetFragmentParm( RENDERPARM_WINDOWCOORD, windowCoordParm ); // rpWindowCoord
+				}
+
 				// bind texture units
 				for ( int j = 0; j < newStage->numFragmentProgramImages; j++ ) {
 					idImage * image = newStage->fragmentProgramImages[j];
 					if ( image != NULL ) {
 						GL_SelectTexture( j );
 						image->Bind();
+						if ( image == globalImages->currentRenderImage ) {
+							// _currentRender feeds refraction surfaces; a stale
+							// per-unit binding cache would silently sample whatever
+							// last touched this unit, so always issue the real bind
+							qglBindMultiTextureEXT( GL_TEXTURE0_ARB + j, GL_TEXTURE_2D, image->GetAPIObject() );
+						}
 					}
 				}
 

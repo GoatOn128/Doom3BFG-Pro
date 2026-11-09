@@ -31,7 +31,18 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 
+#include "DeclRenderProg.h"
+#include "RenderProgParm.h"
 
+/*
+The decl backed manager is adapted from the Wolfenstein: The New Order
+render prog manager reconstructed under references/wolfnto-reversedengineered
+(renderprogmanager.h/.cpp). That material is decompiled proprietary code and
+is not GPL-compatible; this is a re-implementation on this engine's idlib.
+The integer based API of the legacy .vertex/.pixel manager is kept so the
+backend code does not change; every shader resolves to an idDeclRenderProg
+decl that owns the generated GLSL and the linked GL program.
+*/
 
 idRenderProgManager renderProgManager;
 
@@ -41,6 +52,12 @@ idRenderProgManager::idRenderProgManager()
 ================================================================================================
 */
 idRenderProgManager::idRenderProgManager() {
+	currentVertexShader = -1;
+	currentFragmentShader = -1;
+	currentRenderProgram = -1;
+	currentDecl = nullptr;
+	currentUsesJoints = false;
+	currentOptionalSkinning = false;
 }
 
 /*
@@ -53,7 +70,26 @@ idRenderProgManager::~idRenderProgManager() {
 
 /*
 ================================================================================================
+FindRenderProgDecl
+
+Resolves a legacy shader file name (with or without extension) to the
+renderprog decl of the same name.
+================================================================================================
+*/
+static idDeclRenderProg * FindRenderProgDecl( const char * name ) {
+	idStr declName( name );
+	declName.StripFileExtension();
+	const idDeclRenderProg * decl = static_cast< const idDeclRenderProg * >(
+		declManager->FindType( DECL_RENDERPROG, declName.c_str(), false ) );
+	return const_cast< idDeclRenderProg * >( decl );
+}
+
+/*
+================================================================================================
 R_ReloadShaders
+
+Drops the compiled GL programs; decl text is reloaded through the decl
+manager (reloadDecls) and the programs compile again on the next bind.
 ================================================================================================
 */
 static void R_ReloadShaders( const idCmdArgs &args ) {	
@@ -64,11 +100,18 @@ static void R_ReloadShaders( const idCmdArgs &args ) {
 /*
 ================================================================================================
 idRenderProgManager::Init()
+
+Every builtin shader resolves to a renderprog decl; the GL programs are
+compiled lazily on first bind, so a decl that fails to compile reports at
+the first draw that uses it instead of at startup.
 ================================================================================================
 */
 void idRenderProgManager::Init() {
 	common->Printf( "----- Initializing Render Shaders -----\n" );
 
+	// the decl manager registers the renderprogs folder during its own
+	// Init(), before the renderer initializes, so the builtin lookups below
+	// find every decl without an extra RegisterDeclFolder here.
 
 	for ( int i = 0; i < MAX_BUILTINS; i++ ) {
 		builtinShaders[i] = -1;
@@ -112,29 +155,25 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_MOTION_BLUR, "motionBlur.vfp" },
 	};
 	int numBuiltins = sizeof( builtins ) / sizeof( builtins[0] );
-	vertexShaders.SetNum( numBuiltins );
-	fragmentShaders.SetNum( numBuiltins );
-	glslPrograms.SetNum( numBuiltins );
 
 	for ( int i = 0; i < numBuiltins; i++ ) {
-		vertexShaders[i].name = builtins[i].name;
-		fragmentShaders[i].name = builtins[i].name;
-		builtinShaders[builtins[i].index] = i;
-		LoadVertexShader( i );
-		LoadFragmentShader( i );
-		LoadGLSLProgram( i, i, i );
+		idDeclRenderProg * decl = FindRenderProgDecl( builtins[i].name );
+		if ( decl == nullptr ) {
+			common->Warning( "no renderprog decl for builtin shader %s", builtins[i].name );
+		}
+		shaderEntry_t shader;
+		shader.name = builtins[i].name;
+		shader.decl = decl;
+		const int vertexShaderIndex = vertexShaders.Append( shader );
+		const int fragmentShaderIndex = fragmentShaders.Append( shader );
+		programEntry_t program;
+		program.name = builtins[i].name;
+		program.decl = decl;
+		program.vertexShaderIndex = vertexShaderIndex;
+		program.fragmentShaderIndex = fragmentShaderIndex;
+		builtinShaders[builtins[i].index] = glslPrograms.Append( program );
 	}
-
 	glslUniforms.SetNum( RENDERPARM_USER + MAX_GLSL_USER_PARMS, vec4_zero );
-
-	vertexShaders[builtinShaders[BUILTIN_TEXTURE_VERTEXCOLOR_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_INTERACTION_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_INTERACTION_AMBIENT_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_VT_FEEDBACK_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_ENVIRONMENT_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_BUMPY_ENVIRONMENT_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_DEPTH_SKINNED]].usesJoints = true;
-	vertexShaders[builtinShaders[BUILTIN_FOG_SKINNED]].usesJoints = true;
 
 	cmdSystem->AddCommand( "reloadShaders", R_ReloadShaders, CMD_FL_RENDERER, "reloads shaders" );
 }
@@ -142,19 +181,12 @@ void idRenderProgManager::Init() {
 /*
 ================================================================================================
 idRenderProgManager::LoadAllShaders()
+
+The GL programs are compiled lazily on the next bind, so there is nothing
+to load eagerly.
 ================================================================================================
 */
 void idRenderProgManager::LoadAllShaders() {
-	for ( int i = 0; i < vertexShaders.Num(); i++ ) {
-		LoadVertexShader( i );
-	}
-	for ( int i = 0; i < fragmentShaders.Num(); i++ ) {
-		LoadFragmentShader( i );
-	}
-
-	for ( int i = 0; i < glslPrograms.Num(); ++i ) {
-		LoadGLSLProgram( i, glslPrograms[i].vertexShaderIndex, glslPrograms[i].fragmentShaderIndex );
-	}
 }
 
 /*
@@ -164,22 +196,21 @@ idRenderProgManager::KillAllShaders()
 */
 void idRenderProgManager::KillAllShaders() {
 	Unbind();
+	for ( int i = 0; i < glslPrograms.Num(); i++ ) {
+		if ( glslPrograms[i].decl != nullptr ) {
+			glslPrograms[i].decl->FreeProgram();
+		}
+	}
+	// the decl may also be referenced through a shader entry that has no
+	// program entry yet
 	for ( int i = 0; i < vertexShaders.Num(); i++ ) {
-		if ( vertexShaders[i].progId != INVALID_PROGID ) {
-			qglDeleteShader( vertexShaders[i].progId );
-			vertexShaders[i].progId = INVALID_PROGID;
+		if ( vertexShaders[i].decl != nullptr ) {
+			vertexShaders[i].decl->FreeProgram();
 		}
 	}
 	for ( int i = 0; i < fragmentShaders.Num(); i++ ) {
-		if ( fragmentShaders[i].progId != INVALID_PROGID ) {
-			qglDeleteShader( fragmentShaders[i].progId );
-			fragmentShaders[i].progId = INVALID_PROGID;
-		}
-	}
-	for ( int i = 0; i < glslPrograms.Num(); ++i ) {
-		if ( glslPrograms[i].progId != INVALID_PROGID ) {
-			qglDeleteProgram( glslPrograms[i].progId );
-			glslPrograms[i].progId = INVALID_PROGID;
+		if ( fragmentShaders[i].decl != nullptr ) {
+			fragmentShaders[i].decl->FreeProgram();
 		}
 	}
 }
@@ -196,30 +227,27 @@ void idRenderProgManager::Shutdown() {
 /*
 ================================================================================================
 idRenderProgManager::FindVertexShader
+
+The legacy heat haze names carried the usesJoints / optionalSkinning hints
+of the old manager; the decls now derive both from the shader body (the
+matrices_ubo block and the rpEnableSkinning parm), so no name special case
+is needed here.
 ================================================================================================
 */
 int idRenderProgManager::FindVertexShader( const char * name ) {
 	for ( int i = 0; i < vertexShaders.Num(); i++ ) {
 		if ( vertexShaders[i].name.Icmp( name ) == 0 ) {
-			LoadVertexShader( i );
 			return i;
 		}
 	}
-	vertexShader_t shader;
+	shaderEntry_t shader;
 	shader.name = name;
-	int index = vertexShaders.Append( shader );
-	LoadVertexShader( index );
-	currentVertexShader = index;
-
-	// FIXME: we should really scan the program source code for using rpEnableSkinning but at this
-	// point we directly load a binary and the program source code is not available on the consoles
-	if (	idStr::Icmp( name, "heatHaze.vfp" ) == 0 ||
-			idStr::Icmp( name, "heatHazeWithMask.vfp" ) == 0 ||
-			idStr::Icmp( name, "heatHazeWithMaskAndVertex.vfp" ) == 0 ) {
-		vertexShaders[index].usesJoints = true;
-		vertexShaders[index].optionalSkinning = true;
+	shader.decl = FindRenderProgDecl( name );
+	if ( shader.decl == nullptr ) {
+		common->Warning( "no renderprog decl for vertex shader %s", name );
 	}
-
+	int index = vertexShaders.Append( shader );
+	currentVertexShader = index;
 	return index;
 }
 
@@ -231,122 +259,68 @@ idRenderProgManager::FindFragmentShader
 int idRenderProgManager::FindFragmentShader( const char * name ) {
 	for ( int i = 0; i < fragmentShaders.Num(); i++ ) {
 		if ( fragmentShaders[i].name.Icmp( name ) == 0 ) {
-			LoadFragmentShader( i );
 			return i;
 		}
 	}
-	fragmentShader_t shader;
+	shaderEntry_t shader;
 	shader.name = name;
+	shader.decl = FindRenderProgDecl( name );
+	if ( shader.decl == nullptr ) {
+		common->Warning( "no renderprog decl for fragment shader %s", name );
+	}
 	int index = fragmentShaders.Append( shader );
-	LoadFragmentShader( index );
 	currentFragmentShader = index;
 	return index;
 }
 
-
-
-
 /*
 ================================================================================================
-idRenderProgManager::LoadVertexShader
+idRenderProgManager::BindDecl
 ================================================================================================
 */
-void idRenderProgManager::LoadVertexShader( int index ) {
-	if ( vertexShaders[index].progId != INVALID_PROGID ) {
-		return; // Already loaded
+void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
+	currentDecl = decl;
+	currentUsesJoints = false;
+	currentOptionalSkinning = false;
+	if ( decl == nullptr ) {
+		qglUseProgram( 0 );
+		return;
 	}
-	vertexShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_VERTEX_SHADER, vertexShaders[index].name, vertexShaders[index].uniforms );
-}
-
-/*
-================================================================================================
-idRenderProgManager::LoadFragmentShader
-================================================================================================
-*/
-void idRenderProgManager::LoadFragmentShader( int index ) {
-	if ( fragmentShaders[index].progId != INVALID_PROGID ) {
-		return; // Already loaded
+	// a purged decl has its data stripped; reparse the real source so the
+	// cached decl pointer heals after a level load
+	if ( decl->GetState() == DS_UNPARSED ) {
+		decl->EnsureNotPurged();
 	}
-	fragmentShaders[index].progId = ( GLuint ) LoadGLSLShader( GL_FRAGMENT_SHADER, fragmentShaders[index].name, fragmentShaders[index].uniforms );
-}
-
-/*
-================================================================================================
-idRenderProgManager::LoadShader
-================================================================================================
-*/
-GLuint idRenderProgManager::LoadShader( GLenum target, const char * name, const char * startToken ) {
-
-	idStr fullPath = "renderprogs\\gl\\";
-	fullPath += name;
-
-	common->Printf( "%s", fullPath.c_str() );
-
-	char * fileBuffer = NULL;
-	fileSystem->ReadFile( fullPath.c_str(), (void **)&fileBuffer, NULL );
-	if ( fileBuffer == NULL ) {
-		common->Printf( ": File not found\n" );
-		return INVALID_PROGID;
+	// a decl that failed to parse holds the green default program; try the
+	// real source once and never draw the green stub
+	if ( decl->GetState() == DS_DEFAULTED ) {
+		decl->RecoverFromDefaulted();
 	}
-	if ( !R_IsInitialized() ) {
-		common->Printf( ": Renderer not initialized\n" );
-		fileSystem->FreeFile( fileBuffer );
-		return INVALID_PROGID;
+	if ( decl->GetState() == DS_DEFAULTED ) {
+		qglUseProgram( 0 );
+		currentDecl = nullptr;
+		return;
 	}
-
-	// vertex and fragment shaders are both be present in a single file, so
-	// scan for the proper header to be the start point, and stamp a 0 in after the end
-	char * start = strstr( (char *)fileBuffer, startToken );
-	if ( start == NULL ) {
-		common->Printf( ": %s not found\n", startToken );
-		fileSystem->FreeFile( fileBuffer );
-		return INVALID_PROGID;
+	decl->EnsureUploaded();
+	if ( !decl->IsUploaded() ) {
+		// the decl has no generated code to upload; keep no program bound so
+		// the draw is skipped instead of drawing with the wrong program
+		common->Warning( "renderprog %s has no GL program", decl->GetName() );
+		qglUseProgram( 0 );
+		currentDecl = nullptr;
+		return;
 	}
-	char * end = strstr( start, "END" );
-	if ( end == NULL ) {
-		common->Printf( ": END not found for %s\n", startToken );
-		fileSystem->FreeFile( fileBuffer );
-		return INVALID_PROGID;
-	}
-	end[3] = 0;
-
-	idStr program = start;
-	program.Replace( "vertex.normal", "vertex.attrib[11]" );
-	program.Replace( "vertex.texcoord[0]", "vertex.attrib[8]" );
-	program.Replace( "vertex.texcoord", "vertex.attrib[8]" );
-
-	GLuint progId;
-	qglGenProgramsARB( 1, &progId );
-
-	qglBindProgramARB( target, progId );
-	qglGetError();
-
-	qglProgramStringARB( target, GL_PROGRAM_FORMAT_ASCII_ARB, program.Length(), program.c_str() );
-	GLenum err = qglGetError();
-
-	GLint ofs = -1;
-	qglGetIntegerv( GL_PROGRAM_ERROR_POSITION_ARB, &ofs );
-	if ( ( err == GL_INVALID_OPERATION ) || ( ofs != -1 ) ) {
-		if ( err == GL_INVALID_OPERATION ) {
-			const GLubyte * str = qglGetString( GL_PROGRAM_ERROR_STRING_ARB );
-			common->Printf( "\nGL_PROGRAM_ERROR_STRING_ARB: %s\n", str );
-		} else {
-			common->Printf( "\nUNKNOWN ERROR\n" );
+	RENDERLOG_PRINTF( "Binding GLSL Program %s\n", decl->GetName() );
+	qglUseProgram( decl->GetProgram() );
+	currentUsesJoints = decl->UsesJoints();
+	// optional skinning means the vertex program branches on the
+	// rpEnableSkinning parm; only the heat haze shaders do
+	for ( int i = 0; i < decl->data.vertexParms.Num(); i++ ) {
+		if ( decl->data.vertexParms[i] == RENDERPARM_ENABLE_SKINNING ) {
+			currentOptionalSkinning = true;
+			break;
 		}
-		if ( ofs < 0 ) {
-			common->Printf( "GL_PROGRAM_ERROR_POSITION_ARB < 0\n" );
-		} else if ( ofs >= program.Length() ) {
-			common->Printf( "error at end of shader\n" );
-		} else {
-			common->Printf( "error at %i:\n%s", ofs, program.c_str() + ofs );
-		}
-		qglDeleteProgramsARB( 1, &progId );
-		fileSystem->FreeFile( fileBuffer );
-		return INVALID_PROGID;
 	}
-	common->Printf( "\n" );
-	fileSystem->FreeFile( fileBuffer );
-	return progId;
 }
 
 /*
@@ -360,12 +334,59 @@ void idRenderProgManager::BindShader( int vIndex, int fIndex ) {
 	}
 	currentVertexShader = vIndex;
 	currentFragmentShader = fIndex;
-	// vIndex denotes the GLSL program
-	if ( vIndex >= 0 && vIndex < glslPrograms.Num() ) {
-		currentRenderProgram = vIndex;
-		RENDERLOG_PRINTF( "Binding GLSL Program %s\n", glslPrograms[vIndex].name.c_str() );
-		qglUseProgram( glslPrograms[vIndex].progId );
+
+	idDeclRenderProg * decl = nullptr;
+	if ( vIndex >= 0 && vIndex < vertexShaders.Num() ) {
+		decl = vertexShaders[vIndex].decl;
 	}
+	if ( decl != nullptr &&
+			fIndex >= 0 && fIndex < fragmentShaders.Num() &&
+			fragmentShaders[fIndex].decl != nullptr &&
+			fragmentShaders[fIndex].decl != decl ) {
+		// the legacy files always pair a vertex and a fragment shader of the
+		// same name, so the two indices resolve to the same decl; mixing
+		// stages from different decls is not supported
+		common->Warning( "vertex shader %s and fragment shader %s resolve to different renderprog decls",
+						 vertexShaders[vIndex].name.c_str(), fragmentShaders[fIndex].name.c_str() );
+	}
+
+	// find or create the program entry for this pair
+	currentRenderProgram = -1;
+	for ( int i = 0; i < glslPrograms.Num(); ++i ) {
+		if ( glslPrograms[i].vertexShaderIndex == vIndex && glslPrograms[i].fragmentShaderIndex == fIndex ) {
+			currentRenderProgram = i;
+			break;
+		}
+	}
+	if ( currentRenderProgram == -1 ) {
+		programEntry_t program;
+		program.name = ( vIndex >= 0 && vIndex < vertexShaders.Num() ) ? vertexShaders[vIndex].name : "";
+		program.decl = decl;
+		program.vertexShaderIndex = vIndex;
+		program.fragmentShaderIndex = fIndex;
+		currentRenderProgram = glslPrograms.Append( program );
+	}
+
+	BindDecl( decl );
+}
+
+/*
+================================================================================================
+idRenderProgManager::BindShader
+================================================================================================
+*/
+void idRenderProgManager::BindShader( int programIndex ) {
+	if ( programIndex < 0 || programIndex >= glslPrograms.Num() ) {
+		return;
+	}
+	const programEntry_t & program = glslPrograms[programIndex];
+	if ( currentVertexShader == program.vertexShaderIndex && currentFragmentShader == program.fragmentShaderIndex ) {
+		return;
+	}
+	currentVertexShader = program.vertexShaderIndex;
+	currentFragmentShader = program.fragmentShaderIndex;
+	currentRenderProgram = programIndex;
+	BindDecl( program.decl );
 }
 
 /*
@@ -376,6 +397,10 @@ idRenderProgManager::Unbind
 void idRenderProgManager::Unbind() {
 	currentVertexShader = -1;
 	currentFragmentShader = -1;
+	currentRenderProgram = -1;
+	currentDecl = nullptr;
+	currentUsesJoints = false;
+	currentOptionalSkinning = false;
 
 	qglUseProgram( 0 );
 }
@@ -399,3 +424,95 @@ idRenderProgManager::SetRenderParm
 void idRenderProgManager::SetRenderParm( renderParm_t rp, const float * value ) {
 	SetUniformValue( rp, value );
 }
+
+/*
+================================================================================================
+idRenderProgManager::FindGLSLProgram
+================================================================================================
+*/
+int idRenderProgManager::FindGLSLProgram( const char * name, int vIndex, int fIndex ) {
+	for ( int i = 0; i < glslPrograms.Num(); ++i ) {
+		if ( glslPrograms[i].vertexShaderIndex == vIndex && glslPrograms[i].fragmentShaderIndex == fIndex ) {
+			return i;
+		}
+	}
+	programEntry_t program;
+	program.name = name;
+	program.decl = nullptr;
+	if ( vIndex >= 0 && vIndex < vertexShaders.Num() ) {
+		program.decl = vertexShaders[vIndex].decl;
+	}
+	if ( program.decl == nullptr && fIndex >= 0 && fIndex < fragmentShaders.Num() ) {
+		program.decl = fragmentShaders[fIndex].decl;
+	}
+	program.vertexShaderIndex = vIndex;
+	program.fragmentShaderIndex = fIndex;
+	const int programIndex = glslPrograms.Append( program );
+	return programIndex;
+}
+
+/*
+================================================================================================
+idRenderProgManager::GetGLSLParmName
+================================================================================================
+*/
+const char* idRenderProgManager::GetGLSLParmName( int rp ) const {
+	if ( rp >= RENDERPARM_USER ) {
+		int userParmIndex = rp - RENDERPARM_USER;
+		return va("rpUser%d", userParmIndex );
+	}
+	assert( rp < RENDERPARM_TOTAL );
+	const char * parmName = renderProgParms.GetParmNameForIndex( rp );
+	return ( parmName != nullptr ) ? parmName : "<badParmIndex>";
+}
+
+/*
+================================================================================================
+idRenderProgManager::SetUniformValue
+================================================================================================
+*/
+void idRenderProgManager::SetUniformValue( const renderParm_t rp, const float * value ) {
+	for ( int i = 0; i < 4; i++ ) {
+		glslUniforms[rp][i] = value[i];
+	}
+}
+
+/*
+================================================================================================
+idRenderProgManager::CommitUniforms
+
+The decl stores the GL uniform location + 1 for every parm of its vertex
+and fragment programs; a location of 0 means the compiled program does not
+use that parm. The render parm indices of the registry match the
+renderParm_t values, so the uniform values are looked up directly.
+================================================================================================
+*/
+void idRenderProgManager::CommitUniforms() {
+	const idDeclRenderProg * decl = currentDecl;
+	if ( decl == nullptr ) {
+		return;
+	}
+	const renderProgData_t & data = decl->data;
+	for ( int index = 0; index < data.vertexParms.Num(); index++ ) {
+		const int location = decl->GetVertexUniformLocation( index );
+		if ( location != 0 ) {
+			qglUniform4fv( location - 1, 1, glslUniforms[data.vertexParms[index]].ToFloatPtr() );
+		}
+	}
+	for ( int index = 0; index < data.fragmentParms.Num(); index++ ) {
+		const int location = decl->GetFragmentUniformLocation( index );
+		if ( location != 0 ) {
+			qglUniform4fv( location - 1, 1, glslUniforms[data.fragmentParms[index]].ToFloatPtr() );
+		}
+	}
+}
+
+/*
+================================================================================================
+idRenderProgManager::ZeroUniforms
+================================================================================================
+*/
+void idRenderProgManager::ZeroUniforms() {
+	memset( glslUniforms.Ptr(), 0, glslUniforms.Allocated() );
+}
+

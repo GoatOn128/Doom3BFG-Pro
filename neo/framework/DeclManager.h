@@ -78,6 +78,7 @@ typedef enum {
 	DECL_EMAIL,
 	DECL_MODELEXPORT,
 	DECL_MAPDEF,
+	DECL_RENDERPROG,
 
 	// new decl types can be added here
 
@@ -109,6 +110,8 @@ public:
 	virtual void			Invalidate() = 0;
 	virtual void			Reload() = 0;
 	virtual void			EnsureNotPurged() = 0;
+	// let a defaulted decl reparse its real source text
+	virtual void			ReparseIfDefaulted() {}
 	virtual int				Index() const = 0;
 	virtual int				GetLineNum() const = 0;
 	virtual const char *	GetFileName() const = 0;
@@ -160,6 +163,7 @@ public:
 							// if a pointer might possible be stale from a previous level,
 							// call this to have it re-parsed
 	void					EnsureNotPurged() { base->EnsureNotPurged(); }
+	void					ReparseIfDefaulted() { base->ReparseIfDefaulted(); }
 
 							// Returns the index in the per-type list.
 	int						Index() const { return base->Index(); }
