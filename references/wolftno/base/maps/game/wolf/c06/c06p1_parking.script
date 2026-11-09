@@ -1,0 +1,307 @@
+/*
+================================================================================
+Map Script for c06p1.map PARKING 
+================================================================================
+*/
+
+#ifndef C06_MAIN
+#include "c06p1.script"
+
+#else
+
+#define panzerhund_car 		$gp_animatedsimple_panzerhund_car
+#define panzerhund 			$gp_animatedsimple_panzerhund
+
+//================================================================================
+// Parkinglot Car Panzerhund   
+//================================================================================
+void call_hotwirecar ( entity activatedEntity, entity activator ) 
+{
+	$player1.enterVehicle( $gp_vehicle_car );
+	$gp_changestate_hotwirecar_0.activate( activator );
+	panzerhund.show();
+	panzerhund.setAnimState( 2, 0, false );
+	$gp_enginepath_maze_hotwirecar_bendingrubble.setAnimState( 2, 0, false );
+
+	//Clear the panzerhund sequences 
+	$gp_trigger_surpriseevent1.makeActivatable( false );
+	$gp_trigger_surpriseevent_growl.makeActivatable( false );
+	$gp_trigger_surpriseevent2.makeActivatable( false );
+	$gp_trigger_surpriseevent_release.makeActivatable( false );
+	$gp_trigger_panzerhundmaze_killplayer.makeActivatable( false );
+	$gp_dynamic_playerclip_hotwirecar.remove();
+
+	sys.wait( 6.3f );
+	$gp_target_use_hotwirecar.activate( activator );
+}
+
+void call_panzerhund_car ( entity activatedEntity, entity activator ) 
+{
+	panzerhund_car.show();
+
+	//Teleport panzerhund to car with origin to base offset so it's positioned correct 
+	vector position = $gp_vehicle_car.getOrigin();
+	position_z += 20.80939;
+	panzerhund_car.teleport( position, $gp_vehicle_car.getAngles() );
+	
+	sys.waitFrame();
+	$player1.enterVehicle( $gp_vehicle_car );
+	$gp_relay_panzerhundcar_hit.activate( activator );
+	
+	sys.wait( 2.0f );
+	$gp_changestate_panzerhundcar_hit.activate( activator );
+	
+	sys.wait( 0.8f );
+	$gp_vieweffect_damage.activate( activator );
+}
+
+void call_getvelocity ( entity activatedEntity, entity activator ) 
+{
+	float carSpeed = $gp_vehicle_car.getCurrentVelocity();
+	sys.print( " speed: " + carSpeed + "\n" );
+	
+	if (carSpeed <= 40) {
+		$gp_relay_panzerhundcar_die.makeActivatable( false );
+		
+	} else { 														//if (carSpeed > 20)
+		sys.print( "KILL SPEED REACHED" );
+		$gp_relay_panzerhundcar_die.makeActivatable( true );
+	}
+	
+	$gp_relay_checkspeed_loop.activate( activator );
+}
+
+void call_panzerhund_die ( entity activatedEntity, entity activator ) 
+{
+	float carSpeed = $gp_vehicle_car.getCurrentVelocity();
+	
+	sys.print( "THIS ONE'S FOR YOU BOBBY!" );	
+	$gp_changestate_panzerhundcar_stop.activate( activator );
+	
+	if (carSpeed >= 40) {
+	$sound_music_modifier_cue_2_off.activate( activator );
+	} 
+	
+	sys.waitFrame();
+	$gp_relay_panzerhundcar_die.activate( activator );
+	
+	//Deactivate all maze trigger 
+	$gp_trigger_surpriseevent.makeActivatable( false );
+	$gp_trigger_debrisattack_activate.makeActivatable( false );
+	$gp_trigger_debrisattack.makeActivatable( false );
+	$gp_trigger_chase_1.makeActivatable( false );
+}
+
+void call_panzerhund_exit ( entity activatedEntity, entity activator ) 
+{
+	$gp_dynamic_dummycar.show();
+	
+	vector crashedCarAngle = $gp_vehicle_car.getAngles() ;
+	crashedCarAngle_y = crashedCarAngle_y + 90;
+	
+	$gp_dynamic_dummycar.teleport( $gp_vehicle_car.getOrigin(), crashedCarAngle ); 
+	
+	sys.waitFrame();
+	$gp_vehicle_car.remove();
+}
+
+//================================================================================
+// Parkinglot Maze Panzerhund   
+//================================================================================
+
+void call_maze_debrisattack ( entity activatedEntity, entity activator )
+{
+	$gp_volume_enter_exit_panzerhund_hide.makeActivatable( false );
+	
+	sys.waitFrame();
+	panzerhund.show();
+	panzerhund.setAnimState( 3, 0, false );
+	
+	$gp_animatedsimple_rockrubbles_a1.show();
+	$gp_animatedsimple_rockrubbles_a1.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble3a.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble3b.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble3c.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble3d.setAnimState( 0, 0, false );
+	$sound_music_modifier_cue_03.activate( activator );
+	
+	$gp_trigger_debrisattack.makeActivatable( false );	
+	$gp_trigger_panzerhund_backingoff.makeActivatable( true );	
+	
+	sys.wait( 2 );
+	if( $gp_trigger_panzerhund_backingoff.isActivatable() )
+	{
+		$gp_trigger_debrisattack1.makeActivatable( true );
+	}
+}
+
+void call_maze_debrisattack1 ( entity activatedEntity, entity activator )
+{
+	panzerhund.show();
+	panzerhund.setAnimState( 4, 0, false );
+	
+	$gp_enginepath_maze_chase_rubble3a.setAnimState( 1, 0, false );
+	$gp_enginepath_maze_chase_rubble3b.setAnimState( 1, 0, false );
+	$gp_enginepath_maze_chase_rubble3c.setAnimState( 1, 0, false );
+	$gp_enginepath_maze_chase_rubble3d.setAnimState( 1, 0, false );
+}
+
+void call_maze_panzerhund_backingoff ( entity activatedEntity, entity activator )
+{
+	panzerhund.setAnimState( 6, 0, false );
+	
+	$gp_animatedsimple_rockrubbles_a1.hide();
+	$gp_enginepath_maze_chase_rubble3a.setAnimState( 3, 0, false );
+	$gp_enginepath_maze_chase_rubble3b.setAnimState( 3, 0, false );
+	$gp_enginepath_maze_chase_rubble3c.setAnimState( 3, 0, false );
+	$gp_enginepath_maze_chase_rubble3d.setAnimState( 3, 0, false );
+
+	$gp_trigger_debrisattack.makeActivatable( true );
+	$gp_trigger_panzerhund_backingoff.makeActivatable( false );
+	$gp_trigger_debrisattack1.makeActivatable( false );
+}
+
+void call_maze_surprise ( entity activatedEntity, entity activator )
+{
+	$gp_trigger_panzerhund_patrolmaze_1.makeActivatable( false );
+	$gp_trigger_panzerhund_patrolmaze_2.makeActivatable( false );
+	
+	$gp_volume_enter_exit_panzerhund_hide.makeActivatable( false );
+	$gp_remove_panzerhund_sound.activate( activator );
+	$gp_dynamic_playerblock_1.remove();
+	$sound_tr_music_cue_03_oneshot.activate( activator );
+	
+	panzerhund.show();
+	panzerhund.setAnimState( 7, 0, false );
+	$gp_trigger_debrisattack.makeActivatable( false );
+	$gp_trigger_debrisattack_activate.makeActivatable( false );
+	
+	//Animated rubble 
+	$gp_enginepath_maze_chase_rubble_1a.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble_1b.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble_1c.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble_1d.setAnimState( 0, 0, false );
+}
+
+void call_chase ( entity activatedEntity, entity activator )
+{
+	sys.print( "RUN!!" );
+	$gp_animatedsimple_panzerhund.remove();
+	$gp_ai_panzerhund_chase.show();
+	$gp_target_anim_changestate_2.activate( activator );
+
+	$gp_dynamic_maze_block.show();
+	
+	//Animated metalbeams break (enginepaths)
+	$gp_enginepath_maze_chase_metalbeams1.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_metalbeams2.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_metalbeams3.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_metalbeams4.setAnimState( 0, 0, false );
+
+	$gp_enginepath_maze_chase_rubble_1a.setAnimState( 2, 0, false );
+	$gp_enginepath_maze_chase_rubble_1b.setAnimState( 2, 0, false );
+	$gp_enginepath_maze_chase_rubble_1c.setAnimState( 2, 0, false );
+	$gp_enginepath_maze_chase_rubble_1d.setAnimState( 2, 0, false );
+	
+	$gp_enginepath_falling_rubble4a.setAnimState( 0, 0, false );
+	$gp_enginepath_falling_rubble4b.setAnimState( 0, 0, false );
+	$gp_enginepath_falling_rubble4c.setAnimState( 0, 0, false );
+	
+	sys.wait( 0.5f );
+	$fx_panzerhund_stone_debris_surprise.activate( activator );
+	
+	sys.wait( 2.5f );
+	$fx_panzerhund_stone_debris_chasep1.activate( activator );
+}
+
+//sprint slide 
+
+/*void call_panzerhund_death (entity activatedEntity, entity activator )
+{
+	if ( $player1.getSprintSlideState() == SPRINT_SLIDE_STATE_SLIDING ) 
+	{          	
+		$gp_changestate_panzerhund_maze_die.activate( activator );
+		$gp_firstpersonevent_chase_panzerhud_death.activate (activator );
+		$gp_ai_panzerhund_chase.remove();
+		$gp_changestate_panzerhund_death.activate( activator );
+		$sound_music_modifier_cue_2_off.activate( activator );
+		$gp_remove_panzerhund_ruble.activate( activator );
+		$gp_trigger_call_panzerhund_death.remove();
+		$gp_trigger_call_panzerhund_death_safety.remove();
+    }
+	else  ( $gp_trigger_panzerhund_chase_die.makeActivatable( true ));
+}*/
+
+void call_panzerhund_death_safety (entity activatedEntity, entity activator )
+{   	
+		$gp_changestate_panzerhund_maze_die.activate( activator );
+		$gp_firstpersonevent_chase_panzerhud_death.activate (activator );
+		$gp_ai_panzerhund_chase.remove();
+		$gp_changestate_panzerhund_death.activate( activator );
+		$sound_music_modifier_cue_2_off.activate( activator );
+		$gp_remove_panzerhund_ruble.activate( activator );
+		$gp_trigger_call_panzerhund_death.remove();
+		$gp_trigger_call_panzerhund_death_safety.remove();
+}
+
+/*void call_chase_to_ruble (entity activatedEntity, entity activator )
+{
+	if ( $player1.getSprintSlideState() == SPRINT_SLIDE_STATE_SLIDING ) 
+	{          	
+		$gp_firstpersonevent_chase_toruble.activate (activator );
+		$gp_changestate_chase_to_ruble.activate( activator );
+		$gp_target_anim_changestate_1.activate( activator );
+		$gp_delay_car.activate( activator );	
+		$gp_trigger_call_chase_to_ruble.remove();
+		$gp_trigger_call_chase_to_ruble_safety.remove();
+    }
+	else  ( $gp_trigger_panzerhund_chase_die.makeActivatable( true ));
+}*/
+
+void call_chase_to_ruble_safety (entity activatedEntity, entity activator )
+{          	
+	$gp_firstpersonevent_chase_toruble.activate (activator );
+	$gp_changestate_chase_to_ruble.activate( activator );
+	$gp_target_anim_changestate_1.activate( activator );
+	$gp_delay_car.activate( activator );	
+}
+
+
+/*void call_chase_p2 ( entity activatedEntity, entity activator )
+{
+	panzerhund.setAnimState( 10, 0, false );
+	$gp_trigger_chase1_attack_lft.makeActivatable( false );
+	$gp_trigger_chase1_p2.makeActivatable( false );
+}
+
+void call_chase_lft ( entity activatedEntity, entity activator )
+{
+	sys.print( "KEEP ON RUNNING" );	
+	panzerhund.setAnimState( 11, 0, false );
+	$gp_trigger_chase1_attack_lft.makeActivatable( false );
+	$gp_trigger_chase1_p2.makeActivatable( false );
+}
+
+void call_chase_stuck_fwd ( entity activatedEntity, entity activator )
+{
+	sys.print( "Game Over" );
+	panzerhund.setAnimState( 12, 0, false );
+	$gp_trigger_chase_fwd.makeActivatable( false );
+}
+
+void call_chase_stuck_lft ( entity activatedEntity, entity activator )
+{
+	panzerhund.setAnimState( 13, 0, false );
+	
+	//Animated rubble 
+	$gp_enginepath_maze_chase_rubble_2a.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble_2b.setAnimState( 0, 0, false );
+	$gp_enginepath_maze_chase_rubble_2c.setAnimState( 0, 0, false );
+	
+	sys.wait( 5.0f );
+	$gp_trigger_panzerhundmaze_killplayer.makeActivatable( false );
+	$gp_dynamic_mazefinished_block.show();
+}*/
+
+
+#endif

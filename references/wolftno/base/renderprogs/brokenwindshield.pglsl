@@ -1,0 +1,42 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [7];
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_sparebumpmap;
+
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float fog = saturate( exp2( vofi_TexCoord3.w ) );
+	vec2 texcoord = vofi_TexCoord0.xy;
+	vec4 diffuseMap = tex2D( samp_transmap, texcoord );
+	vec4 bumpMap = tex2D( samp_sparebumpmap, texcoord );
+	vec3 localNormal = bumpMap.wyz - 0.5;
+	localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+	vec3 globalNormal;
+	globalNormal.x = dot3( localNormal, vofi_TexCoord1.xyz );
+	globalNormal.y = dot3( localNormal, vofi_TexCoord2.xyz );
+	globalNormal.z = dot3( localNormal, vofi_TexCoord3.xyz );
+	globalNormal = normalize( globalNormal );
+	vec3 primeLight = _fa_[0 ].xyz;
+	vec3 lightColor = vec3( 0.0 ) +
+	+ abs( globalNormal.x * _fa_[1 ].xyz )
+	+ abs( -globalNormal.x * _fa_[2 ].xyz )
+	+ abs( globalNormal.y * _fa_[3 ].xyz )
+	+ abs( -globalNormal.y * _fa_[4 ].xyz )
+	+ abs( globalNormal.z * _fa_[5 ].xyz )
+	+ abs( -globalNormal.z * _fa_[6 ].xyz );
+	lightColor *= 0.85;
+	vec4 final = vofi_Color * diffuseMap;
+	final.xyz *= lightColor + primeLight;
+	final.w *= fog;
+	out_FragColor0 = saturate( final );
+}

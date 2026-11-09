@@ -1,0 +1,986 @@
+/*
+================================================================================
+Map Script for c06p1.map
+================================================================================
+*/
+
+#ifndef C06_MAIN
+#define C06_MAIN
+
+#include "c06p1_parking.script"
+#include "c06p1_vo.script"
+#include "shaft_drones.script"
+#include "shaft.script"
+
+//================================================================================
+// MISC 
+//================================================================================
+
+void fade_windowwipers() {
+	$fx_windshieldrainparticles.activate( $null );
+	$gp_dynamic_bobbycar_frontwindow.show();
+	$gp_dynamic_bobbycar_frontwindow.setColorAndAlpha( 1.0, 1.0, 1.0, 1.0 );
+	$gp_dynamic_bobbycar_frontwindow.activateColorModulate();
+}
+
+void start_robot_light ( entity activatedEntity, entity acti ) {
+	$gp_func_dynamic_robot_light.show();
+	//$gp_func_dynamic_robot_light.setColor( 1.0, 1.0, 1.0 );
+	$gp_func_dynamic_robot_light.activateColorModulate();
+}
+
+void hide_robot_light ( entity activatedEntity, entity acti ) {
+	$gp_func_dynamic_robot_light.hide();
+}
+
+void show_parking_explosion ( entity activatedEntity, entity acti )
+{
+	//Show hidden binary models and effects in lobby
+	$func_binarymodel_parking_post_1.show();
+	$func_binarymodel_parking_post_2.show();
+	$func_binarymodel_parking_post_3.show();
+	$func_binarymodel_parking_post_4.show();
+	$func_binarymodel_parking_post_5.show();
+	$func_binarymodel_parking_post_6.show();
+	$func_binarymodel_parking_post_7.show();
+	$func_binarymodel_parking_post_8.show();
+	$func_binarymodel_parking_post_9.show();
+	
+	$func_binarymodel_parking_post_statue.show();
+	$func_binarymodel_parking_post_sprintslide_beam.show();
+	$func_binarymodel_3.show();
+	$gp_func_dynamic_flags.show();
+	$func_binarymodel_parking_post_deadbodies.show();
+	$cloth_showparkinglot.activate( acti );
+	$gp_animatedsimple_bronze_statue_big.remove();
+	
+	$func_binarymodel_2.show();
+	$gp_mover_yellow_car.show();
+	$gp_cuttablesurface_maze.show();
+	$gp_inventory_enigmacode_2.show();
+	$tech_dynamic_parking_ik_clip1.show();
+	$tech_dynamic_parking_ik_clip2.show();
+
+	$func_binarymodel_parking_pre_1.hide();
+	$func_binarymodel_parking_pre_2.hide();
+	$func_binarymodel_parking_pre_3.hide();
+	
+	$fx_func/emitter_163.activate( acti );
+	$fx_func/emitter_155.activate( acti );
+	$fx_func/emitter_156.activate( acti );
+	$fx_func/emitter_162.activate( acti );
+	$fx_func/emitter_160.activate( acti );
+	$fx_func/emitter_158.activate( acti );
+	$fx_func/emitter_159.activate( acti );
+	
+	$light_point_parking_light1.activate( acti );
+	$light_point_parking_light2.activate( acti );
+	
+	$gp_show_maze_animatedpieces.activate( acti );	
+	$gp_mover_bendingrubble.show();			
+}
+
+void fascade_endstate ( entity activatedEntity, entity acti ) {
+	$func_binaryanimation_fascade.setEndAnimState();
+}
+
+void demo_start_clearmaze ( entity activatedEntity, entity acti )
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	sys.waitFrame();
+	$gp_teleport_demo_aftermaze.activate( acti );
+	sys.waitFrame();
+	$gp_relay_checkpoint_clearmaze_1.activate( acti );
+}
+
+//================================================================================
+// Jumps 
+//================================================================================
+
+void call_jump_londonNautica_entrance (entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	sys.waitFrame();
+	$player1.teleport( $exit.getOrigin(), $exit.getAngles() );
+	$gp_relay_cleanup_startdrive.activate( activator );
+}
+
+void call_jump_sacrifice (entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	sys.waitFrame();
+	$gp_target_player_vehicleexit_1.activate( activator );
+	$player1.teleport( $menutrigger1.getOrigin(), $menutrigger1.getAngles() );
+	$gp_relay_cleanup_startdrive.activate( activator );
+	$gp_relay_bobbys_sacrifice.activate( activator );
+}
+
+void call_jump_parking_chase1 (entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	$gp_trigger_chase1_p2.makeActivatable( false );
+	$gp_trigger_chase_fwd.makeActivatable( false );
+	$gp_trigger_chase1_attack_lft.makeActivatable( false );
+	
+	sys.waitFrame();
+	$player1.teleport( $menutrigger2.getOrigin(), $menutrigger2.getAngles() );
+	$gp_relay_cleanup_startdrive.activate( activator );
+	$gp_trigger_chase_1.makeActivatable( true );
+	$gp_animatedsimple_panzerhund.setAnimState( 7, 0, false );
+}
+
+void call_jump_endelevator (entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	sys.waitFrame();
+	$player1.teleport( $menutrigger3.getOrigin(), $menutrigger3.getAngles() );
+}
+
+//================================================================================
+// Checkpoints 
+//================================================================================
+
+void call_checkpoint_parking_chase (entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.forceEndFirstPersonEvent();
+	show_parking_explosion(activatedEntity, activator);
+	$gp_remove_blimp_startdrivein.activate( activator );
+	$gp_anim_changestate_shrapnel_start.activate( activator );
+	$gp_changestate_animatedsimple_explosion_car_checkpoint.activate( activator );
+	
+	sys.waitFrame();
+	$gp_relay_cleanup_startdrive.activate( activator );
+	$gp_trigger_chase_1.makeActivatable( true );
+	$gp_animatedsimple_panzerhund.show();
+	$gp_moverjoint_blimp.time( 240.0f );
+	$gp_moverjoint_blimp.followSpline ( $gp_spline_blimp_after_exp, 1, false );
+	
+	call_maze_surprise ( activatedEntity, activator );
+	
+	$fx_startgravel.activate( activator );
+	$fx_smokevolume.activate( activator );
+	$fx_entrancetransitiondust.activate( activator );
+	
+	sys.wait( 240 );
+	$gp_remove_zepp.activate( activator );
+	$gp_remove_sidescene_blimp.activate( activator );
+}
+
+void call_checkpoint_lobby (entity activatedEntity, entity activator ) 
+{
+	$gp_trigger_activate_hallrobot.makeActivatable( false );
+	$gp_animatedsimple_brokenrobot.show();
+	$gp_changestate_checkpoint_panzerhund.activate( activator );
+	$gp_remove_blimp_startdrivein.activate( activator );
+}
+
+void call_checkpoint_clearmaze (entity activatedEntity, entity activator ) 
+{  
+	$gp_changestate_checkpoint_panzerhund.activate( activator );
+	panzerhund.teleport( $gp_info_null_eventpos_panzerhund_crushed.getOrigin(), $gp_info_null_eventpos_panzerhund_crushed.getAngles() );
+	$gp_trigger_panzerhundmaze_killplayer.makeActivatable( false );
+	show_parking_explosion( activatedEntity, activator ); 
+	$gp_dynamic_mazefinished_block.show();
+	$gp_remove_blimp_startdrivein.activate( activator );
+	
+	$fx_startgravel.activate( activator );
+	$fx_smokevolume.activate( activator );
+}
+
+void call_checkpoint_cafeteria (entity activatedEntity, entity activator ) 
+{
+	$gp_remove_blimp_startdrivein.activate( activator );
+}
+
+void call_checkpoint_controlstation (entity activatedEntity, entity activator ) 
+{
+	$gp_make_activatable_cafeteriacheckpoint.activate( activator );
+	$gp_trigger_checkpoint_cafeteria.makeActivatable( true );
+	$gp_dymanic_hallrobotdead.show();
+	$gp_remove_blimp_startdrivein.activate( activator );
+}
+
+void satelite_rail_endstate ( entity activatedEntity, entity acti ) {
+	$gp_binaryanimation_satelite_railing.setEndAnimState();
+}
+
+
+void satelite_up ( entity activatedEntity, entity acti ) {
+	$gp_moverjoint_satelite_move.time( 0.2 );
+	$gp_moverjoint_satelite_move.move( DIR_UP, 40 );
+}
+
+void satelite_down ( entity activatedEntity, entity acti ) {
+	$gp_moverjoint_satelite_move.time( 2 );
+	$gp_moverjoint_satelite_move.move( DIR_DOWN, 40 );
+	
+	sys.wait( 20 );
+	$gp_interactivemarker_destroy_satelite.show();
+}
+
+
+
+/*==================
+object objectFollowSpline 
+==================*/
+
+object objectFollowSpline {	
+	void init();
+	void onTrigger( entity activator );
+	
+	entity splineToFollow;
+	entity bindObject;	
+	
+	float moveTime;
+	float moveAccelTime;
+	float moveDecelTime;
+};
+
+void objectFollowSpline::init() {
+	
+	bindObject.bind( self );
+}
+
+
+void objectFollowSpline::onTrigger( entity activator ) {
+	
+	self.time(moveTime);
+	self.accelTime( moveAccelTime );
+	self.decelTime( moveDecelTime );	
+	self.followSpline( splineToFollow, false, false );
+}
+
+
+//================================================================================
+// SIDESCENE CARS  
+//================================================================================
+
+object splineCar
+{
+	float driveTime;
+	
+	entity splineToFollow;
+	
+	void onTrigger ( entity activator );
+};
+
+void splineCar::onTrigger( entity activator )
+{
+	self.show();
+	self.time ( driveTime );
+	self.followSpline( splineToFollow, false, false );
+	sys.waitFor( self );
+	self.remove();
+}
+
+void call_sidescene (entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_loader1.show();
+	$gp_animatedsimple_loader2.show();
+	$gp_start_loader_2.activate( $acti );
+	
+	$gp_moverjoint_blimp.time( 240.0f );
+	$gp_moverjoint_blimp.followSpline ( $gp_spline_blimp, 1, false );
+	
+	sys.wait( 10.0f );
+	$gp_animatedsimple_loader1.remove();
+	$gp_animatedsimple_loader2.remove();
+}
+
+/*================================================================================
+SEARCHLIGHTS (On blimp this time)
+================================================================================*/
+
+object searchLight 
+{
+	entity bindEffect;
+	entity bindLight;
+	
+	float timeToPos;
+	float accelTimeToPos;
+	float decelTimeToPos;
+	float pausTime;
+
+	void init();
+	
+	void onTrigger ( entity activator );
+	boolean shouldSearch;
+};
+
+void searchLight::init()
+{
+	bindEffect.bind( self );
+	bindLight.bind( self );
+	
+	self.accelTime( accelTimeToPos );	
+	self.decelTime( decelTimeToPos );
+	self.time( timeToPos );
+	
+	entity nextTarget = self;
+	
+	vector targetAngle;
+		
+	shouldSearch = true;
+	
+	while ( shouldSearch )
+	{
+		nextTarget = self.randomTarget( nextTarget.getName() );
+		
+		targetAngle = sys.vecToAngles( nextTarget.getWorldOrigin() - self.getWorldOrigin());
+		
+		self.rotateTo( targetAngle );
+		
+		sys.waitFor( self );
+		sys.wait( pausTime );		
+	}
+}
+
+void searchLight::onTrigger( entity activator )
+{
+	shouldSearch = false;
+}
+
+//================================================================================
+// Bobbys Sacrifice  
+//================================================================================
+void call_start ( entity activatedEntity, entity activator ) 
+{
+	$gp_firstpersonevent_startcar.activate( activator );
+	$gp_changestate_startdrivein.activate( activator );
+
+	$fx_startlights.activate( activator );
+	$fx_target_show_drive_stuff.activate( activator );
+	
+	$gp_demorelay_start_clearmaze.activate( activator );
+}
+
+void blimp_startdrivein ( entity activator, entity activatedEntity ) 
+{
+	$gp_animatedsimple_blimp_startdrivein.show();
+	$gp_emitter_blimp_lamp_1.show();
+	$gp_emitter_blimp_lamp_1.show();
+	$gp_emitter_blimp_startdrivein.show();
+	$gp_moverjoint_blimp_startdrivein.time( 40.0f );
+	$gp_moverjoint_blimp_startdrivein.followSpline ( $gp_spline_blimb_startdrivein, 1, false );
+}
+
+void call_bobby_drivein ( entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_johann.setAnimState( 0, 0, false );
+	$gp_animatedsimple_character_bobby.setAnimState( 0, 0, false );
+	$gp_animatedsimple_enginepath_headphones_mic.setAnimState( 0, 0, false );
+	$gp_animatedsimple_bobbyscar.setAnimState( 1, 0, false );
+	$gp_animatedsimple_paper.setAnimState( 0, 0, false );
+	$gp_enginepath_ar60.setAnimState( 0, 0, false );
+
+	$gp_dynamic_car_loose_door.show();
+	$gp_dynamic_car_loose_tyre.show();
+	$gp_animatedsimple_crow01.show();
+	$gp_animatedsimple_crow02.show();
+	$gp_animatedsimple_crow03.show();
+	$gp_animatedsimple_carkeys.show();
+	$gp_animatedsimple_explosion_car.show();
+	$gp_show_a2_start.activate( activator );
+
+	$gp_firstpersonevent_startcar.setFirstPersonEventAnimState( 1 );
+
+	sys.wait( 57.0f );
+	$gp_mover_nautica_door_right.show();
+	$gp_mover_nautica_door_left.show();
+	$gp_animatedsimple_infantry_umbrella1.remove();
+	
+	$gp_mover_gate_left.time( 3.0f );
+	$gp_mover_gate_left.accelTime( 0.5f );
+	$gp_mover_gate_left.decelTime( 0.5f );	
+	$gp_mover_gate_left.rotateOnce( '0 -90 0' );
+
+	$gp_mover_gate_right.time( 3.0f );
+	$gp_mover_gate_right.accelTime( 0.5f );
+	$gp_mover_gate_right.decelTime( 0.5f );	
+	$gp_mover_gate_right.rotateOnce( '0 90 0' );
+	
+	sys.wait( 7.0f );
+	$gp_mover_gate_left.time( 3.0f );
+	$gp_mover_gate_left.accelTime( 0.5f );
+	$gp_mover_gate_left.decelTime( 0.5f );	
+	$gp_mover_gate_left.rotateOnce( '0 90 0' );
+
+	$gp_mover_gate_right.time( 3.0f );
+	$gp_mover_gate_right.accelTime( 0.5f );
+	$gp_mover_gate_right.decelTime( 0.5f );	
+	$gp_mover_gate_right.rotateOnce( '0 -90 0' );
+	
+	$gp_dynamic_headphones_mic.remove();
+	
+	sys.wait( 15.0f );
+	$gp_relay_bobbys_sacrifice.activate( activator );
+	
+	sys.wait( 0.7f );
+	$fx_carcrash.activate( activator );
+	$sound_spnautica_glass_break.activate( activator );
+	
+	sys.wait( 0.5f );
+	$gp_mover_nautica_door_left.remove();
+	$gp_mover_nautica_door_right.remove();
+}
+
+void call_bobby_unbindfpevent()
+{
+	$gp_firstpersonevent_startcar.unbind();
+}
+
+void call_bobbys_sacrifice ( entity activatedEntity, entity activator ) 
+{
+	$gp_moverjoint_blimp.time( 240.0f );
+	$gp_moverjoint_blimp.followSpline ( $gp_spline_blimp_after_exp, 1, false );
+		
+	//If you change this let Markus S know about it as it affects animations 				
+	sys.wait( 2.5f ); 
+	$fx_shockwaveexplosion.activate( $player1 );
+	$gp_changestate_explosion_carparts.activate( activator );
+	$func_binarymodel_parking_post_6.show();
+	$func_binarymodel_parking_pre_3.hide();
+	$func_binaryanimation_fascade.activate( activator );
+	$gp_relay_explosion_hurplayer.activate( activator );
+	$gp_animatedsimple_explosion_car.setAnimState( 0, 0, false );
+	$gp_changestate_animated_exp_stuff.activate( activator );
+	$gp_animatedsimple_bronze_statue_big.setAnimState( 0, 0, false );
+	$gp_animatedsimple_crow_explosion.show();
+	
+	//First person event pushed back from explosion shockwave 
+	$gp_firstpersonevent_shockwave.activate( $player1 );
+	$gp_changestate_hotwirecar_explosion.activate( activator );
+		
+	//Trigger the big shockwave dustcloud 				
+	sys.wait( 2.5f );
+	//$fx_debris_rumble_outside.activate( $player1 );
+	
+	sys.wait( 7.5f );
+	$fx_dustscreeneffect.activate( activator );
+	
+	sys.wait( 1.0f );
+	//Fix the environment volume, spawn ambient dust around rubble and show the debris 
+	show_parking_explosion(activatedEntity, activator);
+	$fx_explosiondust.activate( activator );	
+	$gp_envolume_override_parking.makeActivatable( true );	
+	
+	//Extra gameplay stuff 
+	$gp_animatedsimple_panzerhund.show();	
+	$gp_trigger_surprise3.makeActivatable( true );
+	$gp_vehicle_car.makeActivatable( true );
+	$fx_target_remove_drive_stuff.activate( activator );
+}
+
+
+//Cleanup introevent and sidescene stuff
+void call_cleanup_startdrive ( entity activatedEntity, entity activator ) 
+{
+	$gp_remove_sidescene_rightside_rightlane.activate( activator );
+	$gp_remove_sidescene_leftside_rightlane.activate( activator );
+	$gp_remove_sidescene_rightside_leftlane.activate( activator );
+	$gp_remove_sidescene_leftside_leftlane.activate( activator );
+	$gp_remove_sidescene_middle_lane.activate( activator );
+	$gp_remove_animated_explosion_parts.activate ( activator );
+	$fx_remove_drivein.activate( activator );
+	
+	sys.wait( 2.0f );
+	$gp_remove_bobbysacrificedrive.activate( activator );
+}
+
+
+/*================================================================================
+Falling broken rock
+================================================================================*/
+
+void brokenrock_fall(entity thg, entity ahskj)
+{
+	entity rock = $gp_brokenrock;
+	
+	rock.time(0.8);
+	rock.accelTime(0.3);
+	rock.decelTime(0.1);
+	rock.followSpline($gp_brokenrock_path, true, true);
+}
+
+
+/*================================================================================
+Swinging object (in this case the rocket in the hallway 
+================================================================================*/
+
+object pendulum 
+{
+	entity bindMover;
+	
+	float swingTime;
+	
+	vector swingRotation;
+
+	void init();
+	
+	void onTrigger( entity activator );
+	
+	boolean shouldRotate;
+	
+	entity landingPos; 
+	
+	float fallTime;
+};
+
+void pendulum::init()
+{
+	bindMover.bind( self );
+	
+	self.accelTime( swingTime * 0.5 );	
+	self.decelTime( swingTime * 0.5 );
+	self.time( swingTime );
+	
+	self.setAngles( self.getAngles() + (swingRotation * 0.5) );
+	
+	while ( shouldRotate == true )
+	{
+		self.rotateOnce( -swingRotation );
+		sys.waitFor( self );
+		
+		if (shouldRotate == false )
+		{
+			break;
+		} 
+		
+		self.rotateOnce( swingRotation );
+		sys.waitFor( self );
+	}
+}
+
+void pendulum::onTrigger( entity activator )
+{
+	shouldRotate = false; 
+	
+	self.stopRotating();
+	
+	bindMover.time( fallTime );
+	bindMover.accelTime( fallTime );	
+	
+	bindMover.moveToPos( landingPos.getOrigin());
+	bindMover.rotateToShortest( landingPos.getAngles() );	
+} 
+
+
+
+/*
+================================================================================
+Hallway door controlled by player. Sick! Oh you're so pro Grawert~
+================================================================================
+*/
+
+object holding_door
+{
+	int openSpeed;
+	int closeSpeed;
+	int height;
+
+	entity roller;
+
+	float _initialPos;
+	
+	void init();
+	
+	void startOpen();
+	void abortOpen();
+	
+	boolean isAtTop();
+	boolean isAtBottom();
+	
+};
+
+boolean holding_door::isAtTop()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos + self.height - pos_z);
+	
+	return (dist < 0.1);
+}
+
+boolean holding_door::isAtBottom()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos - pos_z);
+	return (dist < 0.1);
+}
+
+void holding_door::init()
+{
+	vector pos = self.getOrigin();
+	self._initialPos = pos_z;
+	
+	if(!self.height)
+	{
+		pos = self.getMaxs() - self.getMins();
+		self.height = pos_z - 24;
+	}
+	if(!self.openSpeed) self.openSpeed = 100;
+	if(!self.closeSpeed) self.closeSpeed = 110;
+	
+}
+
+void holding_door::startOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();	
+	
+	vector pos = self.getOrigin();
+	float dist = self._initialPos + self.height - pos_z;
+	
+	if(dist == 0) return;	
+	
+	float t = dist/self.openSpeed;
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+	
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);	
+	self.roller.time(t);
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing open sounds
+	$sound_sp_servo_down.off(); //Make sure closing sound is off		
+	$sound_sp_servo_up.on(); //Servo loop
+	$sound_sp_steelshutter_start_up.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		$sound_sp_metal_loop.on(); //Movement loop
+	}
+
+	sys.waitFor(self);	
+	if(self.isAtTop()) 
+	{
+		//Stop playing the opening sounds.
+		$sound_sp_servo_up.off(); //Servo loop
+		$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing top hit sounds.
+		$sound_sp_steel_shutter_stop_top.on();
+		$gp_holdhandle_fpevent.setFirstPersonEventAnimState( 2 );
+	}
+}
+
+
+void holding_door::abortOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();
+
+	vector pos = self.getOrigin();
+	float dist = self._initialPos - pos_z;
+	if(dist == 0) return;	
+	
+	float t = abs(dist/self.closeSpeed);
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);
+	self.roller.time( t );
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing close sounds
+	$sound_sp_servo_up.off(); //Make sure opening sound is off	
+	$sound_sp_servo_down.on(); //Servo loop
+	$sound_sp_steelshutter_startdown.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		$sound_sp_metal_loop.on(); //Movement loop
+	}
+	
+	sys.waitFor(self);
+
+	if(self.isAtBottom()) //The door hasn't changed direction during this call
+	{
+		//Stop playing the closing sounds.
+		$sound_sp_servo_down.off(); //Servo loop
+		$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing bottom hit sounds.
+		$sound_sp_steel_shutter_stop_floor.on();
+	}
+}
+
+
+void holding_door_start_open(entity targ, entity acti)
+{
+	entity door = $gp_mover_rollupdoor;
+	door.callFunction("startOpen");	
+	
+	
+}
+
+
+void holding_door_abort_open(entity targ, entity acti)
+{
+	entity door = $gp_mover_rollupdoor;
+	door.callFunction("abortOpen");	
+}
+
+//================================================================================
+// Hallway 
+//================================================================================
+
+#define ROBOT_DOOR_HEIGHT 160
+#define ROBOT_DOOR_OPENTIME 2.5
+#define ROBOT_DOOR_CLOSETIME 2
+
+int clipMask;
+
+void call_hall_robot (entity activatedEntity, entity activator ) 
+{
+	//Doors
+	float dist = ROBOT_DOOR_HEIGHT;
+	
+	$gp_mover_rollupdoor.time( ROBOT_DOOR_OPENTIME );
+	$gp_mover_rollupdoor.move(DIR_UP, dist);
+	
+	$gp_mover_roller.time( ROBOT_DOOR_OPENTIME );
+	$gp_mover_roller.rotateOnceXYZ( 0, dist*360/64, 0 );
+	
+	$sound_sp_exhibition_doors_open.activate($activator);
+		
+	$combat_relay_robotsquad.activate( activator );
+	
+	sys.wait( 0.5f );
+	$cb_movetoscenepoint_hallrobot.activate( activator );
+	
+	sys.wait(1);
+	
+//	$gp_mover_rollupdoor.removeClipMaskFlag(MASK_NPCSOLID);
+	clipMask = $gp_mover_rollupdoor.getClipMask();
+	$gp_mover_rollupdoor.setClipMask(0);
+	
+}
+
+void call_hall_robot_inposition (entity activatedEntity, entity activator ) 
+{
+	//Doors
+
+	float dist = -ROBOT_DOOR_HEIGHT;
+	
+	$gp_mover_rollupdoor.time( ROBOT_DOOR_CLOSETIME );
+	$gp_mover_rollupdoor.move(DIR_UP, dist);
+	
+	$gp_mover_roller.time( ROBOT_DOOR_CLOSETIME );
+	$gp_mover_roller.rotateOnceXYZ( 0, dist*360/64, 0 );
+	
+	$gp_mover_rollupdoor.setClipMask(clipMask);
+	
+	$sound_sp_exhibition_doors_close.activate($activator);
+}
+
+void call_rocket (entity activatedEntity, entity activator ) 
+{
+	$gp_animatedsimple_enginepath_rocket.setAnimState( 0, 0, false );
+	
+	sys.wait( 0.96f );
+	$gp_func_mover_rocket.remove();
+	$gp_func_fx_rocketdust.activate( activator );
+	$gp_dymanic_hallrobotdead.show();
+	$combat_robot_dead.activate( activator );
+	sys.wait (0.1);
+	//$gp_triggers_hurt_1.remove();	
+}
+
+void call_rocket_checkpoint (entity activatedEntity, entity activator ) 
+{
+	$gp_func_mover_rocket.remove();
+	$gp_dymanic_hallrobotdead.show();
+	$combat_robot_dead.activate( activator );	
+}
+
+//================================================================================
+// BROKEN GLASS POSTERS  
+//================================================================================
+
+
+object breakable_poster_trigger
+{
+	int num;
+};
+
+void breakable_poster_trigger::onTrigger(entity acti)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+void destroy_poster (int num)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+//================================================================================
+// Fergus/Wyatt Secrets  
+//================================================================================
+
+void call_wyatt_locker (entity activatedEntity, entity activator ) 
+{
+	$gp_moverjoint_wyatt_lockerdoor.time(1.5f);
+	$gp_moverjoint_wyatt_lockerdoor.accelTime(0.5f);
+	$gp_moverjoint_wyatt_lockerdoor.decelTime(0.5f);
+	$gp_moverjoint_wyatt_lockerdoor.rotateOnce( '0 -90 0' );
+}
+
+//================================================================================
+// Exhibition Area  
+//================================================================================
+
+/*boolean weaponSafeUnlocked = false; 
+
+void call_controlstation_weaponlocker (entity activatedEntity, entity activator ) 
+{
+	if ( weaponSafeUnlocked )
+	{
+		$gp_moverjoint_controlroom_weapon_safe.time(1.5f);
+		$gp_moverjoint_controlroom_weapon_safe.accelTime(0.5f);
+		$gp_moverjoint_controlroom_weapon_safe.decelTime(0.8f);
+		$gp_moverjoint_controlroom_weapon_safe.rotateOnce( '0 80 0' );
+	}
+	
+	else 
+	{
+		weaponSafeUnlocked = true;
+		
+		$gp_moverjoint_controlroom_weapon_safe.time(1.5f);
+		$gp_moverjoint_controlroom_weapon_safe.accelTime(0.5f);
+		$gp_moverjoint_controlroom_weapon_safe.decelTime(0.8f);
+		$gp_moverjoint_controlroom_weapon_safe.rotateOnce( '0 10 0' );	
+		
+		sys.wait( 1.5 );
+		$gp_use_controlstation_weapon_safe.show();
+	}	
+}*/
+
+
+//Enable or Disable sitting soldier aim - Fredrik L
+
+void StartDudeAiming( entity activatedEntity, entity activator) {
+    sys.print("Called Dude start aiming");
+    $gp_animatedsimple_loot_aim.setFocus( $player1, true, true, AIMPOINT_HEAD );
+}
+
+void StopDudeAiming( entity activatedEntity, entity activator) {
+    sys.print("Called Dude stop aiming");
+    $gp_animatedsimple_loot_aim.setFocus( $menutrigger0, true, true, AIMPOINT_HEAD );
+}
+
+
+
+//Guy steps out of door, closes when he is through
+
+void call_open_servicetunnel_first ( entity activatedEntity, entity activator )
+{
+	$gp_moverjoint_maintenancedoor.time( 2.0f );
+	$gp_moverjoint_maintenancedoor.decelTime( 0.5f );
+	$gp_moverjoint_maintenancedoor.rotateOnce( '0 90 0' );
+}
+
+void call_close_servicetunnel_first ( entity activatedEntity, entity activator )
+{
+	$gp_moverjoint_maintenancedoor.time( 2.0f );
+	$gp_moverjoint_maintenancedoor.decelTime( 0.5f );
+	$gp_moverjoint_maintenancedoor.rotateOnce( '0 -90 0' );
+}
+
+void call_entrance_finalwave (entity activatedEntity, entity activator ) 
+{
+	//Doors
+	$gp_func_mover_exhibitiondoor_right.time( 3.0f );
+	$gp_func_mover_exhibitiondoor_right.accelTime( 2.0f );
+	$gp_func_mover_exhibitiondoor_right.decelTime( 1.0f );
+	$gp_func_mover_exhibitiondoor_right.move(DIR_UP, 336);
+	
+	$sound_sp_exhibition_doors_open.activate($activator);
+}
+
+/*
+void CloseDoors (entity activatedEntity, entity activator ) 
+{
+	//Doors
+	$gp_func_mover_exhibitiondoor_right.time( 1.0f );
+	$gp_func_mover_exhibitiondoor_right.decelTime( 1.0f );
+	$gp_func_mover_exhibitiondoor_right.move(DIR_DOWN, 336);
+		
+	$sound_sp_exhibition_doors_close_fast.activate($activator);
+	$sound_tr_nautica_alarm_off.activate( activator );
+
+}
+*/
+//================================================================================
+// Elevator ending 
+//================================================================================
+
+void call_hatch ( entity activatedEntity, entity activator )
+{
+	$sound_sp_hatch_open.activate( activator );
+	$sound_fade_music.activate( activator );
+	
+    $gp_mover_moonroom_backdrop_hatch.time( 0.7f );
+	$gp_mover_moonroom_backdrop_hatch.accelTime( 0.7f );
+	$gp_mover_moonroom_backdrop_hatch.rotateOnce( '85 0 0' );
+
+	sys.waitFor($gp_mover_moonroom_backdrop_hatch);
+    $gp_mover_moonroom_backdrop_hatch.time( 0.2f );
+	$gp_mover_moonroom_backdrop_hatch.accelTime( 0.0f );
+	$gp_mover_moonroom_backdrop_hatch.decelTime( 0.2f );
+	$gp_mover_moonroom_backdrop_hatch.rotateOnce( '-8 0 0' );
+	
+	sys.waitFor($gp_mover_moonroom_backdrop_hatch);	
+    $gp_mover_moonroom_backdrop_hatch.time( 0.2f );
+	$gp_mover_moonroom_backdrop_hatch.accelTime( 0.2f );
+	$gp_mover_moonroom_backdrop_hatch.decelTime( 0.0f );
+	$gp_mover_moonroom_backdrop_hatch.rotateOnce( '8 0 0' );
+}
+
+void call_elevator ( entity activatedEntity, entity activator )
+{
+    $gp_mover_elevatorcounterweight.time( 2 );
+    $gp_mover_elevatorcounterweight.accelTime( 2 );
+	$gp_mover_elevatorcounterweight.move( DIR_DOWN, 320 );
+
+	$gp_mover_elevator.time( 8 );
+    $gp_mover_elevator.accelTime( 3 );
+	$gp_mover_elevator.move( DIR_UP, 3280 );
+	
+	sys.wait(2.0f);
+	$gp_relay_fx_elevator.activate( activator );
+	
+	sys.wait( 6.0f );
+	$gp_jobs_hangar_end.activate( activator );
+	$gp_relay_fx_elevator.activate( activator );
+}
+
+
+#endif

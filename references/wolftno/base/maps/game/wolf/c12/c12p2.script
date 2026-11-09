@@ -1,0 +1,79 @@
+/*
+================================================================================
+Map Script for c12p2.map
+================================================================================
+*/
+
+void AAV_Fall (entity activatedEntity, entity activator )
+
+{
+	
+	$cb_aav_mover.time(10);
+	$cb_aav_mover.accelTime(5);
+	$cb_aav_mover.followSpline($cb_spline_aav_fall, true, true);
+	
+	sys.wait( 10.0f );
+	$cb_longbridge_aav_remove.activate( activator );
+	
+}
+
+void call_head_off ( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_character_machinehall_saved_supersoldat_extragore.hideIndividualMeshKit( MESH_KIT_GEAR, "head" );
+	$gp_func_animatedsimple_character_machinehall_saved_supersoldat_extragore.hideIndividualMeshKit( MESH_KIT_GEAR, "helmet" );
+	$gp_func_animatedsimple_character_machinehall_saved_supersoldat_extragore.hideIndividualMeshKit( MESH_KIT_GEAR, "mask" );
+	$gp_func_animatedsimple_character_machinehall_saved_supersoldat_extragore.showIndividualMeshKit( MESH_KIT_GEAR, "head_wound" );
+}
+
+void enablehelicoptermg60exit ( entity activatedEntity, entity activator )
+{
+	$gp_prop_useable_turret_mg60_helicopter2.enableManualExit( true );
+}
+
+void open_blastshield_windows ( entity activatedEntity, entity activator )
+{
+	$func_mover_blast_shield_windows.time( 12 );
+    $func_mover_blast_shield_windows.accelTime( 4 );
+    $func_mover_blast_shield_windows.decelTime( 4 );
+	$func_mover_blast_shield_windows.move( DIR_UP, 77 );
+}
+
+void call_chopper_attack_damagelevel_1 ( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_generic_ph_chopper_attack.startFX( FX_START_DAMAGE_LEVEL_1	);
+}
+
+void call_chopper_attack_damagelevel_2 ( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_generic_ph_chopper_attack.startFX( FX_START_DAMAGE_LEVEL_2	);
+}
+
+void call_chopper_attack_damagelevel_3 ( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_generic_ph_chopper_attack.startFX( FX_START_DAMAGE_LEVEL_3	);
+}
+
+void call_chopper_attack_damagelevel_4 ( entity activatedEntity, entity activator )
+{
+	$gp_func_animatedsimple_generic_ph_chopper_attack.startFX( FX_START_DAMAGE_LEVEL_4	);
+}
+
+void call_disable_exit_turret ( entity activatedEntity, entity activator )
+{
+	$gp_prop_useable_turret_stealthhelimg60_2.enableManualExit( false );
+}
+
+void call_enable_exit_turret ( entity activatedEntity, entity activator )
+{
+	$gp_prop_useable_turret_stealthhelimg60_2.enableManualExit( true );
+}
+
+void call_push_away ( entity activatedEntity, entity activator )
+{
+	vector dir = $player1.getWorldOrigin() - activatedEntity.getWorldOrigin();
+	dir = sys.vecNormalize ( dir );
+	dir_z = 0;
+//	sys.debugArrow ( Vec ( 1, 1, 1), $player1.getWorldOrigin(), $player1.getWorldOrigin() + dir * 500, 1, 1);
+	$player1.pushSoft ( dir, 350.0, 0.2 );
+//	sys.println ( "pushpush" );
+}

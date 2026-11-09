@@ -1,0 +1,866 @@
+/*
+================================================================================
+Map Script for c01p4.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+boolean useDebug() {
+	return ( sys.getcvar( "animatedSimple_debugLevel" ) == "-1" );
+}
+
+vector inFrontOfPlayer( float distance ) {
+	return $player1.getWorldOrigin() + Vec(0,0,80) + sys.angToForward( $player1.getViewAngles() ) * distance;
+}
+
+void call_diebyfire( entity activatedEntity, entity activator )
+{
+	vector viewAngles = $player1.getViewAngles(); 
+	viewAngles_x = 0.0;
+	viewAngles_z = 0.0;
+	$func_firstpersonevent_diebyfire.teleport( $player1.getOrigin(), viewAngles );
+	$func_firstpersonevent_diebyfire.activate( $player1 );
+}
+
+void call_open_windowbars ( entity activatedEntity, entity activator )
+{
+	$sound_sp_endgate.activate( $acti );
+	$gp_func_mover_windowbars.time( 3.5 );
+    $gp_func_mover_windowbars.accelTime( 1 );
+    $gp_func_mover_windowbars.decelTime( 0.3 );
+	$gp_func_mover_windowbars.move( DIR_UP, 95 );
+	
+	sys.wait(2.5); 
+	$gp_func_mover_windowbars.setContents(0); //So player doesn't bump head on it
+
+}
+
+void remove_activator ( entity activatedEntity, entity activator )
+{
+    sys.print("Removing activator.\n");
+	activator.remove();
+}
+
+void wave ( entity activatedEntity, entity activator )
+{
+    sys.print("The wave section is triggered.\n");
+}
+
+void call_centercamera ( entity activatedEntity, entity activator )
+{
+	$gp_func_camera_rotatable_specimen.setAutoCenter( true );
+}
+
+void open_incineratordrawer1 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer1.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer1.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer1.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer1.move( DIR_BACK, 21 );
+	$sound_sp_drawer_01.activate( $acti );
+}
+
+void open_incineratordrawer2 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer2.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer2.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer2.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer2.move( DIR_BACK, 23 );
+	$sound_sp_drawer_02.activate( $acti );	
+}
+
+void open_incineratordrawer3 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer3.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer3.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer3.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer3.move( DIR_BACK, 19 );
+	$sound_sp_drawer_03.activate( $acti );	
+}
+
+void open_incineratordrawer4 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer4.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer4.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer4.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer4.move( DIR_LEFT, 24 );
+	$sound_sp_drawer_04.activate( $acti );	
+}
+
+void open_incineratordrawer5 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer5.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer5.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer5.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer5.move( DIR_LEFT, 26 );
+	$sound_sp_drawer_05.activate( $acti );	
+}
+
+void open_incineratordrawer6 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer6.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer6.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer6.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer6.move( DIR_LEFT, 21 );
+	$sound_sp_drawer_06.activate( $acti );	
+}
+
+void dh_open_hatch ( entity activatedEntity, entity activator )
+{
+	sys.print(activator.getName());
+	sys.print(activatedEntity.getName());
+	$gp_func_mover_incineratordoor_hatch.time( 0.8 );
+    $gp_func_mover_incineratordoor_hatch.accelTime( 0.2 );
+    $gp_func_mover_incineratordoor_hatch.decelTime( 0.2 );
+	$gp_func_mover_incineratordoor_hatch.move( DIR_RIGHT, 15 );
+}
+
+void call_show_attachment_incinerator2_fergus( entity activatedEntity, entity activator ) 
+{ 
+	$gp_func_animatedsimplecharacter_incinerator2_fergus.showAttachments(true); 
+}
+void call_hide_attachment_incinerator2_fergus( entity activatedEntity, entity activator ) 
+{ 
+	$gp_func_animatedsimplecharacter_incinerator2_fergus.showAttachments(false); 
+}
+void call_show_attachment_incinerator2_wyatt( entity activatedEntity, entity activator ) 
+{ 
+	$gp_func_animatedsimplecharacter_incinerator2_wyatt.showAttachments(true); 
+}
+void call_hide_attachment_incinerator2_wyatt( entity activatedEntity, entity activator ) 
+{ 
+	$gp_func_animatedsimplecharacter_incinerator2_wyatt.showAttachments(false); 
+}
+
+// Wall crush movers to stop player from clipping through NPCs
+object wallCrushMover {
+	float distance;
+	float duration;
+	int direction; // -5 = fwd, -4 = right, -3 = left, -6 = bwd
+	
+	void onTrigger( entity activator );
+};
+
+void wallCrushMover::onTrigger( entity activator ) {
+	self.time( duration );
+	self.accelTime( 0.2 );
+    self.decelTime( 0.2 );
+    self.move( direction, distance );
+}
+
+
+// Pushes player aside
+object playerPusher {
+	
+	float pushSpeed;
+	float pushRadius;
+	float pushDuration;
+	
+	__noedit boolean pushing; 
+	__noedit vector prevPos;
+	
+	void init();
+	void startPushing();
+	void stopPushing();
+	
+	void pushPlayer();
+};
+
+
+void playerPusher::init(){
+	pushing = false;
+}
+
+void playerPusher::startPushing(){
+	if ( !pushing ) {
+		prevPos = self.getWorldOrigin();
+		pushing = true;
+		thread pushPlayer();
+	}
+}
+
+void playerPusher::stopPushing(){
+	pushing = false;	
+	
+}
+
+void playerPusher::pushPlayer() {
+	while ( pushing ) {
+		vector moveDir = self.getWorldOrigin() - prevPos;
+		prevPos = self.getWorldOrigin();
+		
+		// Push away/aside player when close enough
+		if ( self.distanceTo( $player1 ) < pushRadius ) {
+			if ( ( moveDir_x == 0.0f ) && ( moveDir_y == 0.0f ) ) {
+				// Stationary, push away player
+				$player1.push( $player1.getWorldOrigin() - self.getWorldOrigin(), 1.0f, 0.1f );
+			} else {
+				// Moving, push aside player	
+				vector side = sys.vecCrossProduct( moveDir, Vec(0,0,1) );
+				if ( sys.vecDotProduct( side, $player1.getWorldOrigin() - self.getWorldOrigin() ) < 0.0f ) {
+					side = -side;
+				}			
+				$player1.push( side, pushSpeed, pushDuration );
+			}
+		}
+		sys.waitFrame();
+	}
+}
+
+
+void call_startpushing_wyatt( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_wyatt_supersoldaten.callFunction( "startPushing" );
+} 
+
+void call_stoppushing_wyatt( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_wyatt_supersoldaten.callFunction( "stopPushing" );
+} 
+
+void call_startpushing_blondie( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_character_fake_blondie.callFunction( "startPushing" );
+} 
+void call_stoppushing_blondie( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_character_fake_blondie.callFunction( "stopPushing" );
+} 
+
+
+
+
+
+/*
+The following part controls the Supersoldaten boss.
+*/
+
+#define ANIM_TUBE_LEFT 0
+#define ANIM_TUBE_RIGHT 1
+#define ANIM_MASK_VIA_TUBE_LEFT 0
+#define ANIM_MASK_VIA_TUBE_RIGHT 1
+
+list superSoldatTubes;
+boolean hideSuperSoldatTubes = true;
+
+object ripOffMaskObject {
+	int explodeCount;
+	void init();
+	void onTrigger( entity activator );
+	void onExplosionTubeLeft();	
+	void onExplosionTubeRight();
+};
+
+void ripOffMaskObject::init() {
+	explodeCount = 0;
+}
+
+void ripOffMaskObject::onTrigger( entity activator ) {
+	explodeCount++;
+	
+	if ( explodeCount == 2 ) {
+		// Call the animevent, and then remove ourselves
+		entity super = self.getTarget( 0 );
+		
+		if ( super.isDead() ) {
+			return;
+		}
+		
+		//Only attack the player
+		super.addAggression( $player1, 100, -1 );
+		
+		// Go berserk!
+		super.setCloseMeleeInterval(0, 0);
+		super.setMediumMeleeInterval(0, 0);
+		super.setLongMeleeInterval(0, 0);
+		super.enableTaunts( false );
+		
+		$sound_sp_px_breathing_fast.stopSound( SND_CHANNEL_ANY, 0 );
+		$sound_tr_sound_sp_supersoldat_pain.activate($activator);
+		
+		// Disable most of wyatts/fergus' scenepoints so there's a greater chance they stand close to their post bossfight event positions
+		$friendlysps_info_scenepoint_disablescenepoints_postmaskremoved.activate( self ); 		
+		
+		// Start backup expose face sequence ( normal sequence is started by anim event)
+		super.callFunction( "backupExposeFace" );
+	} else if ( explodeCount == 1 ) {
+		// Reset health on remaining tube so it's harder to destroy than first one.
+		int i;	
+		for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+			if ( superSoldatTubes.get( i ).getHealth() > 0.0f ) {
+				superSoldatTubes.get( i ).resetHealth();
+			}
+		}	
+	}
+}
+
+void ripOffMaskObject::onExplosionTubeLeft() {
+	if ( self.getTarget( 0 ).isDead() ) {
+		return;
+	}
+
+	if ( explodeCount > 0 ) {
+		//sys.print( "MASK VIA TUBE LEFT\n");
+		$gp_target_anim_changestate_ripmask_left.activate( $activator );
+	} else {
+		//sys.print( "TUBE LEFT\n");
+		$gp_ai_scriptedanimweb_px46_explodetubes.setScriptedAnimWebState( ANIM_TUBE_LEFT );	
+	}
+}
+
+void ripOffMaskObject::onExplosionTubeRight() {
+	if ( self.getTarget( 0 ).isDead() ) {
+		return;
+	}
+
+	if ( explodeCount > 0 ) {
+		//sys.print( "MASK VIA TUBE RIGHT\n");
+		$gp_target_anim_changestate_ripmask_right.activate( $activator );
+	} else {
+		//sys.print( "TUBE RIGHT\n");
+		$gp_ai_scriptedanimweb_px46_explodetubes.setScriptedAnimWebState( ANIM_TUBE_RIGHT );
+	}	
+}
+
+object explodeObject {
+	entity ripOffMaskObj;
+	boolean isLeftTube;
+	boolean canUpdateEffects; 
+	float breathingEffectsInterval;
+	
+	void init();
+	void startEffects();
+	void stopEffects();
+	void updateEffects();
+	void onExplode( entity attacker );
+};
+
+void explodeObject::init() {
+	
+	// Register self for use by supersoldat
+	superSoldatTubes.append( self );
+	self.setHighlight( HIGHLIGHT_COLOR_EXPLODE );	
+	self.setTakesDamage( false );
+	
+	// The tubes are hidden but visuals have not been updated properly for some reason, show and hide again for now
+	sys.wait( 1.0 );
+	if ( hideSuperSoldatTubes ) {
+		self.show();
+		self.hide();
+	}
+}
+
+void explodeObject::startEffects() {
+	canUpdateEffects = true;
+	thread updateEffects();
+}
+
+void explodeObject::stopEffects() {
+	canUpdateEffects = false;
+	self.setHighlight( HIGHLIGHT_COLOR_NONE );
+	self.setTakesDamage( false ); // Don't want these to explode after px46 dies, effects look bad
+}
+
+void explodeObject::updateEffects() {
+	while ( canUpdateEffects ) {
+		if ( isLeftTube ) {
+		self.startFX( FX_VEH_START_BOOST );
+	  } else {
+		self.startFX( FX_VEH_START_BOOST2 );
+	  }
+	  sys.wait( breathingEffectsInterval );
+	}
+}
+
+void explodeObject::onExplode( entity attacker ) {
+	canUpdateEffects = false;
+	ripOffMaskObj.activate( attacker ); 
+	self.disablePhysics();
+	self.setHighlight( HIGHLIGHT_COLOR_NONE );	
+
+	if ( isLeftTube ) {
+	  	ripOffMaskObj.callFunction( "onExplosionTubeLeft" );
+	} else {
+		ripOffMaskObj.callFunction( "onExplosionTubeRight" );
+	}
+	
+	$gp_target_relay_supersoldaten_faceexposed.activate( $activator );		
+}
+
+
+
+// Super soldier auxiliary script
+object supersoldat {
+	float pushRadius;
+	float exposeFaceInterval;
+	float exposeFaceDamageThreshold;
+	float destroyTubeThreshold;
+
+	__noedit float lastFaceHurtTime;
+	__noedit int faceHurtCount;
+	__noedit boolean isAttacking;
+	__noedit float damageCanExposeFaceTime;
+	__noedit float exposeFaceDamage;
+	__noedit boolean tubesDestroyed;
+	__noedit float destroyTubeDamage;
+
+	void exitSarcophagus();
+	void startFight();
+	void pushNPCs();
+	void startAttack();
+	void endAttack();
+	void exposedFace();
+	void exposedFaceSequence();
+	void backupExposeFace();
+	void backupExposeFaceSequence();
+	void pushPlayer();
+	
+	void init();
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );
+};
+
+void supersoldat::init() {
+	if ( exposeFaceInterval == 0.0f ) {
+		exposeFaceInterval = 10.0f;
+	}
+	if ( exposeFaceDamageThreshold == 0.0f ) {
+		exposeFaceDamageThreshold = 20.0f;	
+	}
+	if ( destroyTubeThreshold == 0.0f ) {
+		destroyTubeThreshold = 50.0f;
+	}
+};
+
+
+void supersoldat::exitSarcophagus() {
+	thread pushPlayer();	
+}
+
+void supersoldat::startFight() {
+	// Allow tubes to take damage
+	int i;
+	for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+		superSoldatTubes.get( i ).setTakesDamage( true );
+		superSoldatTubes.get( i ).show();
+	}	
+	hideSuperSoldatTubes = false;
+	lastFaceHurtTime = 0.0f;
+	faceHurtCount = 0;
+	isAttacking = false;
+	exposeFaceDamage = 0.0f;
+	damageCanExposeFaceTime = 0.0;
+	tubesDestroyed = false;
+	destroyTubeDamage = 0.0f;
+	
+	// Restrict takedown to the center of the room
+	$gp_volume_takedownrestriction.show();
+	self.setTakedownRestrictionVolume( $gp_volume_takedownrestriction );
+	
+	// Set shot clip only on guys lying down
+	$gp_func_animatedsimple_character_prendergast_sarcophagus.setContents( CONTENTS_SHOTCLIP );	
+	$gp_func_animatedsimple_character_even_faker_blondie.setContents( CONTENTS_SHOTCLIP );
+
+	// Stop pushing player
+	sys.killThread(	"supersoldat::pushPlayer" );
+			
+	// Start pushing NPCs around
+	thread pushNPCs();
+}
+
+void supersoldat::pushPlayer() {
+	while ( !self.isDead() ) {
+		// Push away player during exit from sarcophagus
+		if ( self.distanceTo( $player1 ) < 100.0f ) {
+			$player1.push( $player1.getWorldOrigin() - self.getWorldOrigin(), 5.0f, 0.1f );
+		}
+		sys.waitFrame();
+	}
+}
+
+
+void supersoldat::pushNPCs() {
+	while ( !self.isDead() ) {
+		// Fake collision handling by hitting wyatt/fergus if they come close enough
+		// Note that the hit relays disable themselves when wyatt/fergus is down
+		if ( self.distanceTo( $gp_ai_tungsten_c01_part_03_fergus_supersoldaten ) < pushRadius ) {
+			$c01p3_gp__target_relay_fergus_hit.activate( self );
+		}
+		if ( self.distanceTo( $gp_ai_tungsten_c01_part_03_wyatt_supersoldaten ) < pushRadius ) {
+			$c01p3_gp__target_relay_wyatt_hit.activate( self );
+		}
+		sys.waitFrame();
+	}
+}
+
+
+void supersoldat::startAttack() {
+	isAttacking = true;	
+}
+
+void supersoldat::endAttack() {
+	isAttacking = false;	
+}
+
+void supersoldat::exposedFace() {
+	tubesDestroyed = true;
+	thread exposedFaceSequence();
+}
+
+void supersoldat::exposedFaceSequence() {
+	damageCanExposeFaceTime = sys.getTime() + 3.0;
+
+	// Allow damage to expose face again after a while 
+	sys.wait( 3.0f ); 
+	exposeFaceDamage = 0.0f;
+	
+	// Wait a while, complete any attacks and face player before automatically exposing face again
+	sys.wait( exposeFaceInterval - 3.0f );
+	while ( !self.isDead() && 
+		   ( isAttacking || ( sys.vecDotProduct( self.getModelForward(), sys.vecNormalize( $player1.getWorldOrigin() - self.getWorldOrigin() ) ) < 0.87f ) ) ) {
+		sys.waitFrame();
+	}
+	if ( !self.isDead() ) {
+		$gp_ai_scriptedanimweb_px46_exposeface.activate( self );
+		sys.killThread( "supersoldat::backupExposeFaceSequence" );
+		backupExposeFace();
+	}
+}
+
+void supersoldat::backupExposeFace() {
+	thread backupExposeFaceSequence(); 
+}
+
+void supersoldat::backupExposeFaceSequence() {
+	// Safety backup to avoid overly long face exposing intervals (and failsafe in case of bugs)
+	while ( !self.isDead() ) {
+		sys.wait( exposeFaceInterval * 1.5f );
+		sys.println( "Used supersoldat::backupExposeFaceSequence" );
+		sys.killThread( "supersoldat::exposedFaceSequence" );
+		if ( !self.isDead() ) {
+			$gp_ai_scriptedanimweb_px46_exposeface.activate( self );
+		}
+	}
+}
+
+
+void supersoldat::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ) {
+	if ( !killed && !self.isDead() ) {
+		
+		if ( !tubesDestroyed ) {
+			// First stage, tubes have not been destroyed
+			if ( attacker.isClass( "idPlayer" ) ) {
+				destroyTubeDamage = destroyTubeDamage + damageAmount;
+				if ( destroyTubeDamage > destroyTubeThreshold ) {
+					// Destroy a tube, if possible		
+					destroyTubeDamage = 0.0f;
+					int i;
+					for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+						if ( superSoldatTubes.get( i ).getHealth() > 0.0f ) {
+							superSoldatTubes.get( i ).damage( attacker, attacker, @damage( "damage/tungsten/heavy" ), 1000.0f, Vec( 0, 0, 1 ) ); // Damagedecl is otherwise given as e.g. @damage( "damage/tungsten/heavy" )
+							break;
+						} 
+					}	
+				}	
+			}
+		} else {
+			// Second stage, tubes have been destroyed
+			// Lots of damage when damage cannot expose face is assumed to be face hits
+			if ( ( sys.getTime() < damageCanExposeFaceTime ) && 
+				 ( damageAmount > 30 ) && 
+				 ( sys.getTime() > lastFaceHurtTime + 4.0 ) ) {
+				if ( faceHurtCount == 0) {
+					$gp_vo_shot_in_face1.activate( attacker );
+				} else if ( faceHurtCount == 1) {
+					$gp_vo_shot_in_face2.activate( attacker );
+				}
+				faceHurtCount++;
+				lastFaceHurtTime = sys.getTime();
+			}
+			
+			// When having accumulated enough damage since face was covered again we expose face
+			if ( sys.getTime() > damageCanExposeFaceTime ) {
+				exposeFaceDamage = exposeFaceDamage + damageAmount;	
+				if ( exposeFaceDamage > exposeFaceDamageThreshold ) {
+					// Expose face!
+					damageCanExposeFaceTime = sys.getTime() + 5.0;
+					exposeFaceDamage = 0.0f;
+					sys.killThread( "supersoldat::exposedFaceSequence" );
+					sys.killThread( "supersoldat::backupExposeFaceSequence" );
+					$gp_ai_scriptedanimweb_px46_exposeface.activate( self );
+					backupExposeFace();
+				}
+				if ( useDebug() ) sys.println( sys.getTime() + ": Damage: " + damageAmount + " Accumulated: " + exposeFaceDamage );
+			} else {
+				if ( useDebug() ) sys.println( sys.getTime() + ": Damage can not expose face" );
+			}
+		}
+	}
+}
+
+
+void call_supersoldatexitsarcophagus( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.callFunction( "exitSarcophagus" );
+}
+
+void call_supersoldatFight( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.callFunction( "startFight" );	
+}
+
+void call_supersoldatStartEffects( entity activatedEntity, entity activator ) {
+	int i;
+	for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+		superSoldatTubes.get( i ).callFunction( "startEffects" );
+	}
+}
+
+void call_supersoldatStopEffects( entity activatedEntity, entity activator ) {
+	int i;
+	for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+		superSoldatTubes.get( i ).callFunction( "stopEffects" );
+	}
+}
+
+// Called by relay which in turn is triggered by anim event
+void call_px46_startattack( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.callFunction( "startAttack" );	
+}
+
+// Called by relay which in turn is triggered by anim event
+void call_px46_endattack( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.callFunction( "endAttack" );	
+}
+
+// Called by relay which in turn is triggered by anim event
+void call_px46_exposedface( entity activatedEntity, entity activator ) {
+	$gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.callFunction( "exposedFace" );	
+}
+
+void call_disableBlondieClip( entity activatedEntity, entity activator ) {
+	$gp_func_animatedsimple_character_fake_blondie.setContents( 0 );
+}
+
+void call_supersoldat_gib( entity activatedEntity, entity activator ) {
+	int i;
+	for ( i = 0; i < superSoldatTubes.size(); i++ ) {
+		superSoldatTubes.get( i ).callFunction( "stopEffects" );
+		superSoldatTubes.get( i ).remove();
+	}
+}
+
+void call_supersoldat_smash( entity activatedEntity, entity activator ) {
+	// Lots of extra damage to cornered player
+	vector maxBounds = $gp_volume_takedownrestriction.getMaxs() + $gp_volume_takedownrestriction.getWorldOrigin() + Vec( 40.0,40,0 );
+	vector minBounds = $gp_volume_takedownrestriction.getMins() + $gp_volume_takedownrestriction.getWorldOrigin() - Vec( 40.0,40,0 );
+	vector playerPos = $player1.getWorldOrigin();
+	vector supersoldatPos = $gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.getWorldOrigin();
+	if ( useDebug() ) sys.drawText( "SUPERSOLDAT SMASH!", inFrontOfPlayer( 400.0 ) + Vec(0,0,10), 1, Vec(1,1,1), 1, 1.0 );
+	if ( useDebug() ) sys.debugBounds( Vec(1,0.5,0), minBounds, maxBounds, 1.0 );
+	
+	// Is baby in a corner?
+	boolean cornered = false;
+	if ( ( playerPos_x > maxBounds_x ) && ( playerPos_y > maxBounds_y ) ) {
+		if ( ( playerPos_x > supersoldatPos_x ) && ( playerPos_y > supersoldatPos_y ) ) {
+			cornered = true;
+		}
+	} else if ( ( playerPos_x > maxBounds_x ) && ( playerPos_y < minBounds_y ) ) {
+		if ( ( playerPos_x > supersoldatPos_x ) && ( playerPos_y < supersoldatPos_y ) ) {
+			cornered = true;
+		}
+	} else if ( ( playerPos_x < minBounds_x ) && ( playerPos_y > maxBounds_y ) ) {
+		if ( ( playerPos_x < supersoldatPos_x ) && ( playerPos_y > supersoldatPos_y ) ) {
+			cornered = true;
+		}
+	} else if ( ( playerPos_x < minBounds_x ) && ( playerPos_y < minBounds_y ) ) {
+		if ( ( playerPos_x < supersoldatPos_x ) && ( playerPos_y < supersoldatPos_y ) ) {
+			cornered = true;
+		}
+	}
+	
+	if ( cornered ) {
+		// Player is near corner and super is towards center of room. Check if super is facing player and is close enough to squish him.
+		float dist = sys.vecLength( playerPos - supersoldatPos );
+		if ( useDebug() ) sys.drawText( "Cornered, dist: " + dist, inFrontOfPlayer( 400.0 ), 1, Vec(1,1,0), 1, 1.0 );
+		if ( dist < 80.0 ) {
+			vector supersoldatDir = $gp_ai_tungsten_c01_part_03_supersoldaten_bossfight.getModelForward();
+			if ( sys.vecDotProduct( supersoldatDir, playerPos - supersoldatPos ) > 0.707 * dist ) {
+				// Facing somewhat towards player, smash!
+				$player1.damage( $gp_ai_tungsten_c01_part_03_supersoldaten_bossfight, $gp_ai_tungsten_c01_part_03_supersoldaten_bossfight, @damage( "damage/fists/melee/supersoldat1946_tackle" ), 20.0f, Vec(0,0,1) );
+				if ( useDebug() ) sys.debugArrow( Vec(1,0,0), supersoldatPos, supersoldatPos + supersoldatDir * 60.0, 1, 1 );
+				if ( useDebug() ) sys.drawText( "Hit!", inFrontOfPlayer( 400.0 ) - Vec(0,0,10), 1, Vec(1,0,0), 1, 3.0 );
+				
+			} else {
+				if ( useDebug() ) sys.debugArrow( Vec(0,1,0), supersoldatPos, supersoldatPos + supersoldatDir * 60.0, 1, 1 );
+				if ( useDebug() ) sys.drawText( "Miss!", inFrontOfPlayer( 400.0 ) - Vec(0,0,10), 1, Vec(0,1,0), 1, 3.0 );
+			}
+		}
+	}
+}
+
+
+float pushFromNorthWall = false;
+float pushFromWestWall = false;
+
+float getPushFall() {
+	// Hacks within hacks... We need to teleport player to be absolutely sure he gets pushed away from obstacles during wall crush event (since the player "physics" suck)
+	// and must therefore simulate gravity while being pushed in case you've jumped when push starts :P
+	// Make damn sure we don't fall too low, so we might float a smidgeon or two.
+	if ( Vec_z( $player1.getWorldOrigin() ) > Vec_z( $wallcrushlineref.getWorldOrigin() ) + 8.0 ) {
+		return -100.0; 
+	} 
+	return 0.0;
+}
+
+void call_pushfromnorthwall( entity activatedEntity, entity activator ) {
+	pushFromNorthWall = true;
+	pushFromWestWall = false;
+	
+	if ( useDebug() ) sys.drawText( "PUSH FROM NORTH WALL", inFrontOfPlayer( 400.0 ) , 1, Vec(1,1,1), 1, 5 );
+
+	while ( pushFromNorthWall ) {
+		// Push player south so we won't get squished between west wall and mover covering NPCs 
+		vector npcCorner = $gp_func_mover_crushevent_pushfromnpcs.getMins() + $gp_func_mover_crushevent_pushfromnpcs.getWorldOrigin();
+		
+		// Push if we're between npcs and west wall
+		vector playerPos = $player1.getWorldOrigin();
+		if ( playerPos_x < npcCorner_x ) {
+			// Push if player north bounds is north of southmost npc corner (with some slop)
+			vector playerCorner = $player1.getMaxs() + $player1.getWorldOrigin();
+			if ( playerCorner_y > npcCorner_y - 10.0f ) {
+				$player1.push( Vec(0,-1,0), 50.0f, 0.5f );  
+
+				// Push fails in some circumstances, incrementally teleport player as well
+				$player1.setWorldOrigin( $player1.getWorldOrigin() + Vec(0,-50,getPushFall()) * sys.getFrameTime() );
+			}	
+		}
+		if ( useDebug() ) sys.debugArrow( Vec(1,1,0), npcCorner, npcCorner + Vec(0, -200, 0), 1, 0 );
+		sys.waitFrame();
+	}
+}
+
+void call_pushfromwestwall( entity activatedEntity, entity activator ) {
+	pushFromWestWall = true;
+	pushFromNorthWall = false;
+
+	if ( useDebug() ) sys.drawText( "PUSH FROM WEST WALL", inFrontOfPlayer( 400.0 ) , 1, Vec(1,1,1), 1, 5 );
+	
+	while ( pushFromWestWall ) {
+		// Push player east so we won't get squished between south wall and mover covering NPCs 
+		vector npcCorner = $gp_func_mover_crushevent_pushfromnpcs.getMins();
+		npcCorner_x = Vec_x( $gp_func_mover_crushevent_pushfromnpcs.getMaxs() );
+		npcCorner = $gp_func_mover_crushevent_pushfromnpcs.getWorldOrigin() + npcCorner;
+		
+		// Push if player west bounds is west of eastmost npc corner (with some slop)
+		vector playerCorner = $player1.getMins() + $player1.getWorldOrigin();
+		if ( playerCorner_x < npcCorner_x + 10.0f ) {
+			$player1.push( Vec(1,0,0), 50.0f, 0.5f );  
+
+			// Push fails in some circumstances, incrementally teleport player as well
+			$player1.setWorldOrigin( $player1.getWorldOrigin() + Vec(50,0,getPushFall()) * sys.getFrameTime() );
+
+			if ( useDebug() ) sys.debugArrow( Vec(1,0,0), npcCorner, npcCorner + Vec(200,0,0), 1, 0 );
+			if ( useDebug() ) sys.debugArrow( Vec(1,0,0), npcCorner + Vec(200,0,0), npcCorner + Vec(200,0,50), 1, 0 );
+		} else {
+			if ( useDebug() ) sys.debugArrow( Vec(1,1,0), npcCorner, npcCorner + Vec(200,0,0), 1, 0 );
+		}
+		sys.waitFrame();
+	}
+}
+
+void call_pushfromsouthwall( entity activatedEntity, entity activator ) {
+
+	if ( useDebug() ) sys.drawText( "PUSH FROM SOUTH WALL", inFrontOfPlayer( 400.0 ) , 1, Vec(1,1,1), 1, 5 );
+	
+	float endPushTime = sys.getTime() + 3.0;	
+	while ( sys.getTime() < endPushTime ) {
+		// Push player northeast so we won't be able to slip inside the broken collision of the west moving wall
+		vector toPlayer = $player1.getWorldOrigin() - $gp_info_null_brokencollisionpos.getWorldOrigin();
+		toPlayer_z = 0.0;
+		if ( sys.vecLength( toPlayer ) < 80.0 ) {
+			$player1.push( Vec(1,1,0), 100.0f, 0.5f );  
+
+			// Push fails in some circumstances, incrementally teleport player as well
+			$player1.setWorldOrigin( $player1.getWorldOrigin() + Vec(50,50,getPushFall()) * sys.getFrameTime() );
+		}
+		if ( useDebug() ) sys.debugCircle( Vec(1,1,0), $gp_info_null_brokencollisionpos.getWorldOrigin(), Vec(0,0,1), 80.0, 12, 0 );
+		sys.waitFrame();
+	}
+}
+
+
+//events/c01/player_wall_squeezed/
+void startLookEvent( entity activatedEntity, entity activator )
+{
+	// Place fpevent relative to player along the line extending from 
+	// wallcrushlineref to just before door
+    vector playerAngles = $player1.getViewAngles();
+	vector refPos = $wallcrushlineref.getOrigin();
+    vector fpPos = refPos;
+    fpPos_x = Vec_x( $player1.getOrigin() );
+	if ( fpPos_x < refPos_x ) {
+		fpPos_x = refPos_x;
+	} else if ( fpPos_x > refPos_x + 190.0f ) {
+		fpPos_x = refPos_x + 190.0f;
+	}
+	
+	// Trigger appropriate fpevent
+    if ( playerAngles_y > 0 ) {
+        $wallcrush_right.setOrigin( fpPos );
+        $wallcrush_right.activate( $player1 );
+
+    } else {
+        $wallcrush_left.setOrigin( fpPos );
+        $wallcrush_left.activate( $player1 );
+    }
+	pushFromNorthWall = false;
+	pushFromWestWall = false;
+	sys.wait(0.8);
+	$player1.teleport( $target_teleport_backtoincinerator.getOrigin(), playerAngles );
+}
+
+void trigger_name ( entity activatedEntity, entity activator )
+{
+	sys.print("Activated trigger:" + activatedEntity.getName() + "\n" );
+}
+
+void call_start_viewfade_from_black( entity activatedEntity, entity activator ) 
+{ 
+//	sys.print( "call_start_viewfade_from_black" );
+//	sys.print( "call_start_viewfade_from_black: first fade" );
+	$player1.fadeView( Vec(0,0,0), 1.0, 0 );
+	sys.waitFrame();
+	sys.waitFrame();
+	sys.waitFrame();
+	sys.waitFrame();
+//	sys.print( "call_start_viewfade_from_black: actual fade" );
+	$player1.fadeView( Vec(0,0,0), 0.0, 250 );
+}
+
+
+void attach_splinters( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_splinter_player_1.bindToJoint( $thirdpersonhands_0, "", "righthandattach", true );
+	$gp_func_mover_splinter_player_2.bindToJoint( $thirdpersonhands_0, "", "lefthandattach", true );
+}
+
+void equipBestWeaponPostSarcofagus( entity activatedEntity, entity activator )
+{
+	$player1.equipBestWeapon();
+}
+
+
+/*
+Debug stuff
+*/
+
+void print_trigger ( entity activatedEntity, entity activator )
+{
+	sys.print("Activated trigger:" + activatedEntity.getName() + "\n" );
+	$c01p3_gp__func_mover_incineratordoor.time( 0.7 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.4 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_DOWN, 110 );
+	sys.wait(0.8);
+	$c01p3_gp__func_mover_incineratordoor.time( 0.6 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_UP, 110 );
+}

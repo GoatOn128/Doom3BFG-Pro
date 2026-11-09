@@ -1,0 +1,15 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [4];
+
+in vec4 in_Position;
+
+
+void main() {
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+}

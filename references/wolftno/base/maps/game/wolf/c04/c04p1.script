@@ -1,0 +1,502 @@
+/*
+================================================================================
+Map Script for m04p1_low.map
+================================================================================
+*/
+
+// void main() {
+// }
+
+
+//-------------------------------------------------------------------------------
+// misc
+//-------------------------------------------------------------------------------
+
+
+void transporthatch( entity activatedEntity, entity activator )
+{
+     $joint_transporthatch.time( 2 );
+     $joint_transporthatch.accelTime( 2 );
+     $joint_transporthatch.decelTime( .5 );
+     $joint_transporthatch.rotateOnce( '0 0 -105' );
+}
+
+
+object bus_move {
+
+     int var;
+
+     // Called when object is first initialized (map start?)
+     void init();
+
+     // Called whenever the object is activated (from trigger eg)
+     void onTrigger( entity activator ); };
+
+void bus_move::init() {
+}
+
+void bus_move::onTrigger( entity activator ) {
+
+     self.startSpline( $path_bus );
+}
+
+object hatch {
+
+     int var;
+     void init();
+     void onTrigger( entity activator ); };
+
+void hatch::init() {
+}
+
+void hatch::onTrigger( entity activator ) {
+
+     self.time( 2 );
+     self.accelTime( 2 );
+     self.decelTime( .5 );
+     self.rotateOnce( '0 0 -125' );
+}
+
+void RemoveAllThatEnters( entity activatedEntity, entity activator ) {
+     activator.remove();
+}
+
+void call_transport_gate_open( entity activatedEntity, entity activator )
+{
+    $transport_gate.time( 4 );
+    $transport_gate.accelTime( 0 );
+    $transport_gate.decelTime( 1 );
+	$transport_gate.move( DIR_UP, 320 );
+}
+
+void call_transport_gate_close( entity activatedEntity, entity activator )
+{
+    $transport_gate.time( 4 );
+    $transport_gate.accelTime( 0 );
+    $transport_gate.decelTime( 1 );
+	$transport_gate.move( DIR_DOWN, 320 );
+}
+
+void call_transport_hidegun( entity activatedEntity, entity activator )
+{
+	$func_animatedsimple_naziofficerhans_transport.showAttachments( false );
+}
+
+void call_transport_gate2_open( entity activatedEntity, entity activator )
+{
+    $transport_gate2.time( 8 );
+    $transport_gate2.accelTime( 1 );
+    $transport_gate2.decelTime( 1 );
+	$transport_gate2.move( DIR_UP, 320 );
+}
+
+void call_transport_gate2_close( entity activatedEntity, entity activator )
+{
+    $transport_gate2.time( 8 );
+    $transport_gate2.accelTime( 1 );
+    $transport_gate2.decelTime( 1 );
+	$transport_gate2.move( DIR_DOWN, 320 );
+}
+
+void call_func_dynamic_enigmacode( entity activatedEntity, entity activator ) {
+	$func_dynamic_enigmacode.show();
+	$func_firstpersonevent_folder.attachEntity( $func_dynamic_enigmacode, "right_hand" );
+}
+
+void call_func_dynamic_enigmacode_rebind( entity activatedEntity, entity activator ) {
+	$func_dynamic_enigmacode.bind( $func_animatedsimple_insidesshq_folder_drawer );
+}
+
+
+//-------------------------------------------------------------------------------
+// Secret Enigma Door
+//-------------------------------------------------------------------------------
+
+void EnigmaSecretPassage( entity activatedEntity, entity activator )
+{
+	$sound_sp_secret_cabinet_move.activate( $acti );
+    $gp_func_mover_5.time( 3.5 );
+    $gp_func_mover_5.accelTime( 0 );
+    $gp_func_mover_5.decelTime( 2 );
+	$gp_func_mover_5.move( DIR_BACK, 60 );
+}
+
+//-------------------------------------------------------------------------------
+// Windows
+//-------------------------------------------------------------------------------
+
+void window_01( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_01.time( 1.5 );
+    $func_mover_windowss_dyn_01.accelTime( 0.5 );
+    $func_mover_windowss_dyn_01.decelTime( 1 );
+	$func_mover_windowss_dyn_01.move( DIR_UP, 63 );
+}
+
+void window_02( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_02.time( 1.5 );
+    $func_mover_windowss_dyn_02.accelTime( 0.5 );
+    $func_mover_windowss_dyn_02.decelTime( 1 );
+	$func_mover_windowss_dyn_02.move( DIR_UP, 62 );
+}
+
+void window_03( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_03.time( 1.5 );
+    $func_mover_windowss_dyn_03.accelTime( 0.5 );
+    $func_mover_windowss_dyn_03.decelTime( 1 );
+	$func_mover_windowss_dyn_03.move( DIR_UP, 68 );
+}
+
+void window_04( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_04.time( 1.5 );
+    $func_mover_windowss_dyn_04.accelTime( 0.5 );
+    $func_mover_windowss_dyn_04.decelTime( 1 );
+	$func_mover_windowss_dyn_04.move( DIR_UP, 69 );
+}
+
+void window_05( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_05.time( 1.5 );
+    $func_mover_windowss_dyn_05.accelTime( 0.5 );
+    $func_mover_windowss_dyn_05.decelTime( 1 );
+	$func_mover_windowss_dyn_05.move( DIR_UP, 66 );
+}
+
+void window_06( entity activatedEntity, entity activator )
+{
+    $func_mover_windowss_dyn_06.time( 1.5 );
+    $func_mover_windowss_dyn_06.accelTime( 0.5 );
+    $func_mover_windowss_dyn_06.decelTime( 1 );
+	$func_mover_windowss_dyn_06.move( DIR_UP, 61 );
+}
+
+//-------------------------------------------------------------------------------
+// Zeppys
+//-------------------------------------------------------------------------------
+
+void zeppys( entity activatedEntity, entity activator )
+{
+    $func_mover_page.time( 400 );
+    $func_mover_page.accelTime( 0 );
+    $func_mover_page.decelTime( 60 );
+	$func_mover_page.move( DIR_REL_LEFT, 55000 );
+	$func_mover_plant.time( 900 );
+    $func_mover_plant.accelTime( 0 );
+    $func_mover_plant.decelTime( 60 );
+	$func_mover_plant.move( DIR_RIGHT, 75000 );
+}
+
+//-------------------------------------------------------------------------------
+// Balcony and Atticdoors
+//-------------------------------------------------------------------------------
+
+void call_door_balcony01( entity activatedEntity, entity activator )
+{
+     $joint_func_mover_door_balcony01.time( 1.2 );
+     $joint_func_mover_door_balcony01.accelTime( 0.2 );
+     $joint_func_mover_door_balcony01.decelTime( 0.5 );
+     $joint_func_mover_door_balcony01.rotateOnce( '0 -90 0' );
+}
+
+void call_door_balcony02( entity activatedEntity, entity activator )
+{
+     $joint_func_mover_door_balcony02.time( 1.2 );
+     $joint_func_mover_door_balcony02.accelTime( 0.2 );
+     $joint_func_mover_door_balcony02.decelTime( 0.5 );
+     $joint_func_mover_door_balcony02.rotateOnce( '0 90 0' );
+}
+
+void call_atticdoor01( entity activatedEntity, entity activator )
+{
+     $joint_atticdoor01.time( 2 );
+     $joint_atticdoor01.accelTime( 2 );
+     $joint_atticdoor01.decelTime( .5 );
+     $joint_atticdoor01.rotateOnce( '0 90 0' );
+}
+
+void call_atticdoor02( entity activatedEntity, entity activator )
+{
+     $joint_atticdoor02.time( 2 );
+     $joint_atticdoor02.accelTime( 2 );
+     $joint_atticdoor02.decelTime( .5 );
+     $joint_atticdoor02.rotateOnce( '0 -90 0' );
+}
+
+//-------------------------------------------------------------------------------
+// Spinning engine wheel
+//-------------------------------------------------------------------------------
+
+void engine_wheel_begin ( entity activatedEntity, entity activator )
+{
+	
+	$gp_func_mover_joint_movingwheel.time( 1 );
+    $gp_func_mover_joint_movingwheel.accelTime( 0 );
+    $gp_func_mover_joint_movingwheel.decelTime( 0 );
+    $gp_func_mover_joint_movingwheel.rotate( '0 0 90' );
+
+}
+
+void engine_wheel_stop ( entity activatedEntity, entity activator )
+{
+	
+	$gp_func_mover_joint_movingwheel.time( 2 );
+    $gp_func_mover_joint_movingwheel.accelTime( 0 );
+    $gp_func_mover_joint_movingwheel.decelTime( 2 );
+    $gp_func_mover_joint_movingwheel.rotate( '0 0 90' );
+
+}
+
+//-------------------------------------------------------------------------------
+// spotlight
+//-------------------------------------------------------------------------------
+
+
+#define SpotNotStarted 0
+#define SpotStarting 1
+#define SpotRunning 2
+#define SpotHit 3
+#define SpotDone 4
+
+
+
+void SpotEventDoneFunc( entity activatedEntity, entity activator ) {
+	$spot_mover.callFunction("spotEventDone");
+}
+
+
+object spotMover {
+	float startDelay;
+	entity light;
+	entity shadowLight;
+	entity target;
+	entity activate_at_event_start;
+	entity activate_at_event_spotted;
+	entity volumeEffect;
+	int state;
+	float spotAngle;
+	void init();
+	void onTrigger( entity activator );
+	void startMove( );
+	void moveSpot( );
+	vector getDir( entity target );
+	void spotEventDone();
+	void turnOffLights();
+	void turnOnLights();
+	
+	boolean entityInSpot(entity testEntity);
+};
+
+
+void spotMover::spotEventDone() {
+	state = SpotDone;
+	target.activate(self);
+	light.off();
+	shadowLight.off();
+}
+
+void spotMover::init() {
+	state = SpotNotStarted;
+	self.hide();
+	spotAngle = sys.cos( spotAngle / 2 );
+}
+
+void spotMover::turnOnLights() {
+	light.on ();
+	shadowLight.on();
+	volumeEffect.show();
+}
+
+void spotMover::turnOffLights() {
+	light.off ();
+	shadowLight.off();
+	volumeEffect.hide();
+}
+
+
+#define lerpTime 2
+void spotMover::startMove() {
+	state = SpotStarting;
+	sys.wait( startDelay );
+	
+	self.hide();
+
+	target.activate(self);
+	activate_at_event_start.activate(self);
+
+	sys.wait( 8 );
+
+	turnOnLights();
+	sys.wait( 0.1 );
+	turnOffLights();
+	sys.wait( 0.15 );
+	turnOnLights();
+	sys.wait( 0.1 );
+	turnOffLights();
+	sys.wait( 0.14 );
+	turnOnLights();	
+
+	self.waitFrame();
+	self.waitFrame();
+	state = SpotRunning;	
+}
+
+vector spotMover::getDir( entity target ) {
+	vector target_offset = target.getMaxs() - target.getMins();
+	vector targetPos = target.getWorldOrigin() + target_offset;
+	vector selfPos = self.getWorldOrigin();
+	vector diff = selfPos - targetPos;
+	return sys.vecNormalize(diff);	
+}
+
+
+void spotMover::onTrigger( entity activator ) {
+	
+	if ( state == SpotRunning ) {
+		if(	entityInSpot($player1) ) {
+			activate_at_event_spotted.activate(self);
+			sys.println( "hit!" );
+			sys.wait( 5 );
+//			int i;
+//			for( i = 0; i < 10; i++ ) {
+//			sys.wait( 0.5 );
+//				$player1.decreaseHealth( 5 );
+//			}
+//		$player1.kill();
+			state = SpotHit;
+		}
+	} else if ( state == SpotNotStarted ) {
+		startMove ();
+	}
+};
+
+void spotMover::moveSpot() {
+	vector dir = getDir ( target );
+	vector angles = sys.vecToAngles(dir);
+	self.setAngles(angles);
+}
+
+boolean spotMover::entityInSpot(entity testEntity) {
+	vector dir = getDir( testEntity );
+	vector lightDir = sys.angToForward( light.getAngles() );
+	float dot = sys.vecDotProduct( dir, lightDir);
+	return dot >= spotAngle;
+}
+
+
+
+object spotTarget {
+	boolean isRunning;
+	void init();
+	void onTrigger( entity activator );
+};
+
+void spotTarget::init() {
+	self.disableSplineAngles();
+	self.hide();
+	boolean isRunning = false;
+}
+
+void spotTarget::onTrigger( entity activator ) {
+	
+	isRunning = !isRunning;
+
+	self.hide();	
+		
+	while ( isRunning ) {
+		self.startSpline($spline_path_2);
+		sys.waitFor ( self );
+	}
+	
+};
+
+void randomRotateMover( entity mover, entity linked ) {
+    // Make sure mover object does one revelation in one second
+    mover.time( 1.0 );
+	if ( linked != $null ) {
+		linked.time( 1.0 );
+	}
+    
+    while ( true ) {
+
+        // Randomize an animtion time between 0.5 and 2.5
+        float animtime = 0.5 + sys.random( 2.0 );
+        
+        // Randomize rotation between 90 and 270 degrees
+        float angle = 90 + sys.random( 180.0 );
+        
+        // Randomize if we should rotate clockwise or anti-clockwise
+        boolean clockwise = sys.randomInt( 2 ) % 2 == 0;
+		if ( clockwise ) {
+		    angle = -angle;
+		}
+
+        // Setup rotation angle (assume un-rotated entity)
+        vector v;
+        v_x = 0;
+        v_y = 0;
+        v_z = angle;
+
+        // Set object to rotate
+        mover.rotate( v );
+		if ( linked != $null ) {
+			linked.rotate( v );
+		}
+        
+        // call wait on object before doing a new randomization run on angle and direction
+        mover.wait( animtime );
+    }
+}
+
+object RandomObjectRotate {
+
+	string link;
+
+	// Called when object is first initialized (maybe map start? I'm not sure.)
+    void init();
+    
+    // Called whenever the object is activated (from trigger, activate code etc.)
+    void onTrigger( entity activator );
+};
+
+void RandomObjectRotate::init() {
+
+	entity linked = $null;
+	if ( sys.strLength( link ) > 0 ) {
+		linked = sys.getEntity( link );
+	}
+
+    // Uncomment to make object rotate immediately when initialized
+    randomRotateMover( self, linked );
+}
+
+void RandomObjectRotate::onTrigger( entity activator ) {
+    // Uncomment to make object rotate when 'activated'
+    //randomRotateMover( self, $null );
+}
+
+
+//-------------------------------------------------------------------------------
+// Audio Functions
+//-------------------------------------------------------------------------------
+
+void killVoiceHansUntAnya1() {
+    $func_animatedsimple_anya.stopSound( SND_CHANNEL_VOICE, 0 );
+    $func_animatedsimple_anya.stopSound( SND_CHANNEL_ANY, 0 );
+}
+
+void killVoiceHansUntAnya2() {
+    $func_animatedsimple_naziofficerhans.stopSound( SND_CHANNEL_VOICE, 0 );
+    $func_animatedsimple_naziofficerhans.stopSound( SND_CHANNEL_ANY, 0 );
+
+}
+
+void killVoiceHansUntAnya3() {
+    $func_animatedsimple_anya_loosepipes.stopSound( SND_CHANNEL_VOICE, 0 );
+}
+
+void fade_music( entity activatedEntity, entity activator) {
+	$sound_sp_spotmusic_dry.fadeSound(SND_CHANNEL_MUSIC1, -22.0, 0.5 );
+}

@@ -1,0 +1,740 @@
+/*
+================================================================================
+Map Script for c01p1_low.map
+================================================================================
+*/
+
+//void main() {
+//}
+
+
+
+
+
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+
+/*
+========================
+ Used to keep track of how many dynamic entities we have renamed/spawned
+========================
+*/
+int globalSpawn = 0;
+
+/*
+========================
+ Used to keep track of how many active dynamic entities we have
+========================
+*/
+int globalActive = 0;
+
+// ------------------------------------------------------------------------------------------------
+
+
+/*
+========================
+RenameEntity
+========================
+*/
+void RenameEntity( entity ent, int idx ) {
+	// Ignore if entity isn't valid
+	if ( ent == $null ) {
+		return;
+	}
+	
+	// Take the old name and generate a new dynamic compliant name
+	// 'target_count_example' would be 'target_count_example_#' where the # would be replaced by idx
+	string oldName = ent.getName();
+	string newName = oldName + "_" + idx;
+
+	// Print out a message in the console to use as 'debug' information to see that everything went ok
+	//sys.println( "Rename entity '" + oldName + "' to '" + newName + "'" );
+
+	// Set the new name of the entity	
+	ent.setName( newName );
+}
+
+/*
+========================
+dynamicSun
+========================
+*/
+object dynamicSun {
+	string	namePosition;
+	string	nameBinder;
+	
+	void	init();
+	void	onTrigger( entity activator );
+};
+
+/*
+========================
+dynamicSun::onTrigger
+========================
+*/
+void dynamicSun::init() {
+
+	entity entityPosition = $null;
+	entity entityBinder = $null;
+
+	if ( sys.strLength( namePosition ) > 0 ) {
+		entityPosition = sys.getEntity( namePosition );
+	}
+	
+	if ( sys.strLength( nameBinder ) > 0 ) {
+		entityBinder = sys.getEntity( nameBinder );
+	}
+
+
+	if ( entityPosition != $null && entityBinder != $null ) {
+		while ( true ) {
+			vector position = entityPosition.getOrigin();
+			vector orientation = entityBinder.getAngles();
+			
+			vector origin = Vec( 0.0, 0.0, 0.0 );
+			vector angles = Vec( 0.0, 0.0, 0.0 );
+			
+			origin += sys.angToForward( orientation ) * -Vec_y( position );
+			origin += sys.angToRight( orientation ) * -Vec_x( position );
+			origin += sys.angToUp( orientation ) * Vec_z( position );
+			
+			self.teleport( origin, angles );
+			
+			sys.waitFrame();
+		}		
+	}
+}
+
+void dynamicSun::onTrigger( entity activator ) {
+}
+
+// ------------------------------------------------------------------------------------------------
+
+/*
+========================
+dynamicPlane
+	Class that will setup and run the dynamic plane
+	
+	1. Dig out all entities from the nameXXX variables.
+	
+	2. Rename entities to something unique so we don't have any name collisions if spawning additional planes.
+	
+	3. Randomize an animation index to launch on the animator entity and call proper function to do so.
+	
+========================
+*/
+object dynamicPlane {
+	string	nameAnimator;		// Name of the entity that is animated and represents the position of the plane
+	string	nameBody;			// Name of the entity that holds the planes body
+	string	nameSpeaker;		// Name of the entity that holds the speaker for the plane
+	string	nameCannon1;		// Name of the entity that works as the first cannon of the plane
+	string	nameCannon2;		// Name of the entity that works as the second cannon of the plane
+
+	string	nameRibbon1;		// Name of the entity that works as the first ribbon of the plane
+	string	nameRibbon2;		// Name of the entity that works as the second ribbon of the plane
+	string	nameRibbon3;		// Name of the entity that works as the third ribbon of the plane
+
+	string	nameCleanupDelay;	// Entity that will send a pulse to start clean-up once plane is destroyed
+	string	nameCleanupEarly;	// Entity that will start cleaning up planes guns (stop firing etc)
+	string	nameCleanupFinal;	// Entity that will take care of clean-up once the plane is destroyed and finished animating
+
+	string	nameTrackSpawn;		// Entity keeping track of spawns
+	string	nameTrackDestroy;	// Entity keeping track of destroys
+		
+	int		numAnimations;		// Number of animations to randomize between [ 0, num ]
+
+	// Triggered when object is 'activated'	
+	void	onTrigger( entity activator );
+};
+
+/*
+========================
+dynamicPlane::onTrigger
+========================
+*/
+void dynamicPlane::onTrigger( entity activator ) {
+
+	// Entity objects used in function (dug out from nameXXX)
+	entity animator = $null;
+	entity body = $null;
+	entity speaker = $null;
+	entity cannon1 = $null;
+	entity cannon2 = $null;
+	entity ribbon1 = $null;
+	entity ribbon2 = $null;
+	entity ribbon3 = $null;
+
+	entity cleanupDelay = $null;
+	entity cleanupEarly = $null;
+	entity cleanupFinal = $null;
+
+	entity trackSpawn = $null;
+	entity trackDestroy = $null;
+
+	// Dig out animator entity using nameAnimator	
+	if ( sys.strLength( nameAnimator ) > 0 ) {
+		animator = sys.getEntity( nameAnimator );
+	}
+
+	// Dig out breakable entity using nameBody
+	if ( sys.strLength( nameBody ) > 0 ) {
+		body = sys.getEntity( nameBody );
+	}
+
+	// Dig out sound speaker entity using nameSpeaker
+	if ( sys.strLength( nameSpeaker ) > 0 ) {
+		speaker = sys.getEntity( nameSpeaker );
+	}
+
+	// Dig out target_dummy_fire entity using nameCannon01	
+	if ( sys.strLength( nameCannon1 ) > 0 ) {
+		cannon1 = sys.getEntity( nameCannon1 );
+	}
+
+	// Dig out target_dummy_fire entity using nameCannon2
+	if ( sys.strLength( nameCannon2 ) > 0 ) {
+		cannon2 = sys.getEntity( nameCannon2 );
+	}
+	
+	// Dig out func_ribbonemitter entity using nameRibbon1
+	if ( sys.strLength( nameRibbon1 ) > 0 ) {
+		ribbon1 = sys.getEntity( nameRibbon1 );
+	}
+	
+	// Dig out func_ribbonemitter entity using nameRibbon2
+	if ( sys.strLength( nameRibbon2 ) > 0 ) {
+		ribbon2 = sys.getEntity( nameRibbon2 );
+	}
+	
+	// Dig out func_ribbonemitter entity using nameRibbon3
+	if ( sys.strLength( nameRibbon3 ) > 0 ) {
+		ribbon3 = sys.getEntity( nameRibbon3 );
+	}
+
+	// Dig out target_count enityt using nameCleanupDelay
+	if ( sys.strLength( nameCleanupDelay ) > 0 ) {
+		cleanupDelay = sys.getEntity( nameCleanupDelay );
+	}
+
+	// Dig out target_remove entity using nameCleanupEarly
+	if ( sys.strLength( nameCleanupEarly ) > 0 ) {
+		cleanupEarly = sys.getEntity( nameCleanupEarly );
+	}
+
+	// Dig out target_remove entity using nameCleanupFinal
+	if ( sys.strLength( nameCleanupFinal ) > 0 ) {
+		cleanupFinal = sys.getEntity( nameCleanupFinal );
+	}
+	
+	// Dig out target_count entity using nameTrackPlane
+	if ( sys.strLength( nameTrackSpawn ) > 0 ) {
+		trackSpawn = sys.getEntity( nameTrackSpawn );
+	}
+
+	if ( sys.strLength( nameTrackDestroy ) > 0 ) {
+		trackDestroy = sys.getEntity( nameTrackDestroy );
+	}
+	
+	// Increase global and store new value locally
+	globalSpawn++;
+	int spawnIndex = globalSpawn;
+	
+	// Rename all our entities using spawnIndex so we get unique names
+	RenameEntity( animator, spawnIndex );
+	RenameEntity( body, spawnIndex );
+	RenameEntity( cannon1, spawnIndex );
+	RenameEntity( cannon2, spawnIndex );
+	RenameEntity( speaker, spawnIndex );
+	RenameEntity( ribbon1, spawnIndex );
+	RenameEntity( ribbon2, spawnIndex );
+	RenameEntity( ribbon3, spawnIndex );
+	RenameEntity( cleanupDelay, spawnIndex );
+	RenameEntity( cleanupEarly, spawnIndex );
+	RenameEntity( cleanupFinal, spawnIndex );
+	RenameEntity( trackSpawn, spawnIndex );
+	RenameEntity( trackDestroy, spawnIndex );
+
+	// Teleport animator to start position
+	if ( animator != $null ) {
+		
+		// TODO:	this is hard-coded, it could be a randomized position if we want to or fixed through
+		// 			some other system, such as depending on randomAnimation index example
+		animator.teleport( $info_null_plane_start_1.getOrigin(), $info_null_plane_start_1.getAngles() );
+		
+		// Ensure the scriptObject actually has	at least ONE animation
+		if ( numAnimations > 0 ) {
+			
+			// Randomize an animation state index 
+			int randomAnimation = sys.randomInt( numAnimations );
+
+			// Start the animation on the animator entity
+			animator.setAnimState( randomAnimation, 0, false );
+		}
+	}
+	
+	// When breakable breaks/explodes it triggers all its targets, so add cleanup entities to breakable
+	if ( body != $null ) {
+		// Deactivate ribbons
+		body.addTarget( ribbon1 );
+		body.addTarget( ribbon2 );
+		body.addTarget( ribbon3 );
+		
+		body.addTarget( trackDestroy );
+		body.addTarget( cleanupEarly );
+		body.addTarget( cleanupDelay );
+	}
+	
+	// Set targets to remove immediately 
+	if ( cleanupEarly != $null ) {
+		
+		// Add cannons so they stop firing the moment the plane explode
+		cleanupEarly.addTarget( cannon2 );
+		cleanupEarly.addTarget( cannon1 );
+		
+		// Add speaker so it stops playing the moment the plane explode
+		cleanupEarly.addTarget( speaker );
+	}
+	
+	// Set targets on the delay relay
+	if ( cleanupDelay != $null ) {
+		cleanupDelay.addTarget( cleanupFinal );
+	}
+	
+	// Set targets to remove after explosion finished playing
+	if ( cleanupFinal != $null ) {
+		cleanupFinal.addTarget( body );
+		cleanupFinal.addTarget( animator );
+		cleanupFinal.addTarget( ribbon1 );
+		cleanupFinal.addTarget( ribbon2 );
+		cleanupFinal.addTarget( ribbon3 );
+		cleanupFinal.addTarget( trackSpawn );
+		cleanupFinal.addTarget( trackDestroy );
+	}
+	
+	// Start firing the first cannon when spawned (range constraint will prevent it from firing anyway)
+	if ( cannon1 != $null ) {
+		cannon1.activate( activator );
+	}
+	
+	// Start firing the second cannon when spawned (range constraint will prevent it from firing anyway)
+	if ( cannon2 != $null ) {
+		cannon2.activate( activator );
+	}
+	
+	// Add cleanup target to remove object
+	if ( trackSpawn != $null ) {
+		
+		trackSpawn.addTarget( animator );		// 0
+		trackSpawn.addTarget( body );			// 1
+		trackSpawn.addTarget( cannon1 );		// 2
+		trackSpawn.addTarget( cannon2 );		// 3
+		trackSpawn.addTarget( speaker );		// 4
+		trackSpawn.addTarget( ribbon1 );		// 5
+		trackSpawn.addTarget( ribbon2 );		// 6
+		trackSpawn.addTarget( ribbon3 );		// 7
+		trackSpawn.addTarget( cleanupDelay );	// 8
+		trackSpawn.addTarget( cleanupEarly );	// 9
+		trackSpawn.addTarget( cleanupFinal );	// 10
+		trackSpawn.addTarget( trackDestroy );	// 11
+
+		// Add targets to be removed as a complete cleanup
+		int i;
+		for ( i = 0; i < trackSpawn.numTargets(); i++ ) {
+			$target_remove_plane_all.addTarget( trackSpawn.getTarget( i ) );
+		}
+		
+		$target_remove_plane_all.addTarget( trackSpawn ); // 12
+	}
+	
+	if ( trackDestroy != $null ) {
+		trackDestroy.addTarget( trackSpawn );
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+
+void call_enemyplane_down( entity activatedEntity, entity activator ) {
+	
+	// Track active planes
+	globalActive--;
+	sys.print( "Enemy plane down (" + globalActive + " plane(s) left)\n" );
+	
+	if ( activatedEntity.numTargets() <= 0 ) {
+		return;
+	}
+	
+	entity track = activatedEntity.getTarget( 0 );
+	if ( track != $null ) {
+		
+		// Make sure we know it's the 'trackSpawn' entity
+		if ( track.numTargets() != 13 ) {
+			return;
+		}
+		
+		// Remove everything from master list except the tracking objects
+		int i;
+		for ( i = 0; i < 11; i++ ) {
+			$target_remove_plane_all.removeTarget( track.getTarget( i ) );
+		}
+		
+		// Clear targets
+		track.clearTargets();
+	}
+	
+	// Clear targets
+	activatedEntity.clearTargets();
+}
+
+void call_try_spawn_plane( entity activatedEntity, entity activator ) {
+
+	if ( globalActive < 3 ) {
+		globalActive++;
+		sys.print( "Spawning enemy plane (" + globalActive + " plane(s) active)\n" );
+
+		$target_relay_spawn_enemyplane.activate( activator );
+	}
+}
+
+void disconnect_player( entity activatedEntity, entity activator )
+{
+    entity temp;
+    $target_use_turret.activate( temp );
+}
+
+void call_set_player_playerhealth_5( entity activatedEntity, entity activator )
+{
+	$player1.setHealth(5);
+}
+
+void call_joint_func_mover_condor9_fuselage_door_open( entity activatedEntity, entity activator )
+{
+    $joint_func_mover_condor9_fuselage_door.time( 2 );
+    $joint_func_mover_condor9_fuselage_door.accelTime( 0 );
+    $joint_func_mover_condor9_fuselage_door.decelTime( 0 );
+    $joint_func_mover_condor9_fuselage_door.rotateOnce( '-60 0 0' );
+}
+
+void call_joint_func_mover_condor9_fuselage_door_open_checkpoint( entity activatedEntity, entity activator )
+{
+    $joint_func_mover_condor9_fuselage_door.time( 2 );
+    $joint_func_mover_condor9_fuselage_door.accelTime( 0 );
+    $joint_func_mover_condor9_fuselage_door.decelTime( 0 );
+    $joint_func_mover_condor9_fuselage_door.rotateOnce( '-60 0 0' );
+}
+
+
+void call_joint_func_mover_condor9_fuselage_door_close( entity activatedEntity, entity activator )
+{
+	$sound_sp_condor9_door_close.activate( $acti );
+	$joint_func_mover_condor9_fuselage_door.time( 3 );
+    $joint_func_mover_condor9_fuselage_door.accelTime( 1 );
+    $joint_func_mover_condor9_fuselage_door.decelTime( 1 );
+    $joint_func_mover_condor9_fuselage_door.rotateOnce( '60 0 0' );
+}
+
+
+
+//-------------------------
+// Temp stuff
+//-------------------------
+
+void call_turretwindow( entity activatedEntity, entity activator )
+{
+	$func_movers_mover_turretwindow.time( 2 );
+	$func_movers_mover_turretwindow.accelTime( 0 );
+	$func_movers_mover_turretwindow.decelTime( 0 );
+	$func_movers_mover_turretwindow.startSpline( $spline_path_turretwindow );
+}
+
+
+void call_func_movers_mover_alliedfigher_cargoflight_01( entity activatedEntity, entity activator )
+{
+    $func_movers_mover_alliedfigher_cargoflight_01.time( 9 );
+    $func_movers_mover_alliedfigher_cargoflight_01.accelTime( 5 );
+    $func_movers_mover_alliedfigher_cargoflight_01.decelTime( 0 );
+	$func_movers_mover_alliedfigher_cargoflight_01.followSpline($spline_path_with_orientation_func_movers_mover_alliedfigher_cargoflight_01, 0, 0);
+}
+
+void call_func_movers_mover_alliedfigher_cargoflight_02( entity activatedEntity, entity activator )
+{
+    $func_movers_mover_alliedfigher_cargoflight_02.time( 9 );
+    $func_movers_mover_alliedfigher_cargoflight_02.accelTime( 5 );
+    $func_movers_mover_alliedfigher_cargoflight_02.decelTime( 0 );
+	$func_movers_mover_alliedfigher_cargoflight_02.followSpline($spline_path_with_orientation_func_movers_mover_alliedfigher_cargoflight_02, 0, 0);
+}
+
+void call_gp_func_mover_1( entity activatedEntity, entity activator )
+{
+    $gp_func_mover_1.time( 4 );
+    $gp_func_mover_1.accelTime( 1 );
+    $gp_func_mover_1.decelTime( 1 );
+    $gp_func_mover_1.rotateOnce( '0 0 1042' );
+}
+
+void call_rotate_func_mover_crashed_plane_radar( entity activatedEntity, entity activator )
+{
+    $func_mover_crashed_plane_radar.time( 4 );
+    $func_mover_crashed_plane_radar.accelTime( 1 );
+    $func_mover_crashed_plane_radar.decelTime( 1 );
+    $func_mover_crashed_plane_radar.rotateOnce( '0 0 1042' );
+}
+
+void func_rotate_mover_debris_rotor_02( entity activatedEntity, entity activator )
+{
+    $func_mover_debris_rotor_02.time( 4 );
+    $func_mover_debris_rotor_02.accelTime( 1 );
+    $func_mover_debris_rotor_02.decelTime( 1 );
+    $func_mover_debris_rotor_02.rotateOnce( '0 0 1042' );
+}
+
+void call_gp_func_mover_1_debris( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_1.time( 3 );
+	$gp_func_mover_1.accelTime( 1 );
+	$gp_func_mover_1.decelTime( 0 );
+	$gp_func_mover_1.startSpline( $spline_path_crashed_plane_propeller );
+}
+
+void call_func_mover_crashed_plane_radar( entity activatedEntity, entity activator )
+{
+    $func_mover_crashed_plane_radar.time( 6 );
+    $func_mover_crashed_plane_radar.accelTime( 1 );
+    $func_mover_crashed_plane_radar.decelTime( 0 );
+	$func_mover_crashed_plane_radar.followSpline($spline_path_crashed_plane_radar, 0, 0);
+}
+
+void call_func_mover_debris_rotor_02( entity activatedEntity, entity activator )
+{
+    $func_mover_debris_rotor_02.time( 6 );
+    $func_mover_debris_rotor_02.accelTime( 1 );
+    $func_mover_debris_rotor_02.decelTime( 0 );
+	$func_mover_debris_rotor_02.followSpline($spline_path_func_mover_debris_rotor_02, 0, 0);
+}
+
+
+void call_func_mover_condor_nine4_destroyed( entity activatedEntity, entity activator )
+{
+    $func_mover_condor_nine4_destroyed.time( 6 );
+    $func_mover_condor_nine4_destroyed.accelTime( 1 );
+    $func_mover_condor_nine4_destroyed.decelTime( 0 );
+	$func_mover_condor_nine4_destroyed.move( DIR_FORWARD, 12000 );
+}
+
+void call_boattest( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_oiltanker.time( 12 );
+    $gp_func_movers_mover_oiltanker.accelTime( 8 );
+    $gp_func_movers_mover_oiltanker.decelTime( 0 );
+	$gp_func_movers_mover_oiltanker.followSpline($spline_path_boattest, 0, 0);
+}
+
+//-------------------------
+// Enemyplanes
+//-------------------------
+
+void call_func_mover_enemyplane_01( entity activatedEntity, entity activator )
+{
+    $func_mover_enemyplane_01.time( 12 );
+    $func_mover_enemyplane_01.accelTime( 0 );
+    $func_mover_enemyplane_01.decelTime( 0 );
+	$func_mover_enemyplane_01.followSpline($spline_path_with_orientation_func_mover_enemyplane_01, 0, 0);
+}
+
+void call_func_mover_enemyplane_02( entity activatedEntity, entity activator )
+{
+    $func_mover_enemyplane_02.time( 15 );
+    $func_mover_enemyplane_02.accelTime( 0 );
+    $func_mover_enemyplane_02.decelTime( 0 );
+	$func_mover_enemyplane_02.followSpline($spline_path_with_orientation_func_mover_enemyplane_02, 0, 0);
+}
+
+void call_func_mover_enemyplane_03( entity activatedEntity, entity activator )
+{
+    $func_mover_enemyplane_03.time( 18 );
+    $func_mover_enemyplane_03.accelTime( 0 );
+    $func_mover_enemyplane_03.decelTime( 0 );
+	$func_mover_enemyplane_03.followSpline($spline_path_with_orientation_func_mover_enemyplane_03, 0, 0);
+}
+
+void call_func_mover_enemyplane_04( entity activatedEntity, entity activator )
+{
+    $func_mover_enemyplane_04.time( 20 );
+    $func_mover_enemyplane_04.accelTime( 0 );
+    $func_mover_enemyplane_04.decelTime( 0 );
+	$func_mover_enemyplane_04.followSpline($spline_path_with_orientation_func_mover_enemyplane_04, 0, 0);
+}
+
+//-------------------------
+// world_rotate
+//-------------------------
+
+void call_unbind_enginefire( entity activatedEntity, entity activator )
+{
+	//$fx_engine_smoke.unbind();
+}
+
+void call_bind_enginefire( entity activatedEntity, entity activator )
+{
+//	$fx_engine_smoke.bind( $func_mover_world_rotate );
+}
+
+void call_show_clamptools( entity activatedEntity, entity activator ) {
+	$flightdeck_pliers.show();
+	$func_firstpersonevent_bj_clampfuelline.attachEntity( $flightdeck_pliers, "right_hand" );
+	//$flightdeck_steel_thread.show();
+	//$func_firstpersonevent_bj_clampfuelline.attachEntity( $flightdeck_steel_thread, "left_hand" );
+	sys.wait(5);
+	$flightdeck_pliers.hide();
+}
+
+//View free look 
+void call_freeLook( entity activatedEntity, entity activator ) 
+{
+	$thirdPersonHands_0.attachLimitViewCameraMinMax( "camera", 2, '30 2 0', '20 90 0', 1.0 );
+
+	sys.wait( 0.1f );
+	$gp_triggers_trigger_facing_1.makeActivatable( true );
+}
+
+void call_planecrash( entity activatedEntity, entity activator ) 
+{
+	$gp_target_playervieweffect_planecrash1.activate( $player1 );
+	sys.wait(1.1);
+	$gp_target_playervieweffect_planecrash2.activate( $player1 );
+}
+
+void call_prendergast_headtracking_on( entity activatedEntity, entity activator ) 
+{
+	$func_animatedsimplecharacter_prendergast.setFocus( $player1, true, true, AIMPOINT_HEAD );
+}
+
+void call_prendergast_headtracking_off( entity activatedEntity, entity activator ) 
+{
+	$func_animatedsimplecharacter_prendergast.setFocus( $NULL, false, false, AIMPOINT_HEAD );
+}
+
+void bind_fergus_to_condor9 ( entity activatedEntity, entity activator ) 
+{
+	$func_animatedsimplecharacter_prendergast.setFocus( $NULL, false, false, AIMPOINT_HEAD );
+}
+
+
+
+//-------------------------
+// externalvelocity on PL
+//-------------------------
+
+void call_setexternalvelocity_cargohold0( entity activatedEntity, entity activator )
+{
+     $target_player_setexternalvelocity_cargohold.setSpeed( 0.0 );
+}
+
+void call_setexternalvelocity_cargohold12( entity activatedEntity, entity activator )
+{
+     $target_player_setexternalvelocity_cargohold.setSpeed( 6.0 );
+}
+
+void call_setexternalvelocity_cargohold24( entity activatedEntity, entity activator )
+{
+     $target_player_setexternalvelocity_cargohold.setSpeed( 12.0 );
+}
+
+void call_setexternalvelocity_cargohold36( entity activatedEntity, entity activator )
+{
+     $target_player_setexternalvelocity_cargohold.setSpeed( 18.0 );
+}
+
+void call_setexternalvelocity_cargohold48( entity activatedEntity, entity activator )
+{
+     $target_player_setexternalvelocity_cargohold.setSpeed( 24.0 );
+}
+
+//-------------------------
+//
+//-------------------------
+
+void bind_fergus_condor9 ( entity activatedEntity, entity activator )
+{
+     $func_animatedsimplecharacter_player_jump_fergus.bindToJoint( $gp_func_animatedsimple_enginepath_condor9_world_node, "", "origin", 1.0 );
+
+}
+
+void cancel_crouch_tutorial ( entity activatedEntity, entity activator )
+{
+	$gp_target_tutorial_gui_crouch.hideIfActive();
+
+}
+
+void cancel_sprintjump_tutorial ( entity activatedEntity, entity activator )
+{
+	$gp_target_tutorial_gui_fire_sprint_jump.hideIfActive();
+
+}
+
+void cancel_look_tutorial ( entity activatedEntity, entity activator )
+{
+	$gp_target_tutorial_gui_look.hideIfActive();
+}
+
+void cancel_move_tutorial ( entity activatedEntity, entity activator )
+{
+	$gp_target_tutorial_gui_look.hideIfActive();
+}
+
+
+void print_relay ( entity activatedEntity, entity activator )
+{
+	sys.print("Current relay: ");
+	sys.print(activatedEntity.getName());	
+	sys.print("\n");
+		sys.print("Activated by: ");
+	sys.print(activator.getName());	
+	sys.print("\n");
+}
+
+void bombers_ignore_damage ( entity activatedEntity, entity activator )
+{
+	$turret_bomber1.setTakesDamage(FALSE);
+	$turret_bomber2.setTakesDamage(FALSE);
+	$prop_useable_turret_cockpitmk2.setTakesDamage(FALSE);
+}
+
+void bombers_take_damage ( entity activatedEntity, entity activator )
+{
+	$turret_bomber1.setTakesDamage(TRUE);
+	$turret_bomber2.setTakesDamage(TRUE);
+	$prop_useable_turret_cockpitmk2.setTakesDamage(TRUE);
+}
+
+void turret_ignore_damage ( entity activatedEntity, entity activator )
+{
+	$prop_useable_turret_cockpitmk2.setTakesDamage(FALSE);
+}
+
+void cpr_setplayerhealth( entity activatedEntity, entity activator )
+{
+	$player1.setHealth(7);
+}
+
+void beforejump_setplayerhealth( entity activatedEntity, entity activator )
+{
+	$player1.setHealth(12);
+}
+
+//Disable damage taken by bombers in turret sequence
+void disable_damage_bombers ( entity activatedEntity, entity activator )
+{
+	$turret_bomber1.setTakesDamage(FALSE);
+	$turret_bomber2.setTakesDamage(TRUE);
+}
+
+void call_turretdeath ( entity activatedEntity, entity activator )
+{
+	entity empty;
+	$target_use_exitturret.activate( empty );
+	$gp_func_firstpersonevent_turret_death.activate( empty );
+}

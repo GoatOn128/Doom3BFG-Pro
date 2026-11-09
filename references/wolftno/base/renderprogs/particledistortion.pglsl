@@ -1,0 +1,29 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_viewdepthmap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 texel = tex2D( samp_transmap, vofi_TexCoord0.xy );
+	float blur = texel.z * vofi_Color.w * vofi_TexCoord0.z;
+	float mask = texel.w * vofi_Color.w * vofi_TexCoord0.z;
+	clip( ( blur + mask ) - 0.01 );
+	float interpolatedZOverW = gl_FragCoord.z;
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float dstDepth = tex2Ddepth( samp_viewdepthmap, tc );
+	float srcDepth = interpolatedZOverW;
+	float zReject = dstDepth - srcDepth;
+	clip( zReject );
+	vec2 distortion = 2.0 * texel.xy - 1.0;
+	distortion *= ( _fa_[1 ].xy * mask );
+	out_FragColor0 = ComputeDistortion( distortion, blur );
+}

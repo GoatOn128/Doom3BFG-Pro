@@ -1,0 +1,347 @@
+/*
+================================================================================
+Map Script for c05_07_09.map
+================================================================================
+*/
+
+void main() {
+}
+
+
+void call_joint_thick_steel_door( entity activatedEntity, entity activator )
+{
+     $c05_gp__joint_thick_steel_door.time( 0.5 );
+     $c05_gp__joint_thick_steel_door.accelTime( 0 );
+     $c05_gp__joint_thick_steel_door.decelTime( 0 );
+     $c05_gp__joint_thick_steel_door.rotateOnce( '0 90 0' );
+}
+
+void open_hatch ( entity activatedEntity, entity activator )
+{
+	$c05_gp__func_movers_mover_hatch.time( 3 );
+    $c05_gp__func_movers_mover_hatch.accelTime( 1 );
+    $c05_gp__func_movers_mover_hatch.decelTime( 0.5 );
+	$c05_gp__func_movers_mover_hatch.move( DIR_FORWARD, 100 );
+}
+
+void open_carolinesdoor ( entity activatedEntity, entity activator )
+{
+     $c05_gp__func_movers_mover_joint_carolinesdoor.time( 0.1 );
+     $c05_gp__func_movers_mover_joint_carolinesdoor.accelTime( 1 );
+     $c05_gp__func_movers_mover_joint_carolinesdoor.decelTime( 1 );
+     $c05_gp__func_movers_mover_joint_carolinesdoor.rotateOnce( '0 -100 0' );
+}
+
+void policecar1_go ( entity activatedEntity, entity activator )
+{
+	$c05_gp__func_movers_mover_policecar1.time( 1.5 );
+    $c05_gp__func_movers_mover_policecar1.accelTime( 0 );
+    $c05_gp__func_movers_mover_policecar1.decelTime( 0 );
+	$c05_gp__func_movers_mover_policecar1.followSpline($c01p3_gp__spline_path_with_orientation_brick1_takenfromwall, 0, 0);
+}
+
+/* 
+Debug print messages 
+*/
+
+void enteringwater ( entity activatedEntity, entity activator )
+{
+	sys.print("Entering water\n");
+}
+
+void breachingsurface ( entity activatedEntity, entity activator )
+{
+	sys.print("Breaching surface\n");
+}
+
+void enterklausroom ( entity activatedEntity, entity activator )
+{
+	sys.print("Entering Klaus room\n");
+}
+
+void exitklausroom ( entity activatedEntity, entity activator )
+{
+	sys.print("Exiting Klaus room\n");
+}
+
+
+void playerinroom ( entity activatedEntity, entity activator )
+{
+	sys.print("Player in room triggered. Should play gestures and reminders\n");
+}
+
+void playernotinroom ( entity activatedEntity, entity activator )
+{
+	sys.print("Player not in room triggered. Should only play gestures\n");
+}
+
+void startinggesturefunction ( entity activatedEntity, entity activator )
+{
+	sys.print("Staring Caroline gesture function\n");
+}
+
+void carolinenoreminder ( entity activatedEntity, entity activator )
+{
+	sys.print("Activating: Gestures, no reminders on Caroline\n");
+}
+
+void carolinereminder1 ( entity activatedEntity, entity activator )
+{
+	sys.print("Activating: Reminder 1 on Caroline\n");
+}
+
+void carolinereminder2 ( entity activatedEntity, entity activator )
+{
+	sys.print("Activating: Reminder 2 on Caroline\n");
+}
+
+void carolineonlygesturesallowed ( entity activatedEntity, entity activator )
+{
+	sys.print("Only allowing gestures on Caroline\n");
+}
+
+
+void carolinereminder1allowed ( entity activatedEntity, entity activator )
+{
+	sys.print("Allowing reminder 1 on Caroline\n");
+}
+
+void carolinereminder2allowed ( entity activatedEntity, entity activator )
+{
+	sys.print("Allowing reminder 2 on Caroline\n");
+}
+
+void caroline_pl_opening_drawer ( entity activatedEntity, entity activator )
+{
+	sys.print("caroline_pl_opening_drawer called\n");
+}
+
+void print_relay ( entity activatedEntity, entity activator )
+{
+	sys.print("Current relay: ");
+	sys.print(activatedEntity.getName());	
+	sys.print("\n");
+}
+
+void open_exitdoor ( entity activatedEntity, entity activator )
+{
+     $c09_func_movers_mover_exitdoor_joint.time( 4.2 );
+     $c09_func_movers_mover_exitdoor_joint.accelTime( 1.5 );
+     $c09_func_movers_mover_exitdoor_joint.decelTime( 1.4 );
+     $c09_func_movers_mover_exitdoor_joint.rotateOnce( '0 -85 0' );
+}
+
+void call_joint_achtung( entity activatedEntity, entity activator )
+{
+     $c07_gp_joint_achtung.time( 1.5 );
+     $c07_gp_joint_achtung.accelTime( 0 );
+     $c07_gp_joint_achtung.decelTime( 0.5 );
+     $c07_gp_joint_achtung.rotateOnce( '0 106 0' );
+}
+
+void call_joint_achtung_fast( entity activatedEntity, entity activator )
+{
+     $c07_gp_joint_achtung.time( 0.25 );
+     $c07_gp_joint_achtung.accelTime( 0 );
+     $c07_gp_joint_achtung.decelTime( 0.1 );
+     $c07_gp_joint_achtung.rotateOnce( '0 106 0' );
+}
+
+
+
+/* 
+------------------------------
+Post Super Soldaten chain door 
+------------------------------
+*/
+
+
+void chain_door_tryopen(entity a, entity t)
+{
+	$chain_door_tryopen_use.hide();
+	
+	entity door = $chain_door;
+	vector ang = '0 7 0';
+
+	if(door.isRotating()) return;
+	door.setParmsForTime(0.4, 0.3, 0.0);
+	door.rotateOnce(ang);
+	
+	sys.waitFor(door);
+	if(door.isRotating()) return;	
+	door.setParmsForTime(0.3, 0.0, 0.2);
+	door.rotateOnce(-ang);
+
+	sys.waitFor(door);
+	if(door.isRotating()) return;	
+	door.setParmsForTime(0.3, 0.2, 0.0);
+	door.rotateOnce(ang);
+
+	sys.waitFor(door);
+	if(door.isRotating()) return;	
+	door.setParmsForTime(0.8, 0.0, 0.7);
+	door.rotateOnce(-ang);
+	
+	sys.wait(0.5);
+	$chain_door_tryopen_use.show();
+
+}
+
+/* 
+VO moving past windows
+*/
+
+void call_tr_vo_passbys ( entity activatedEntity, entity activator )
+{
+    $vo_mover_outsidewindows.time( 20 );
+    $vo_mover_outsidewindows.accelTime( 0 );
+    $vo_mover_outsidewindows.decelTime( 0 );
+    $vo_mover_outsidewindows.followSpline($vo_spline_outsidewindows, 0, 0);
+}
+
+//C09 Sarcophagus room, empty sarcophagus falling
+void sarcophagus_fall1 ( entity activatedEntity, entity activator )
+{
+	$c09_sarcophagus_empty1.time( 1.2 );
+    $c09_sarcophagus_empty1.accelTime( 1.2 );
+    $c09_sarcophagus_empty1.decelTime( 0 );
+	$c09_sarcophagus_empty1.move( DIR_DOWN, 210 );
+}
+
+void sarcophagus_fall2 ( entity activatedEntity, entity activator )
+{
+	$c09_sarcophagus_empty2.time( 1.2 );
+    $c09_sarcophagus_empty2.accelTime( 1.2 );
+    $c09_sarcophagus_empty2.decelTime( 0 );
+	$c09_sarcophagus_empty2.move( DIR_DOWN, 210 );
+}
+
+void sarcophagus_fall3 ( entity activatedEntity, entity activator )
+{
+	$c09_sarcophagus_empty3.time( 1.2 );
+    $c09_sarcophagus_empty3.accelTime( 1.2 );
+    $c09_sarcophagus_empty3.decelTime( 0 );
+	$c09_sarcophagus_empty3.move( DIR_DOWN, 210 );
+}
+
+void sarcophagus_fall4 ( entity activatedEntity, entity activator )
+{
+	$c09_sarcophagus_empty4.time( 1.2 );
+    $c09_sarcophagus_empty4.accelTime( 1.2 );
+    $c09_sarcophagus_empty4.decelTime( 0 );
+	$c09_sarcophagus_empty4.move( DIR_DOWN, 210 );
+}
+
+//Occupied sarcophagus falling
+
+void sarcophagus_occupied_falling ( entity activatedEntity, entity activator )
+{
+	$c09_sarcophagus_occupied.time( 1.2 );
+    $c09_sarcophagus_occupied.accelTime( 1.2 );
+    $c09_sarcophagus_occupied.decelTime( 0 );
+	$c09_sarcophagus_occupied.move( DIR_DOWN, 210 );
+	sys.wait(2);
+	$c09_target_show_supersoldat1.activate(activatedEntity);
+}
+
+//C09 Sarcophagus room gate opening
+void sarcophagus_gate_opening ( entity activatedEntity, entity activator )
+{
+	$func_dynamic_2.time( 40 );
+    $func_dynamic_2.accelTime( 2 );
+    $func_dynamic_2.decelTime( 0 );
+	$func_dynamic_2.move( DIR_UP, 50 );
+}
+
+//C09 Sarcophagus room gate opening v2
+void sarcophagus_gate_opening_2 ( entity activatedEntity, entity activator )
+{
+	$func_dynamic_2.time( 5 );
+    $func_dynamic_2.accelTime( 2 );
+    $func_dynamic_2.decelTime( 0 );
+	$func_dynamic_2.move( DIR_UP, 100 );
+}
+
+//C09 Sarcophagus room gate stop
+void sarcophagus_gate_opening_stop ( entity activatedEntity, entity activator )
+{
+	$func_dynamic_2.time( 1 );
+    $func_dynamic_2.accelTime( 0 );
+    $func_dynamic_2.decelTime( 0 );
+	$func_dynamic_2.move( DIR_UP, 0 );
+}
+
+//C15 cutting the chain to the vent hatch 
+void vent_hatch_cut ( entity activatedEntity, entity activator )
+{
+     $gp_venthatch.time( 1.5 );
+     $gp_venthatch.accelTime( 1.4 );
+     $gp_venthatch.decelTime( 0.1 );
+     $gp_venthatch.rotateOnce( '90 0 0' );
+}
+
+/*
+void gibb_supersoldat1 (entity targ, entity acti)
+{
+	$?.triggerGore( "body_vaporize" );
+
+		$c09_ai_supersoldat1.triggerGore( "" );
+//		$c09_ai_supersoldat1.triggerGore( "body_vaporize" );
+}
+
+
+void gibb_supersoldat2 (entity targ, entity acti)
+{
+}
+*/
+
+
+void wolf_secret1 ( entity activatedEntity, entity activator )
+{
+	sys.print("Secret 1");
+	$sound_05_sp_oldwolf_secret1.activate( $acti );
+	$secret01_door.time( 5 );
+    $secret01_door.accelTime( 0 );
+    $secret01_door.decelTime( 0 );
+	$secret01_door.move( DIR_BACK, 320 );
+}
+
+void wolf_secret2 ( entity activatedEntity, entity activator )
+{
+	sys.print("Secret 2");
+	$sound_05_sp_oldwolf_secret2.activate( $acti );
+	$secret02_door.time( 5 );
+    $secret02_door.accelTime( 0 );
+    $secret02_door.decelTime( 0 );
+	$secret02_door.move( DIR_LEFT, 320 );
+}
+
+void wolf_secret3 ( entity activatedEntity, entity activator )
+{
+	sys.print("Secret 3");
+	$sound_05_sp_oldwolf_secret3_1.activate( $acti );
+	$secret03_door_01.time( 5 );
+    $secret03_door_01.accelTime( 0 );
+    $secret03_door_01.decelTime( 0 );
+	$secret03_door_01.move( DIR_RIGHT, 320 );
+}
+
+void wolf_secret4 ( entity activatedEntity, entity activator )
+{
+	sys.print("Secret 4");
+	$sound_05_sp_oldwolf_secret3_2.activate( $acti );
+	$secret03_door_02.time( 8 );
+    $secret03_door_02.accelTime( 0 );
+    $secret03_door_02.decelTime( 0 );
+	$secret03_door_02.move( DIR_BACK, 320 );
+}
+
+void wolf_secret5 ( entity activatedEntity, entity activator )
+{
+	sys.print("Secret 5");
+	$sound_05_sp_oldwolf_secret3_3.activate( $acti );
+	$secret03_door_03.time( 8 );
+    $secret03_door_03.accelTime( 0 );
+    $secret03_door_03.decelTime( 0 );
+	$secret03_door_03.move( DIR_RIGHT, 320 );
+}

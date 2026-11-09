@@ -1,0 +1,35 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [9];
+uniform sampler2D samp_viewdepthmap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float z;
+	{
+		{
+			z = tex2Ddepth_fast( samp_viewdepthmap, texcoord.xy ) * 2.0 - 1.0;
+		};
+		{
+			z = z * _fa_[1 ].w / ( z + _fa_[1 ].z ) - _fa_[1 ].w;
+		};
+	};
+	vec3 dof;
+	{
+		float a = saturate( ( _fa_[2 ].x - z) * _fa_[3 ].x ) * _fa_[4 ].x;
+		float b = saturate( (z - _fa_[5 ].x) * _fa_[3 ].y ) * _fa_[6 ].x;
+		dof.x = max(a, b);
+		dof.y = a;
+		dof.z = b;
+		dof = ( z > 0.0 ) ? dof : vec3( _fa_[7 ].x, 0, _fa_[7 ].x );
+		dof = dof* _fa_[8 ].x + vec3( _fa_[8 ].y );
+	};
+	float res = max( dof.y*(4*0.8), dof.z ) * ( 1.0 /( 10*(4*0.8) ) );
+	out_FragColor0 = vec4( res );
+}

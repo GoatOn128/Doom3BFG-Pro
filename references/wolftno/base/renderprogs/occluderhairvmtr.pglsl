@@ -1,0 +1,32 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2D samp_transmap1;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 coverage;
+	{
+		{
+			vec2 dx = dFdx( vofi_TexCoord0.xy ) * 0.5;
+			vec2 dy = dFdy( vofi_TexCoord0.xy ) * 0.5;
+			vec2 dxh = dx * 0.5;
+			vec2 dyh = dy * 0.5;
+			coverage = vec4( 0.0 );
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord0.xy, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord0.xy - dxh - dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord0.xy + dxh - dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord0.xy - dxh + dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord0.xy + dxh + dyh, dx, dy);
+			coverage *= vec4( 1.0 / 5.0 );
+		};
+	};
+	{
+		clip( coverage.w - 0.3 );
+	};
+	out_FragColor0 = vec4( 0.0 );
+}

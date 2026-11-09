@@ -1,0 +1,561 @@
+/*
+================================================================================
+Map Script for c01p3_low.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+// These are called if the wood planks are shot while an AI is on them. if so, the AI will die
+// but also take the entire section of wood down with him.
+void destroy_alla_plankor_one ( entity activatedEntity, entity activator ) {
+	$worlddestructible_c01_environment_woodplanks_break_01_1.breakAll();
+	$worlddestructible_c01_environment_woodplanks_break_02_1.breakAll();
+	$worlddestructible_c01_environment_woodplanks_break_03_1.breakAll();
+
+}
+
+void call_killsmoke( entity activatedEntity, entity activator )
+{
+	$combat_ai_tungsten_c01_part_03_soldier_commander_1.stopFX(FX_CINEMATIC_2);
+}
+
+void destroy_alla_plankor_two ( entity activatedEntity, entity activator ) {
+	$worlddestructible_c01_environment_woodplanks_break_02_2.breakAll();
+	$worlddestructible_c01_environment_woodplanks_break_01_2.breakAll();
+	$worlddestructible_c01_environment_woodplanks_break_03_2.breakAll();
+}
+
+
+void call_weights_down ( entity activatedEntity, entity activator )
+{
+	$gp_func_mover_weights.time( 5 );
+    $gp_func_mover_weights.accelTime( 2 );
+    $gp_func_mover_weights.decelTime( 1 );
+	$gp_func_mover_weights.move( DIR_DOWN, 240 );
+	
+	$func_mover_chain_front01a.time( 5 );
+    $func_mover_chain_front01a.accelTime( 2 );
+    $func_mover_chain_front01a.decelTime( 1 );
+	$func_mover_chain_front01a.move( DIR_DOWN, 240 );
+	
+	$func_mover_chain_front01b.time( 5 );
+    $func_mover_chain_front01b.accelTime( 2 );
+    $func_mover_chain_front01b.decelTime( 1 );
+	$func_mover_chain_front01b.move( DIR_DOWN, 240 );
+	
+	$func_mover_chain_front02a.time( 5 );
+    $func_mover_chain_front02a.accelTime( 2 );
+    $func_mover_chain_front02a.decelTime( 1 );
+	$func_mover_chain_front02a.move( DIR_DOWN, 240 );
+	
+	$func_mover_chain_front02b.time( 5 );
+    $func_mover_chain_front02b.accelTime( 2 );
+    $func_mover_chain_front02b.decelTime( 1 );
+	$func_mover_chain_front02b.move( DIR_DOWN, 240 );
+
+	$func_mover_chain_back01a.time( 5 );
+    $func_mover_chain_back01a.accelTime( 2 );
+    $func_mover_chain_back01a.decelTime( 1 );
+	$func_mover_chain_back01a.move( DIR_UP, 240 );
+
+	$func_mover_chain_back01b.time( 5 );
+    $func_mover_chain_back01b.accelTime( 2 );
+    $func_mover_chain_back01b.decelTime( 1 );
+	$func_mover_chain_back01b.move( DIR_UP, 240 );
+	
+	$func_mover_chain_back02a.time( 5 );
+    $func_mover_chain_back02a.accelTime( 2 );
+    $func_mover_chain_back02a.decelTime( 1 );
+	$func_mover_chain_back02a.move( DIR_UP, 240 );
+	
+	$func_mover_chain_back02b.time( 5 );
+    $func_mover_chain_back02b.accelTime( 2 );
+    $func_mover_chain_back02b.decelTime( 1 );
+	$func_mover_chain_back02b.move( DIR_UP, 240 );
+	
+	$func_mover_chain_back03a.time( 5 );
+    $func_mover_chain_back03a.accelTime( 2 );
+    $func_mover_chain_back03a.decelTime( 1 );
+	$func_mover_chain_back03a.move( DIR_UP, 240 );
+
+	$func_mover_chain_back03b.time( 5 );
+    $func_mover_chain_back03b.accelTime( 2 );
+    $func_mover_chain_back03b.decelTime( 1 );
+	$func_mover_chain_back03b.move( DIR_UP, 240 );
+	
+	$gp_func_mover_mm_wheels_above.time( 5 );
+    $gp_func_mover_mm_wheels_above.accelTime( 2 );
+    $gp_func_mover_mm_wheels_above.decelTime( 1 );
+	$gp_func_mover_mm_wheels_above.rotate( '50 0 0' );	
+	
+	$gp_func_mover_mm_wheels_below.time( 5 );
+    $gp_func_mover_mm_wheels_below.accelTime( 2 );
+    $gp_func_mover_mm_wheels_below.decelTime( 1 );
+	$gp_func_mover_mm_wheels_below.rotate( '-50 0 0' );	
+}
+
+void call_crashedplane_danglingpart ( entity activatedEntity, entity activator )
+{
+	$joint_crashedplane_danglingpart.sway(4, 0, '0 2 3');
+}
+
+void open_supplyroomdoor1 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_supplyroomdoor1.time( 5 );
+    $c01p3_gp__func_mover_supplyroomdoor1.accelTime( 1.5 );
+    $c01p3_gp__func_mover_supplyroomdoor1.decelTime( 2.5 );
+	$c01p3_gp__func_mover_supplyroomdoor1.move( DIR_UP, 155 );
+}
+
+void open_supplyroomdoor2 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_supplyroomdoor2.time( 5 );
+    $c01p3_gp__func_mover_supplyroomdoor2.accelTime( 1.5 );
+    $c01p3_gp__func_mover_supplyroomdoor2.decelTime( 1.5 );
+	$c01p3_gp__func_mover_supplyroomdoor2.move( DIR_UP, 155 );
+}
+
+void open_supplyroomdoor3 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_supplyroomdoor3.time( 5 );
+    $c01p3_gp__func_mover_supplyroomdoor3.accelTime( 1.5 );
+    $c01p3_gp__func_mover_supplyroomdoor3.decelTime( 1.5 );
+	$c01p3_gp__func_mover_supplyroomdoor3.move( DIR_UP, 155 );
+}
+
+void call_painting ( entity activatedEntity, entity activator )
+{
+	$joint_mover_painting.time( 2 );
+    $joint_mover_painting.accelTime( 0 );
+    $joint_mover_painting.decelTime( 0.5 );
+	$joint_mover_painting.rotateOnce( '0 120 0' );
+}
+
+
+void AIs_fleeingnazi ( entity activatedEntity, entity activator )
+{
+	$combat_relay_nazirunsaway.activate (activator);
+}
+
+
+//Secret Path AI detection Scripts
+
+void AIs_Blind ( entity activatedEntity, entity activator )
+{
+	$combat_target_relay_blind.activate (activator);
+}
+
+void AIs_NotBlind ( entity activatedEntity, entity activator )
+{
+	$combat_target_relay_notblind.activate (activator);
+}
+
+void AIs_DetectPlayer ( entity activatedEntity, entity activator )
+{
+	$combat_target_relay_detectplayer.activate (activator);
+}
+
+/*
+void open_officerdoor ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_joint_officerdoor.time( 5 );
+    $c01p3_gp__func_mover_joint_officerdoor.accelTime( 1.5 );
+    $c01p3_gp__func_mover_joint_officerdoor.decelTime( 1.5 );
+	$c01p3_gp__func_mover_joint_officerdoor.rotateOnce( '0 -130 0' );
+}
+*/
+
+void moveturretwagon ( entity activatedEntity, entity activator )
+{
+    sys.print("The wagon should move now.\n");
+	$c01p3_gp__func_mover_turretwagon.time( 43 );
+    $c01p3_gp__func_mover_turretwagon.accelTime( 1 );
+    $c01p3_gp__func_mover_turretwagon.decelTime( 3 );
+	$c01p3_gp__func_mover_turretwagon.followSpline($c01p3_gp__spline_path_turretwagon, 0, 0);
+}
+
+void stopturretwagon ( entity activatedEntity, entity activator )
+{
+    sys.print("The wagon should stop now.\n");
+	$c01p3_gp__func_mover_turretwagon.stopMoving();
+}
+
+void remove_activator ( entity activatedEntity, entity activator )
+{
+    sys.print("Removing activator.\n");
+	activator.remove();
+}
+
+void wave ( entity activatedEntity, entity activator )
+{
+    sys.print("The wave section is triggered.\n");
+}
+
+void open_planehatch ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_joint_planehatch.time( 3 );
+    $c01p3_gp__func_mover_joint_planehatch.accelTime( 1 );
+    $c01p3_gp__func_mover_joint_planehatch.decelTime( 1 );
+	$c01p3_gp__func_mover_joint_planehatch.rotateOnce( '0 0 120' );
+}
+
+void open_incineratordrawer1 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer1.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer1.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer1.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer1.move( DIR_BACK, 32 );
+}
+
+void open_incineratordrawer2 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer2.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer2.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer2.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer2.move( DIR_BACK, 28 );
+}
+
+void open_incineratordrawer3 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer3.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer3.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer3.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer3.move( DIR_BACK, 30 );
+}
+
+void open_incineratordrawer4 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer4.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer4.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer4.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer4.move( DIR_LEFT, 31 );
+}
+
+void open_incineratordrawer5 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer5.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer5.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer5.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer5.move( DIR_LEFT, 33 );
+}
+
+void open_incineratordrawer6 ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordrawer6.time( 1 );
+    $c01p3_gp__func_mover_incineratordrawer6.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordrawer6.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordrawer6.move( DIR_LEFT, 28 );
+}
+
+void move_weirdowall1 ( entity activatedEntity, entity activator )
+{
+	$func_mover_joint_weirdowall1.time( 5 );
+    $func_mover_joint_weirdowall1.accelTime( 2 );
+    $func_mover_joint_weirdowall1.decelTime( 0 );
+	$func_mover_joint_weirdowall1.move( DIR_BACK, 2000 );
+}
+
+void dh_open_hatch ( entity activatedEntity, entity activator )
+{
+	$c01p3_gp__func_mover_incineratordoor_hatch.time( 0.8 );
+    $c01p3_gp__func_mover_incineratordoor_hatch.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordoor_hatch.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordoor_hatch.move( DIR_RIGHT, 15 );
+}
+
+void incineratordoor_halfopen ( entity activatedEntity, entity activator )
+{
+	sys.print("incineratordoor_halfopen\n");
+	$c01p3_gp__func_mover_incineratordoor.time( 0.9 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.3 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.3 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_RIGHT, 52 );
+	sys.wait(0.8);
+	$c01p3_gp__func_mover_incineratordoor.time( 0.9 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.3 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.3 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_LEFT, 52 );
+}
+
+void incineratordoor_fullyopen ( entity activatedEntity, entity activator )
+{
+	sys.print("incineratordoor_fullyopen\n");
+	$c01p3_gp__func_mover_incineratordoor.time( 1.5 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.3 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.3 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_RIGHT, 86 );
+}
+
+void incineratordoor_fullyclosed ( entity activatedEntity, entity activator )
+{
+	sys.print("incineratordoor_fullyclosed\n");
+	$c01p3_gp__func_mover_incineratordoor.time( 1.5 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.3 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.3 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_LEFT, 86 );
+}
+
+//void teleport_backtoincinerator ( entity activatedEntity, entity activator )
+//{
+//	sys.print("Teleporting player back to incinerator room\n");
+//	player1.move c01p3_gp__target_teleport_backtoincinerator.vecToAngles
+//	player1.teleport(vector origin, vector angles)
+//	player1.move c01p3_gp__target_teleport_backtoincinerator.vec
+//}*/
+
+//Part of making Fergus move when Supersoldaten gets close. Called from relay activated by volume.
+void check_supersoldaten_fergus (entity activatedEntity, entity activator)
+{
+	//Filter out Fergus & Wyatt so that only Supersoldaten movement count.
+	if (activator.getName() == "c01p3_gp__ai_tungsten_supersoldaten")
+	{
+		sys.print("Supersoldaten entered a volume.\n");
+		//Identify the volume entered
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_1")
+		{
+			//If Fergus is in the identified volume Supersoldaten entered, move him.
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_1.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_1\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_1.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			//If Wyatt is in the identified volume Supersoldaten entered, move him.
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_1.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_1\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_1.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_2")
+		{
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_2.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_2\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_2.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_2.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_2\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_2.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_3")
+		{
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_3.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_3\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_3.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_3.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_3\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_3.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_4")
+		{
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_4.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_4\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_4.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_4.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_4\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_4.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_5")
+		{
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_5.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_5\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_5.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_5.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_5\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_5.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+		if (activatedEntity.getName() == "c01p3_gp__target_relay_supersoldatroom_6")
+		{
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_6.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_fergus_supersoldaten_1))
+			{
+				sys.print("Both Fergus and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_6\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_fergus_6.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetofergus_vo.activate($activator);
+			}
+			if ($c01p3_gp__volume_enter_exit_ai_supersoldatroom_6.isEntityTouchingVolume($c01p3_gp__ai_tungsten_c01_part_03_wyatt_supersoldaten_1))
+			{
+				sys.print("Both Wyatt and Supersoldaten in volume c01p3_gp__target_relay_supersoldatroom_6\n");
+				$c01p3_gp__target_relay_random_supersoldatfight_changeposition_wyatt_6.activate($activator);
+				$c01p3_gp__target_relay_random_supersoldaten_closetowyatt_vo.activate($activator);
+			}
+		}
+	}
+}
+
+
+/*
+The following part controls the Supersoldaten boss.
+Originally scripted by Olle.
+*/
+
+object ripOffMaskObject {
+	int explodeCount;
+	entity scriptObj;
+	void init();
+	void onTrigger( entity activator );
+	
+};
+
+void ripOffMaskObject::init() {
+	explodeCount = 0;
+}
+
+void ripOffMaskObject::onTrigger( entity activator ) {
+	explodeCount++;
+	
+	if ( explodeCount == 2 ) {
+		// Call the animevent, and then remove ourselves
+		scriptObj.activate( activator );
+		entity super = self.getTarget( 0 );
+		super.decreaseHealth( 125 );
+	}
+}
+
+
+object explodeObject {
+	entity ripOffMaskObj;
+	void onExplode( entity attacker );
+};
+
+void explodeObject::onExplode( entity attacker ) {
+	ripOffMaskObj.activate( attacker );
+	$ai_tungsten_c01_part_03_supersoldaten_test_1.removeAttachment( self );
+	self.disablePhysics();
+	$c01p3_gp__target_relay_faceexposed.activate($activator);
+}
+
+
+/*
+Debug stuff
+*/
+
+void print_trigger ( entity activatedEntity, entity activator )
+{
+	sys.print("Activated trigger:" + activatedEntity.getName() + "\n" );
+	$c01p3_gp__func_mover_incineratordoor.time( 0.7 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.4 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_DOWN, 110 );
+	sys.wait(0.8);
+	$c01p3_gp__func_mover_incineratordoor.time( 0.6 );
+    $c01p3_gp__func_mover_incineratordoor.accelTime( 0.2 );
+    $c01p3_gp__func_mover_incineratordoor.decelTime( 0.2 );
+	$c01p3_gp__func_mover_incineratordoor.move( DIR_UP, 110 );
+}
+
+/*
+Falling rocks from the planecrash
+*/
+
+void call_fallingstones( entity activatedEntity, entity activator ) 
+{
+
+	
+	sys.wait( 1.0f );
+	
+	//FallingStone_1
+	$wc_mover_fallingstone_1.time( 3.5f );
+	$wc_mover_fallingstone_1.decelTime( 0.1f );
+	$wc_mover_fallingstone_1.followSpline( $wc_fallingstone_spline_1, 0, false ); 
+
+	//FallingStone_2
+	$wc_mover_fallingstone_2.time( 4.1f );
+	$wc_mover_fallingstone_2.decelTime( 0.1f );
+	$wc_mover_fallingstone_2.followSpline( $wc_fallingstone_spline_2, 0, false ); 
+
+}
+
+/*
+Scripted AI Handgrenades
+*/
+
+void call_handgrenade_1( entity activatedEntity, entity activator ) 
+{
+	
+	//Hand Grenade 1
+	$mover_handgrenade_1.time( 1.9f );
+	$mover_handgrenade_1.decelTime( 1.8f );
+	$mover_handgrenade_1.followSpline( $spline_grenade_1, 0, false ); 
+
+
+}
+
+void call_removesolid( entity activatedEntity, entity activator )
+{
+	$anim_takedown_dummy.setContents( 0 );
+}
+
+void call_touch_test ( entity activatedEntity, entity activator )
+{
+	$death_func_movers_mover_torch.time( 1 );
+    $death_func_movers_mover_torch.accelTime( 0 );
+    $death_func_movers_mover_torch.decelTime( 0.5 );
+	$death_func_movers_mover_torch.followSpline($death_spline_path_with_orientation_torch, 0, 0);
+}
+
+void call_painting_test ( entity activatedEntity, entity activator )
+{
+	$death_func_mover_painting_test.time( 0.5 );
+    $death_func_mover_painting_test.accelTime( 0 );
+    $death_func_mover_painting_test.decelTime( 0 );
+	$death_func_mover_painting_test.move( DIR_DOWN, 82 );
+	sys.wait(0.3);
+	$death_func_mover_painting_test.time( 0.7 );
+    $death_func_mover_painting_test.accelTime( 0.5 );
+    $death_func_mover_painting_test.decelTime( 0 );
+	$death_func_mover_painting_test.rotateOnce( '0 0 -145' );
+}
+
+
+void startAiming_benson( entity activatedEntity, entity activator )
+{
+	sys.print("Starting to aim - B");
+    $wc_func_animatedsimple_character_benson.setFocus( activatedEntity, true, true, AIMPOINT_CENTER );
+}
+
+void stopAiming_benson( entity activatedEntity, entity activator )
+{
+	sys.print("Stopping aim - B");
+	entity emptyEnt;
+    $wc_func_animatedsimple_character_benson.setFocus( emptyEnt, true, true, AIMPOINT_CENTER );
+}
+
+void startAiming_gates( entity activatedEntity, entity activator )
+{
+	sys.print("Starting to aim - G");
+    $wc_func_animatedsimple_character_gates_new.setFocus( activatedEntity, true, true, AIMPOINT_CENTER );
+}
+
+void stopAiming_gates( entity activatedEntity, entity activator )
+{
+	sys.print("Stopping aim - G");
+	entity emptyEnt;
+    $wc_func_animatedsimple_character_gates_new.setFocus( emptyEnt, true, true, AIMPOINT_CENTER );
+}

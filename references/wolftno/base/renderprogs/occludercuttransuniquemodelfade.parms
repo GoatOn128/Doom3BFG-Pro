@@ -1,0 +1,16 @@
+modelfadeperturb
+vertexstscalebias
+vertexxyzscale
+vertexxyzbias
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+modelfade
+usevirtualmapping
+virtualmapping
+dither256map
+pagetablemap
+physicalmappingsmap
+physicalvmtrpagesmap0
+defaultsampler

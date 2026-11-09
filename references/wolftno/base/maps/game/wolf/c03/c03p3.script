@@ -1,0 +1,207 @@
+/*
+================================================================================
+Map Script for c03p3.map
+================================================================================
+*/
+
+void Door1open( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_door_1.time( 1.0 );
+     $gp_func_mover_door_1.accelTime( 1 );
+     $gp_func_mover_door_1.decelTime( 1 );
+     $gp_func_mover_door_1.move( DIR_LEFT, 64 );
+     $sound_sp_door_open.activate( activator );
+
+}
+
+void Door2open( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_door_2.time( 1.0 );
+     $gp_func_mover_door_2.accelTime( 1 );
+     $gp_func_mover_door_2.decelTime( 1 );
+     $gp_func_mover_door_2.move( DIR_RIGHT, 64 );
+}
+
+void DoorExitOpen( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_door_exit_1.time( 1.0 );
+     $gp_func_mover_door_exit_1.accelTime( 1 );
+     $gp_func_mover_door_exit_1.decelTime( 1 );
+     $gp_func_mover_door_exit_1.move( DIR_LEFT, 62 );
+}
+
+
+void Door1close( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_door_1.time( 1.0 );
+     $gp_func_mover_door_1.accelTime( 1 );
+     $gp_func_mover_door_1.decelTime( 1 );
+     $gp_func_mover_door_1.move( DIR_RIGHT, 64 );
+     $sound_sp_door_close.activate( activator );
+}
+
+void Door2close( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_door_2.time( 1.0 );
+     $gp_func_mover_door_2.accelTime( 1 );
+     $gp_func_mover_door_2.decelTime( 1 );
+     $gp_func_mover_door_2.move( DIR_LEFT, 64 );
+}
+
+//View free look 
+void FreeLook( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCameraMinMax( "camera", 1, '40 50 0', '40 50 0', 0.0 );
+}
+
+//View free look tight 
+void FreeLookTight( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCameraMinMax( "camera", 1, '1.01 1.01 0', '1.01 1.01 0', 150.0 );
+}
+
+
+//View free look medium 
+void FreeLookMedium( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCameraMinMax( "camera", 1, '15 15 0', '15 15 0', 0.0 );
+}
+
+
+//View free look object 
+void FreeLookOff( entity activatedEntity, entity activator ) {
+	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCameraMinMax( "camera", 1, '0.01 0.01 0', '0.01 0.01 0', 150.0 );
+}
+
+void lighttest( entity activatedEntity, entity activator )
+{
+     $lightref_misc_godrays_1.time( 4.0 );
+     $lightref_misc_godrays_1.accelTime( 1 );
+     $lightref_misc_godrays_1.decelTime( 1 );
+     $lightref_misc_godrays_1.move( DIR_LEFT, -2000 );
+}
+
+
+////////////////////////////////////////////
+//First Part 
+////////////////////////////////////////////
+
+
+// First down 
+void WorldSmall01down( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_1.time( 1.0 );
+     $gp_func_mover_1.move( DIR_DOWN, 1000 );
+}
+
+// First to last spot  
+void WorldSmall01back( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_1.time( 1.0 );
+     $gp_func_mover_1.move( DIR_FORWARD, 24576 );
+}
+
+// First up to launch 
+void WorldSmall01up( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_1.time( 1.0 );
+     $gp_func_mover_1.move( DIR_UP, 1000 );
+}
+
+// First part launches
+void WorldSmall01launch( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_1.time( 9.0 );
+     $gp_func_mover_1.move( DIR_BACK, 24576 );
+}
+
+
+////////////////////////////////////////////
+//Second Part 
+////////////////////////////////////////////
+
+// Second down 
+void WorldSmall02down( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 1.0 );
+     $gp_func_mover_2.move( DIR_DOWN, 1000 );
+}
+
+// Second to last spot  
+void WorldSmall02back( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 1.0 );
+     $gp_func_mover_2.move( DIR_FORWARD, 24576 );
+}
+
+// Second up to launch 
+void WorldSmall02up( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 1.0 );
+     $gp_func_mover_2.move( DIR_UP, 1000 );
+}
+
+// Second part launches
+void WorldSmall02launch( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 9.0 );
+     $gp_func_mover_2.move( DIR_BACK, 24576 );
+}
+
+
+////////////////////////////////////////////
+//Third Part 
+////////////////////////////////////////////
+
+// Third down 
+void WorldSmall03down( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_3.time( 1.0 );
+     $gp_func_mover_3.move( DIR_DOWN, 1000 );
+}
+
+// Third to last spot  
+void WorldSmall03back( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_3.time( 1.0 );
+     $gp_func_mover_3.move( DIR_FORWARD, 24576 );
+}
+
+// Third up to launch 
+void WorldSmall03up( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_3.time( 1.0 );
+     $gp_func_mover_3.move( DIR_UP, 1000 );
+}
+
+// Third part launches
+void WorldSmall03launch( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_3.time( 9.0 );
+     $gp_func_mover_3.move( DIR_BACK, 24576 );
+}
+
+
+////////////////////////////////////////////
+//Menutriggers
+////////////////////////////////////////////
+
+// Skip fixcoffee event 
+void call_skip_fixcoffee ( entity activatedEntity, entity activator )
+{
+	$gp_changestate_skip_coffee.activate(activator);
+	
+	$gp_firstpersonevent_fix_coffee.forceEndFirstPersonEvent();
+}
+
+//Lightthingy
+void fadebubi ( entity activatedEntity, entity activator )
+{
+	$lightref_lightmap_light_point_65.fadeOutLight( 1.0 );
+	$lightref_lightmap_light_point_67.fadeOutLight( 1.0 );
+
+	$lightref_lightmap_light_point_65.fadeInLight( 10.0 );
+	$lightref_lightmap_light_point_67.fadeInLight( 10.0 );
+
+}

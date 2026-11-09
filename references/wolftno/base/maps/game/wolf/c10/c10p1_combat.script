@@ -1,0 +1,115 @@
+/*
+================================================================================
+Map Script for c10p1_combat.map
+================================================================================
+*/
+
+#ifndef C10_MAIN
+#include "c10p1.script"
+#else
+	
+/*================================================================================
+LOADINGAREA COMBAT 
+================================================================================*/
+		
+#define MAX_ACTIVE_AIS 7
+
+void masterSpawner( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy ) {	
+	if ( !ai.isHidden() ) {
+		return;
+	}
+
+	if ( checkLimit && sys.numActiveAIs() >= MAX_ACTIVE_AIS ) {
+		sys.print("Spawn fail. To many AIs active.\n");
+		return;
+	}
+	
+	//if( pos != $NULL ) {		
+		ai.teleport( pos.getOrigin(), pos.getAngles() );
+	//}
+	$sys.waitFrame();
+	ai.show();
+	ai.setPerceptionFlag( blind );
+	ai.setOverrideScenePoint( scenePoint );	
+	if ( detectEnemy ) {
+		ai.detectPlayer();
+	}
+}
+
+
+void call_1wave( entity activatedEntity, entity activator ) 
+{
+				//( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy )
+	sys.print( "1st WAVE - VAR 1\n");	
+	
+	masterSpawner( $cb_ai_rifle_infantry60_1, $cb_spawnspot_1, true, $NULL, true, false );
+	masterSpawner( $cb_ai_supersoldat_1, $cb_spawnspot_3, true, $NULL, true, false );
+	masterSpawner( $cb_ai_supersoldat_2, $cb_spawnspot_2, true, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_1, $cb_spawnspot_6, true, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_2, $cb_spawnspot_4, true, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_3, $cb_spawnspot_5, true, $NULL, true, false );
+}
+
+void call_2wave( entity activatedEntity, entity activator ) 
+{
+				//( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy )
+	sys.print( "2nd WAVE - VAR 1\n");
+	
+	masterSpawner( $cb_ai_blackguard_2, $cb_spawnspot_9, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_5, $cb_spawnspot_8, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_6, $cb_spawnspot_7, false, $NULL, true, false );
+}
+
+void call_3wave( entity activatedEntity, entity activator ) 
+{
+				//( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy )
+	sys.print( "3rd WAVE - VAR 1\n");
+	
+	masterSpawner( $cb_ai_rifle_infantry60_7, $cb_spawnspot_10, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_8, $cb_spawnspot_11, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_9, $cb_spawnspot_12, false, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_3, $cb_spawnspot_13, false, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_4, $cb_spawnspot_14, false, $NULL, true, false );
+}
+
+void sound_Alarm( entity activatedEntity, entity activator ) 
+{
+	$cb_ai_blackguard_1.setPerceptionFlag( false );
+	$cb_ai_supersoldat_1.setPerceptionFlag( false );;
+	$cb_ai_supersoldat_2.setPerceptionFlag( false );
+	$cb_ai_rifle_infantry60_1.setPerceptionFlag( false );
+	$cb_ai_rifle_infantry60_2.setPerceptionFlag( false );
+	$cb_ai_rifle_infantry60_3.setPerceptionFlag( false );
+	
+	$cb_ai_blackguard_1.detectPlayer();
+	$cb_ai_supersoldat_1.detectPlayer();
+	$cb_ai_supersoldat_2.detectPlayer();
+	$cb_ai_rifle_infantry60_1.detectPlayer();
+	$cb_ai_rifle_infantry60_2.detectPlayer();
+	$cb_ai_rifle_infantry60_3.detectPlayer();
+	
+	$cb_trigger_call_sound_alarm.makeActivatable( false );
+	$cb_trigger_eventlistener_call_sound_alarm.makeActivatable( false );
+	$cb_trigger_call_2wave.makeActivatable( true );
+	$cb_trigger_call_3wave.makeActivatable( true );
+	$gp_trigger_call_tripedal_loader2.makeActivatable( false );
+}
+	
+/*================================================================================
+WAREHOUSE COMBAT 
+================================================================================*/
+
+void call_warehouse_1wave( entity activatedEntity, entity activator ) 
+{
+				//( entity ai, entity pos, boolean blind, entity scenePoint, boolean checkLimit, boolean detectEnemy )
+	sys.print( "1st WAVE - VAR 1\n");	
+	
+	masterSpawner( $cb_ai_rifle_infantry60_9, $cb_spawnspot_15, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_10, $cb_spawnspot_16, false, $NULL, true, false );
+	masterSpawner( $cb_ai_rifle_infantry60_11, $cb_spawnspot_17, false, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_7, $cb_spawnspot_18, false, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_8, $cb_spawnspot_19, false, $NULL, true, false );
+	masterSpawner( $cb_ai_blackguard_9, $cb_spawnspot_20, false, $NULL, true, false );
+}
+
+#endif

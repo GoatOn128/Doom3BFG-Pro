@@ -1,0 +1,32 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [15];
+uniform vec4 skinOffsets ;
+
+in vec4 in_Position;
+in vec2 in_TexCoord;
+
+out vec4 vofi_TexCoord2;
+out vec4 vofi_TexCoord0;
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord3;
+
+void main() {
+	gl_Position.x = dot4( in_Position, _va_[0 ] );
+	gl_Position.y = dot4( in_Position, _va_[1 ] );
+	gl_Position.z = dot4( in_Position, _va_[2 ] );
+	gl_Position.w = dot4( in_Position, _va_[3 ] );
+	vofi_TexCoord3.xyz = _va_[4 ].xyz - in_Position.xyz;
+	vofi_TexCoord3.w = saturate( exp2( -( clamp( gl_Position.w - _va_[5 ].x, 0.0, _va_[6 ].x ) * _va_[7 ].x ) ) );
+	vec2 tx0 = ( in_TexCoord.xy * _va_[8 ].xy + _va_[8 ].zw );
+	vofi_TexCoord0.xy = tx0 * skinOffsets.xy*(1.0/1.0) + skinOffsets.zw*(1.0/1.0);
+	vec2 stmacrotile = tx0 * _va_[9 ].xy;
+	vofi_TexCoord0.zw = stmacrotile * _va_[10 ].xy + _va_[10 ].zw;
+	vofi_TexCoord1.xy = stmacrotile;
+	vofi_TexCoord1.zw = vec2( 0.0 );
+	vec4 p = vec4(dot(in_Position, _va_[11 ]), dot(in_Position, _va_[12 ]), dot(in_Position, _va_[13 ]), 1.0);
+	vofi_TexCoord2.xyz = in_Position.xyz;
+	vofi_TexCoord2.w = -dot(p, _va_[14 ].xyzw);
+}

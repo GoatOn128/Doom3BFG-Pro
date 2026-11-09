@@ -1,0 +1,16 @@
+#version 150
+
+#include "global.inc"
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	out_FragColor0 = vec4( 0.0 );
+	out_FragColor1 = vec4( 0.0 );
+	{
+		out_FragColor2.xyz = vec4( 0.0 ).xyz * vec3( 0.5 ) + vec3( 0.5 );
+		out_FragColor2.w = dot( vec4( 0.0 ).rgb, vec3( 1.0 / 3.0 ) );
+	};
+}

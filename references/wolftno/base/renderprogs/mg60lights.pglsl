@@ -1,0 +1,19 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_transmap;
+uniform sampler2D samp_transmap2;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 color = tex2D( samp_transmap, vofi_TexCoord0.xy ) * vofi_Color;
+	vec4 cmask = tex2D( samp_transmap2, vofi_TexCoord0.xy );
+	color.xyz *= vec3( saturate( dot( _fa_[0 ], cmask ) ) );
+	out_FragColor0 = color;
+}

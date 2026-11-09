@@ -1,0 +1,20 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_distortionmap;
+uniform sampler2D samp_transmap;
+
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 distort = tex2D( samp_distortionmap, ( vofi_TexCoord1.xy * _fa_[0 ].xy ));
+	vec2 distortCoord = vofi_TexCoord0.xy + ( distort.rg * _fa_[0 ].z );
+	out_FragColor0 = tex2D( samp_transmap, distortCoord ) * vofi_Color * _fa_[0 ].w;
+	out_FragColor0 *= vofi_Color.w;
+}

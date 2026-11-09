@@ -1,0 +1,48 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [15];
+
+in vec4 in_Position;
+in vec4 in_Normal;
+in vec4 in_Tangent;
+in vec2 in_TexCoord;
+in vec4 in_Color;
+
+out vec4 vofi_TexCoord1;
+out vec4 vofi_TexCoord0;
+out vec4 vofi_Color;
+out vec4 vofi_TexCoord2;
+out vec4 vofi_TexCoord3;
+
+void main() {
+	vec4 position;
+	vec4 normal;
+	vec4 tangent;
+	{
+		position = in_Position * _va_[0 ] + _va_[1 ];
+		normal = in_Normal * 2.0 - 1.0;
+		tangent.xyz = in_Tangent.xyz * 2.0 - 1.0;
+		tangent.w = floor( in_Tangent.w * 255.1 / 128.0 ) * 2.0 - 1.0;
+	};
+	gl_Position.x = dot4( position, _va_[2 ] );
+	gl_Position.y = dot4( position, _va_[3 ] );
+	gl_Position.z = dot4( position, _va_[4 ] );
+	gl_Position.w = dot4( position, _va_[5 ] );
+	normal.xyz = normalize( normal.xyz );
+	tangent.xyz = normalize( tangent.xyz - normal.xyz * dot( normal.xyz, tangent.xyz ) );
+	vec3 bitangent = cross( normal.xyz, tangent.xyz ) * tangent.w;
+	vofi_TexCoord0.xy = fract( _va_[6 ].zw * _va_[7 ].x ) + ( in_TexCoord.xy * _va_[6 ].xy );
+	vofi_TexCoord3.xy = fract( _va_[8 ].zw * _va_[7 ].x ) + ( in_TexCoord.xy * _va_[8 ].xy );
+	vofi_TexCoord3.zw = in_TexCoord.xy;
+	vofi_TexCoord0.zw = vec2( 0.0 );
+	vofi_TexCoord1.xy = fract( _va_[9 ].zw * _va_[7 ].x ) + ( in_TexCoord.xy * _va_[9 ].xy );
+	vofi_TexCoord1.zw = fract( _va_[10 ].zw * _va_[7 ].x ) + ( in_TexCoord.xy * _va_[10 ].xy );
+	vec3 r0 = _va_[11 ].xyz - in_Position.xyz;
+	vofi_TexCoord2.x = dot3( tangent, r0 );
+	vofi_TexCoord2.y = dot3( bitangent, r0 );
+	vofi_TexCoord2.z = dot3( normal, r0 );
+	vofi_TexCoord2.w = -( clamp( gl_Position.w - _va_[12 ].x, 0.0, _va_[13 ].x ) * _va_[14 ].x );
+	vofi_Color = swizzleColor( in_Color );
+}

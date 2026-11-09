@@ -1,0 +1,27 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_binky;
+uniform sampler2D samp_binkcr;
+uniform sampler2D samp_binkcb;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec3 crc = vec3( 1.402, -0.71414, 0 );
+	vec3 crb = vec3( 0, -0.34414, 1.772 );
+	vec3 adj = vec3( -0.70374902, 0.53121506, -0.88947451 );
+	float yScale = 1.0;
+	float Y = tex2D( samp_binky, vofi_TexCoord0.xy ).x;
+	float Cr = tex2D( samp_binkcr, vofi_TexCoord0.xy ).x;
+	float Cb = tex2D( samp_binkcb, vofi_TexCoord0.xy ).x;
+	vec3 p = vec3( Y * yScale );
+	p += ( crc * Cr ) + ( crb * Cb ) + adj;
+	p = pow3( saturate( p ), _fa_[0 ].x );
+	out_FragColor0.xyz = p;
+	out_FragColor0.w = 1.0;
+}

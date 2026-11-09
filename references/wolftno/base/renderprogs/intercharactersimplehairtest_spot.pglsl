@@ -1,0 +1,273 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [18];
+uniform sampler2DShadow samp_lightdepthcomparemap;
+uniform sampler2D samp_lightprojectmap;
+uniform sampler2D samp_lightfalloffmap;
+uniform sampler2D samp_transmap1;
+uniform sampler2D samp_minlodmap;
+uniform sampler2D samp_pagetablemap;
+uniform sampler2D samp_physicalmappingsmap;
+uniform sampler2D samp_physicalpagesmap0;
+uniform sampler2D samp_physicalpagesmap1;
+uniform sampler2D samp_physicalpagesmap2;
+uniform sampler2D samp_skinroughnessmap;
+uniform sampler2D samp_beckmannmap;
+
+in vec4 vofi_TexCoord7;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_TexCoord6;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float shadow;
+	vec4 color = vec4( 0.0 );
+	shadow = 1.0;
+	{
+		vec3 texCoord = vofi_TexCoord7.xyz / vofi_TexCoord7.w;
+		{
+			float s = _fa_[0 ].y;
+			float q = 3.0;
+			float weight;
+			float weightSum = 0.0;
+			shadow = 0.0;
+			for( int y = -3; y <= 3; y++ ) {
+				for( int x = -3; x <= 3; x++ ) {
+					{
+						weight = exp( -(x*x + y*y) / (2*q*q) ) / (2*3.14159265*q*q);
+					};
+					float shadowSample;
+					{
+						shadowSample = shadow2Ddepth( samp_lightdepthcomparemap, texCoord + s * vec3( x, y, 0 ) );
+					};
+					shadow += shadowSample * weight;
+					weightSum += weight;
+				}
+			}
+			shadow /= weightSum;
+		};
+	};
+	vec3 fromViewer = vofi_TexCoord4.xyz;
+	vec3 fromViewerNormalized = normalize( fromViewer );
+	vec3 worldPosition = fromViewer + _fa_[1 ].xyz;
+	vec3 lightDir = _fa_[2 ].xyz - worldPosition;
+	vec3 lightDirNormalized = normalize( lightDir );
+	vec3 lightColor = _fa_[3 ].xyz;
+	{
+		vec3 lightTexCoord = vofi_TexCoord6.xyz / vofi_TexCoord6.w;
+		vec4 lpm = h4tex2D( samp_lightprojectmap, lightTexCoord.xy );
+		vec4 lfm = h4tex2D( samp_lightfalloffmap, vec2( lightTexCoord.z, 0.5 ) );
+		lpm.xyz = pow3( abs( lpm.xyz ), 2.2 );
+		lfm.xyz = pow3( abs( lfm.xyz ), 2.2 );;;
+		lightColor *= lpm.xyz * lfm.xyz;
+	};
+	vec4 sampleSpecular;
+	vec4 sampleYCoCg;
+	vec4 sampleNormal;
+	vec3 surfaceDiffuse;
+	vec3 surfaceSpecular;
+	vec3 localNormal;
+	vec3 globalNormal;
+	{
+		vec4 coverage;
+		vec2 texcoordcoverage = vec2( vofi_TexCoord2.w, vofi_TexCoord3.w );
+		{
+			{
+				vec2 dx = dFdx( texcoordcoverage ) * 0.5;
+				vec2 dy = dFdy( texcoordcoverage ) * 0.5;
+				vec2 dxh = dx * 0.5;
+				vec2 dyh = dy * 0.5;
+				coverage = vec4( 0.0 );
+				coverage += tex2DGrad( samp_transmap1, texcoordcoverage, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, texcoordcoverage - dxh - dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, texcoordcoverage + dxh - dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, texcoordcoverage - dxh + dyh, dx, dy);
+				coverage += tex2DGrad( samp_transmap1, texcoordcoverage + dxh + dyh, dx, dy);
+				coverage *= vec4( 1.0 / 5.0 );
+			};
+		};
+		{
+			clip( coverage.w - 0.3 );
+		};
+	}
+	{
+		vec4 texCoords = vofi_TexCoord0; if ( _fa_[4 ].x > 0 ) {
+			vec2 offset = ( texCoords.zw - fract( texCoords.xy ) ) * _fa_[5 ].xy;
+			texCoords.xy = fract( texCoords.xy ) * _fa_[5 ].xy + _fa_[5 ].zw;
+			texCoords.zw = texCoords.xy + offset;
+		}
+		float anisoLOD;
+		float sampleLOD;
+		{
+			float widthInTexels = _fa_[6 ].z;
+			float maxAnisoLog2 = _fa_[7 ].z;
+			vec2 texelCoords = texCoords.xy * widthInTexels;
+			vec2 dx = dFdx( texelCoords );
+			vec2 dy = dFdy( texelCoords );
+			float px = dot2( dx, dx );
+			float py = dot2( dy, dy );
+			float maxLod = 0.0;
+			float minLod = 0.0;
+			if ( px > 0.0 && py > 0.0 ) {
+				maxLod = 0.5 * log2( max( px, py ) );
+				minLod = 0.5 * log2( min( px, py ) );
+			}
+			anisoLOD = maxLod - min( maxAnisoLog2, maxLod - minLod );
+		};
+		{
+			sampleLOD = anisoLOD;
+			if ( _fa_[8 ].x != 0.0 ) {
+				float minLod = tex2D( samp_minlodmap, texCoords.xy ).x * 16 - ( 0.49 + _fa_[9 ].x );
+				sampleLOD = max( anisoLOD, minLod );
+			}
+		};
+		{
+			vec3 physCoords;
+			{
+				vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD - 0.5 );
+				vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+				vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+				physCoords.xy = texCoords.xy * xform.x + xform.zw;
+				physCoords.z = xform.y;
+			};
+			{
+				sampleSpecular = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+				sampleYCoCg = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+				sampleNormal = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+			};
+			if ( _fa_[8 ].y != 0.0 ) {
+				vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+				{
+					vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD + 0.5 );
+					vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+					vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+					physCoords.xy = texCoords.xy * xform.x + xform.zw;
+					physCoords.z = xform.y;
+				};
+				{
+					sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+					sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+					sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+				};
+				float trilinearFraction = fract( sampleLOD + _fa_[8 ].z );
+				sampleSpecular = mix( sampleSpecular, sampleSpecular2, trilinearFraction );
+				sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, trilinearFraction );
+				sampleNormal = mix( sampleNormal, sampleNormal2, trilinearFraction );
+			}
+		}; if ( _fa_[10 ].x > 0.0 ) {
+			vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+			{
+				vec3 physCoords;
+				{
+					vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD - 0.5 );
+					vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+					vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+					physCoords.xy = texCoords.zw * xform.x + xform.zw;
+					physCoords.z = xform.y;
+				};
+				{
+					sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+					sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+					sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+				};
+				if ( _fa_[8 ].y != 0.0 ) {
+					vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+					{
+						vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD + 0.5 );
+						vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+						vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+						physCoords.xy = texCoords.zw * xform.x + xform.zw;
+						physCoords.z = xform.y;
+					};
+					{
+						sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+						sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+						sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+					};
+					float trilinearFraction = fract( sampleLOD + _fa_[8 ].z );
+					sampleSpecular2 = mix( sampleSpecular2, sampleSpecular2, trilinearFraction );
+					sampleYCoCg2 = mix( sampleYCoCg2, sampleYCoCg2, trilinearFraction );
+					sampleNormal2 = mix( sampleNormal2, sampleNormal2, trilinearFraction );
+				}
+			};
+			sampleSpecular = mix( sampleSpecular, sampleSpecular2, vofi_TexCoord1.w );
+			sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, vofi_TexCoord1.w );
+			sampleNormal = mix( sampleNormal, sampleNormal2, vofi_TexCoord1.w );
+		}
+	};
+	{
+		sampleYCoCg.z = ( sampleYCoCg.z * 31.875 ) + 1.0;
+		sampleYCoCg.z = 1.0 / sampleYCoCg.z;
+		sampleYCoCg.xy *= sampleYCoCg.z;
+		surfaceDiffuse.x = dot4( sampleYCoCg, matrixCoCg1YtoRGB1X );
+		surfaceDiffuse.y = dot4( sampleYCoCg, matrixCoCg1YtoRGB1Y );
+		surfaceDiffuse.z = dot4( sampleYCoCg, matrixCoCg1YtoRGB1Z );
+	};
+	surfaceSpecular = ScaleSpecular( sampleSpecular.xyz, sampleNormal.z );
+	float roughness = tex2D( samp_skinroughnessmap, vofi_TexCoord0.xy ).x;
+	vec3 sampleAO = vec3( 1.0 );
+	vec4 wrinkleNormal = sampleNormal;
+	float wrinkleAO = 1.0;
+	localNormal = vec3( ( wrinkleNormal.wy * 2.0 ) - 1.0, 0.0 );
+	localNormal.z = sqrt( abs( 1.0 - dot3( localNormal, localNormal ) ) );
+	{
+		globalNormal.x = dot3( localNormal, vofi_TexCoord1.xyz );
+		globalNormal.y = dot3( localNormal, vofi_TexCoord2.xyz );
+		globalNormal.z = dot3( localNormal, vofi_TexCoord3.xyz );
+		globalNormal = normalize( globalNormal );
+	};
+	surfaceDiffuse.xyz = pow3( abs( surfaceDiffuse.xyz ), 2.2 );
+	{
+		{
+			float shadowFactor = ( shadow * _fa_[11 ].x ) + _fa_[11 ].y;
+			lightColor *= shadowFactor;
+		}
+		vec3 diffuseLight = lightColor * vec3( saturate( dot3( lightDirNormalized, globalNormal ) ) );
+		float ksk;
+		{
+			vec3 halfVec = lightDirNormalized + -fromViewerNormalized;
+			vec3 halfVecNormalized = normalize( halfVec );
+			float ndoth = dot3( globalNormal, halfVecNormalized );
+			float ndotl = max( dot3( globalNormal, lightDirNormalized ), 0.0 );
+			float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, roughness ) ).x, 10.0 );
+			float fresnel;
+			{
+				float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+				{
+					float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+					fresnel = expVal + 0.028 * ( 1.0 - expVal );
+				};
+			};
+			float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+			ksk = ndotl * _fa_[12 ].x * fresSpec;
+		};
+		vec3 specularLight = lightColor * vec3( ksk );
+		diffuseLight *= _fa_[13 ].xyz;
+		specularLight *= _fa_[14 ].xyz;
+		{
+			diffuseLight.xyz *= _fa_[15 ].xyz;
+		};
+		{
+			specularLight.xyz *= _fa_[16 ].xyz * _fa_[17 ].xyz;
+		};
+		{
+		};
+		{
+		};
+		diffuseLight *= surfaceDiffuse.xyz;
+		specularLight *= surfaceSpecular.xyz;
+		color.xyz += diffuseLight;
+		color.xyz += specularLight;
+		color.w = 0.0;
+	}
+	{
+	};
+	out_FragColor0 = color;
+}

@@ -1,0 +1,58 @@
+/*
+================================================================================
+Map Script for c12p1.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+
+void call_gp_func_movers_mover_rightlane_fast( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_righlane_fast.time( 40 );
+    $gp_func_movers_mover_righlane_fast.accelTime( 0 );
+    $gp_func_movers_mover_righlane_fast.decelTime( 0 );
+	$gp_func_movers_mover_righlane_fast.followSpline($gp_spline_path_cars_rightlane, 1, 0);
+}
+
+void call_gp_func_movers_mover_rightlane_middle( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_righlane_middle.time( 60 );
+    $gp_func_movers_mover_righlane_middle.accelTime( 0 );
+    $gp_func_movers_mover_righlane_middle.decelTime( 0 );
+	$gp_func_movers_mover_righlane_middle.followSpline($gp_spline_path_cars_rightlane, 1, 0);
+}
+
+void call_gp_func_movers_mover_rightlane_slow( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_righlane_slow.time( 80 );
+    $gp_func_movers_mover_righlane_slow.accelTime( 0 );
+    $gp_func_movers_mover_righlane_slow.decelTime( 0 );
+	$gp_func_movers_mover_righlane_slow.followSpline($gp_spline_path_cars_rightlane, 1, 0);
+}
+
+void call_gp_func_movers_mover_leftlane_fast( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_leftlane_fast.time( 40 );
+    $gp_func_movers_mover_leftlane_fast.accelTime( 0 );
+    $gp_func_movers_mover_leftlane_fast.decelTime( 0 );
+	$gp_func_movers_mover_leftlane_fast.followSpline($gp_spline_path_cars_leftlane, 1, 0);
+}
+
+void call_gp_func_movers_mover_leftlane_middle( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_leftlane_middle.time( 60 );
+    $gp_func_movers_mover_leftlane_middle.accelTime( 0 );
+    $gp_func_movers_mover_leftlane_middle.decelTime( 0 );
+	$gp_func_movers_mover_leftlane_middle.followSpline($gp_spline_path_cars_leftlane, 1, 0);
+}
+
+void call_gp_func_movers_mover_leftlane_slow( entity activatedEntity, entity activator )
+{
+    $gp_func_movers_mover_leftlane_slow.time( 80 );
+    $gp_func_movers_mover_leftlane_slow.accelTime( 0 );
+    $gp_func_movers_mover_leftlane_slow.decelTime( 0 );
+	$gp_func_movers_mover_leftlane_slow.followSpline($gp_spline_path_cars_leftlane, 1, 0);
+}

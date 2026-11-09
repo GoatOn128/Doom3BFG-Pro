@@ -1,0 +1,17 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_dither256map;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = gl_FragCoord.xy * ( 1.0 / 256.0 );
+	float dither = tex2D( samp_dither256map, texcoord ).x;
+	clip( _fa_[0 ].x - 0.2 - dither * 0.6 );
+	out_FragColor0 = vec4( 0.0 );
+}

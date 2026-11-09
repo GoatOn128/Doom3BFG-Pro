@@ -1,0 +1,40 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [3];
+uniform sampler2D samp_adaptiveglareblurmap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float bloom0 = 0.134598;
+	float bloom1 = 0.127325;
+	float bloom2 = 0.107778;
+	float bloom3 = 0.081638;
+	float bloom4 = 0.055335;
+	float bloom5 = 0.033562;
+	float bloom6 = 0.018216;
+	float bloom7 = 0.008847;
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	vec2 stepSize = _fa_[1 ].xy * _fa_[0 ].zw;
+	vec2 dir = stepSize;
+	vec4 total;
+	total = h4tex2D( samp_adaptiveglareblurmap, clamp( tc, _fa_[2 ].xy, _fa_[2 ].zw ) ) * bloom0;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom1;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom2;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom3;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom4;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom5;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom6;
+	dir += stepSize;
+	total += ( h4tex2D( samp_adaptiveglareblurmap, clamp( tc + dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) + h4tex2D( samp_adaptiveglareblurmap, clamp( tc - dir, _fa_[2 ].xy, _fa_[2 ].zw ) ) ) * bloom7;
+	out_FragColor0 = total;
+}

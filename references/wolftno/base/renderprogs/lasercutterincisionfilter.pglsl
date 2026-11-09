@@ -1,0 +1,27 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_transmap3;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	float interpolatedZOverW = gl_FragCoord.z;
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float depth = tex2Ddepth( samp_viewdepthmap, tc );
+	float r1 = 1.0 / ( 1.0 - depth );
+	float r2 = 1.0 / ( 1.0 - interpolatedZOverW );
+	float depthDiff = abs( r1 - r2 );
+	float zReject = 0.1 - depthDiff;
+	clip( zReject );
+	vec3 finalColor = tex2D( samp_transmap3, vofi_TexCoord0.xy ).xyz;
+	out_FragColor0.xyz = finalColor * vofi_Color.xyz;
+	out_FragColor0.w = 1.0;
+}

@@ -1,0 +1,13 @@
+mvpmatrixx
+mvpmatrixy
+mvpmatrixz
+mvpmatrixw
+fogstart
+fogend
+fogscale
+particlestscalebias
+renderpositiontoviewtexture
+fogcolor
+viewdepthmap
+transmap
+defaultsampler

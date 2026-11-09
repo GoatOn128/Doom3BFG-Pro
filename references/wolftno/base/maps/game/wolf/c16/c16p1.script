@@ -1,0 +1,406 @@
+/*
+================================================================================
+Map Script for c16p1.map
+================================================================================
+*/
+
+void main() {
+
+}
+
+// Elevator  //
+void elevator( entity activatedEntity, entity activator )
+{
+	 $sound_sp_elevatordown_front.activate( $acti );	
+	 $sound_sp_elevatordown_rear.activate( $acti );
+     $gp_func_movers_mover_elevator.time( 10.0 );
+     $gp_func_movers_mover_elevator.accelTime( 4 );
+     $gp_func_movers_mover_elevator.decelTime( 4 );
+     $gp_func_movers_mover_elevator.move( DIR_DOWN, 1232 );
+}
+
+
+
+
+// Elevatordoorsdown01 //
+void elevatordoor01( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_door_right_inner.time( 10.0 );
+     $gp_func_movers_mover_door_right_inner.accelTime( 4 );
+     $gp_func_movers_mover_door_right_inner.decelTime( 4 );
+     $gp_func_movers_mover_door_right_inner.move( DIR_DOWN, 1232 );
+}
+
+// Elevatordoorsdown02 //
+void elevatordoor02( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_door_left_inner.time( 10.0 );
+     $gp_func_movers_mover_door_left_inner.accelTime( 4 );
+     $gp_func_movers_mover_door_left_inner.decelTime( 4 );
+     $gp_func_movers_mover_door_left_inner.move( DIR_DOWN, 1232 );
+}
+
+// Elevatordoorsdown03 //
+void elevatordoor03( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_door_right_outer.time( 10.0 );
+     $gp_func_movers_mover_door_right_outer.accelTime( 4 );
+     $gp_func_movers_mover_door_right_outer.decelTime( 4 );
+     $gp_func_movers_mover_door_right_outer.move( DIR_DOWN, 1232 );
+}
+
+// Elevatordoorsdown04 
+void elevatordoor04( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_door_left_outer.time( 1.0 );
+     $gp_func_movers_mover_door_left_outer.accelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.decelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.move( DIR_LEFT, 64 );
+}
+
+// Elevatordoorsopen01 
+void doorsopen01( entity activatedEntity, entity activator )
+{
+	
+// 	 $sound_sp_elevdoor_open1.activate( $acti );
+     $gp_func_movers_mover_door_left_inner.time( 1.0 );
+     $gp_func_movers_mover_door_left_inner.accelTime( 0.5 );
+     $gp_func_movers_mover_door_left_inner.decelTime( 0.5 );
+     $gp_func_movers_mover_door_left_inner.move( DIR_LEFT, 64 );
+}
+
+
+// Elevatordoorsopen02 
+void doorsopen02( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_open2.activate( $acti );
+     $gp_func_movers_mover_door_right_inner.time( 1.0 );
+     $gp_func_movers_mover_door_right_inner.accelTime( 0.5 );
+     $gp_func_movers_mover_door_right_inner.decelTime( 0.5 );
+     $gp_func_movers_mover_door_right_inner.move( DIR_RIGHT, 64 );
+}
+
+// Elevatordoorsopen03 
+void doorsopen03( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_open1.activate( $acti );
+     $gp_func_movers_mover_door_right_outer.time( 1.5 );
+     $gp_func_movers_mover_door_right_outer.accelTime( 0.5 );
+     $gp_func_movers_mover_door_right_outer.decelTime( 0.5 );
+     $gp_func_movers_mover_door_right_outer.move( DIR_RIGHT, 64 );
+}
+
+// Elevatordoorsopen04 
+void doorsopen04( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_open2.activate( $acti );
+     $gp_func_movers_mover_door_left_outer.time( 1.5 );
+     $gp_func_movers_mover_door_left_outer.accelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.decelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.move( DIR_LEFT, 64 );
+}
+
+
+// Elevatordoorsclose01
+void doorsclose01( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_close1.activate( $acti );
+     $gp_func_movers_mover_door_left_inner.time( 1.5 );
+     $gp_func_movers_mover_door_left_inner.accelTime( 0.5 );
+     $gp_func_movers_mover_door_left_inner.decelTime( 0.5 );
+     $gp_func_movers_mover_door_left_inner.move( DIR_RIGHT, 64 );
+}
+
+// Elevatordoorsclose02 
+void doorsclose02( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_close2.activate( $acti );
+     $gp_func_movers_mover_door_right_inner.time( 1.5 );
+     $gp_func_movers_mover_door_right_inner.accelTime( 0.5 );
+     $gp_func_movers_mover_door_right_inner.decelTime( 0.5 );
+     $gp_func_movers_mover_door_right_inner.move( DIR_LEFT, 64 );
+}
+
+// Elevatordoorsclose03 
+void doorsclose03( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_close1.activate( $acti );
+     $gp_func_movers_mover_door_right_outer.time( 1.0 );
+     $gp_func_movers_mover_door_right_outer.accelTime( 0.5 );
+     $gp_func_movers_mover_door_right_outer.decelTime( 0.5 );
+     $gp_func_movers_mover_door_right_outer.move( DIR_LEFT, 64 );
+}
+
+// Elevatordoorsclose04 
+void doorsclose04( entity activatedEntity, entity activator )
+{
+// 	 $sound_sp_elevdoor_close1.activate( $acti );
+     $gp_func_movers_mover_door_left_outer.time( 1.0 );
+     $gp_func_movers_mover_door_left_outer.accelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.decelTime( 0.5 );
+     $gp_func_movers_mover_door_left_outer.move( DIR_RIGHT, 64 );
+}
+
+// Waterdown 
+void water( entity activatedEntity, entity activator )
+{
+     $gp_moverjoint_water_cistern1.time( 10.0 );
+     $gp_moverjoint_water_cistern1.accelTime( 4 );
+     $gp_moverjoint_water_cistern1.decelTime( 4 );
+     $gp_moverjoint_water_cistern1.move( DIR_DOWN, 350 );
+}
+
+// bigWaterdown 
+void ocean( entity activatedEntity, entity activator )
+{
+     $func_movers_moverjoint_1.time( 0.1 );
+     $func_movers_moverjoint_1.accelTime( 0 );
+     $func_movers_moverjoint_1.decelTime( 0 );
+     $func_movers_moverjoint_1.move( DIR_DOWN, 4000 );
+}
+
+
+//Bind things to elevator
+void bindToElevator (entity activatedEntity, entity activator)
+{
+	$gp_func_dynamic_elevator_panel.show();
+	$sound_sp_elevdoor_close1.show();
+	$sound_sp_elevdoor_close2.show();
+	$sound_sp_elevdoor_open1.show();
+	$sound_sp_elevdoor_open2.show();
+	$gp_func_dynamic_elevator_panel.bind($gp_func_movers_mover_elevatorend);
+	$sound_sp_elevdoor_close1.bind($gp_func_movers_mover_elevatorend);
+	$sound_sp_elevdoor_close2.bind($gp_func_movers_mover_elevatorend);
+	$sound_sp_elevdoor_open1.bind($gp_func_movers_mover_elevatorend);
+	$sound_sp_elevdoor_open2.bind($gp_func_movers_mover_elevatorend);
+	
+	
+}
+
+//================================================================================
+// BROKEN GLASS POSTERS  
+//================================================================================
+
+
+object breakable_poster_trigger
+{
+	int num;
+};
+
+void breakable_poster_trigger::onTrigger(entity acti)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+void destroy_poster (int num)
+{
+	entity fx = sys.getEntity( "gp_fx_posterglass_"+num );
+	entity shards = sys.getEntity( "gp_posterglass_shards_"+num );	
+	entity poster = sys.getEntity( "gp_posterglass_"+num );	
+	entity glass = sys.getEntity( "gp_posterglass_brk_"+num );
+	
+	fx.activate( $player1 );
+	poster.remove();
+	glass.show();
+	
+	sys.wait( 1.3 );
+	shards.show();								
+}
+
+//Set player health
+void playerhealth( entity activatedEntity, entity activator )
+{
+	$player1.setHealth(11);
+}
+
+
+
+
+/*
+================================================================================
+Hallway door controlled by player. Sick! Oh you're so pro Grawert~
+================================================================================
+*/
+
+object holding_door
+{
+	int openSpeed;
+	int closeSpeed;
+	int height;
+
+	entity roller;
+
+	float _initialPos;
+	
+	void init();
+	
+	void startOpen();
+	void abortOpen();
+	
+	boolean isAtTop();
+	boolean isAtBottom();
+	
+};
+
+boolean holding_door::isAtTop()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos + self.height - pos_z);
+	
+	return (dist < 0.1);
+}
+
+boolean holding_door::isAtBottom()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos - pos_z);
+	return (dist < 0.1);
+}
+
+void holding_door::init()
+{
+	vector pos = self.getOrigin();
+	self._initialPos = pos_z;
+	
+	if(!self.height)
+	{
+		pos = self.getMaxs() - self.getMins();
+		self.height = pos_z - 24;
+	}
+	if(!self.openSpeed) self.openSpeed = 100;
+	if(!self.closeSpeed) self.closeSpeed = 110;
+	
+}
+
+void holding_door::startOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();	
+	
+	vector pos = self.getOrigin();
+	float dist = self._initialPos + self.height - pos_z;
+	
+	if(dist == 0) return;	
+	
+	float t = dist/self.openSpeed;
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+	
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);	
+	self.roller.time(t);
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing open sounds
+	$sound_sp_servo_down.off(); //Make sure closing sound is off		
+	$sound_sp_servo_up.on(); //Servo loop
+	$sound_sp_steelshutter_start_up.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		$sound_sp_metal_loop.on(); //Movement loop
+	}
+
+	sys.waitFor(self);	
+	if(self.isAtTop()) 
+	{
+		//Stop playing the opening sounds.
+		//$sound_sp_servo_up.off(); //Servo loop
+		//$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing top hit sounds.
+		//$sound_sp_steel_shutter_stop_top.on();
+		$gp_holdhandle_fpevent.setFirstPersonEventAnimState( 2 );
+	}
+}
+
+
+void holding_door::abortOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();
+
+	vector pos = self.getOrigin();
+	float dist = self._initialPos - pos_z;
+	if(dist == 0) return;	
+	
+	float t = abs(dist/self.closeSpeed);
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);
+	self.roller.time( t );
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing close sounds
+	//$sound_sp_servo_up.off(); //Make sure opening sound is off	
+	//$sound_sp_servo_down.on(); //Servo loop
+	//$sound_sp_steelshutter_startdown.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		//$sound_sp_metal_loop.on(); //Movement loop
+	}
+	
+	sys.waitFor(self);
+
+	if(self.isAtBottom()) //The door hasn't changed direction during this call
+	{
+		//Stop playing the closing sounds.
+		$sound_sp_servo_down.off(); //Servo loop
+		$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing bottom hit sounds.
+		$sound_sp_steel_shutter_stop_floor.on();
+	}
+}
+
+
+void holding_door_start_open(entity targ, entity acti)
+{
+	entity door = $gp_func_mover_door_to_lab;
+	door.callFunction("startOpen");	
+	
+	
+}
+
+
+void holding_door_abort_open(entity targ, entity acti)
+{
+	entity door = $gp_func_mover_door_to_lab;
+	door.callFunction("abortOpen");	
+}
+
+
+
+//////////////////////////
+
+void gibb_bubi (entity targ, entity acti)
+{
+	$gp_ai_tungsten_c16_part_01_bubi_gibb.triggerGore( "body_vaporize" );
+	$gp_func_animatedsimple_character_bubi.hide();
+}
+
+void knife_bubi (entity targ, entity acti)
+{
+	sys.print("Knife bubi");
+	$gp_func_animatedsimple_knife_knife_bubi.show();
+	$gp_func_firstpersonevent_knife_bubi.attachEntity( $gp_func_animatedsimple_knife_knife_bubi, "right_hand" );
+}

@@ -1,0 +1,33 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [8];
+uniform sampler2D samp_viewdepthmap;
+uniform sampler2D samp_lightprojectmap;
+uniform sampler2D samp_lightfalloffmap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 viewTexCoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	vec4 window;
+	window.z = tex2Ddepth( samp_viewdepthmap, viewTexCoord );
+	window.w = 1.0;
+	window.xy = screenPosToTexcoord( gl_FragCoord.xy, _fa_[1 ] );
+	vec4 texcoord;
+	texcoord.x = dot4( window, _fa_[2 ] );
+	texcoord.y = dot4( window, _fa_[3 ] );
+	texcoord.z = dot4( window, _fa_[4 ] );
+	texcoord.w = dot4( window, _fa_[5 ] );
+	texcoord.xyz /= texcoord.w;
+	vec4 lpm = h4tex2D( samp_lightprojectmap, texcoord.xy );
+	vec4 lfm = h4tex2D( samp_lightfalloffmap, vec2( texcoord.z, 0.5 ) );
+	float lightFactor = 1.0;
+	vec4 color = lpm * lfm * _fa_[6 ];
+	color.xyz *= vec3( _fa_[7 ].x * lightFactor );
+	color.xyz *= vec3( lightFactor );
+	out_FragColor0 = saturate( color * color.w );
+}

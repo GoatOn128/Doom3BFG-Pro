@@ -1,0 +1,42 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [13];
+
+in vec4 in_Position;
+in vec4 in_Normal;
+in vec4 in_Tangent;
+in vec2 in_TexCoord;
+in vec4 in_Color;
+
+out vec4 vofi_TexCoord3;
+out vec4 vofi_TexCoord0;
+out vec4 vofi_Color;
+
+void main() {
+	vec4 position;
+	vec4 normal;
+	vec4 tangent;
+	{
+		position = in_Position * _va_[0 ] + _va_[1 ];
+		normal = in_Normal * 2.0 - 1.0;
+		tangent.xyz = in_Tangent.xyz * 2.0 - 1.0;
+		tangent.w = floor( in_Tangent.w * 255.1 / 128.0 ) * 2.0 - 1.0;
+	};
+	gl_Position.x = dot4( position, _va_[2 ] );
+	gl_Position.y = dot4( position, _va_[3 ] );
+	gl_Position.z = dot4( position, _va_[4 ] );
+	gl_Position.w = dot4( position, _va_[5 ] );
+	vofi_TexCoord0 = in_TexCoord.xyxy;
+	vofi_TexCoord3.x = dot4( position, _va_[6 ] );
+	vofi_TexCoord3.y = dot4( position, _va_[7 ] );
+	vofi_TexCoord3.z = dot4( position, _va_[8 ] );
+	vec3 world_fwd = vec3( _va_[6 ].x, _va_[7 ].x, _va_[8 ].x );
+	vec3 world_left = vec3( _va_[6 ].y, _va_[7 ].y, _va_[8 ].y );
+	vec3 world_toPixel = vofi_TexCoord3.xyz - _va_[9 ].xyz;
+	vec2 toFragment = vec2( dot( world_fwd, world_toPixel ), dot( world_left, world_toPixel ) );
+	float fog = saturate( exp2( -clamp( length( toFragment ) - _va_[10 ].x, 0.0, _va_[11 ].x ) * _va_[12 ].x ) );
+	vofi_TexCoord3.w = fog;
+	vofi_Color = swizzleColor( in_Color );
+}
