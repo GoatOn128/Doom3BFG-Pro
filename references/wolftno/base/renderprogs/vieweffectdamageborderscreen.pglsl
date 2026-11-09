@@ -1,0 +1,18 @@
+#version 150
+
+#include "global.inc"
+
+uniform sampler2D samp_transmap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_Color;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = vofi_TexCoord0.xy;
+	vec3 texel = tex2D( samp_transmap, texcoord ).xyz;
+	vec3 color = mix( vec3( 0.0 ), texel, vofi_Color.w );
+	out_FragColor0.xyz = color;
+	out_FragColor0.w = 1.0;
+}

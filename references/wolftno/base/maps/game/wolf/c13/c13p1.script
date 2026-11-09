@@ -1,0 +1,88 @@
+/*
+================================================================================
+Map Script for c13p1.map
+================================================================================
+*/
+
+void call_burn( entity activatedEntity, entity activator )
+{
+	activator.startFX(FX_CINEMATIC_7);
+	activator.setSkin( "burn");
+}
+
+void call_switchmeshkit_normal( entity activatedEntity, entity activator )
+{
+	$player1.switchMeshKit ( MESH_KIT_GEAR, "coat" );
+}
+
+void call_skin_spacesuit( entity activatedEntity, entity activator )
+{
+	$player1.setSkin ( "skinksin" );
+}
+
+void call_elevator( entity activatedEntity, entity activator )
+{
+    $sound_sp_bigelev_front.activate( $acti );
+    $sound_sp_bigelev_rear.activate( $acti );
+    $gp2_func_movers_mover_elevator.time( 15 );
+    $gp2_func_movers_mover_elevator.accelTime( 1 );
+    $gp2_func_movers_mover_elevator.decelTime( 2 );
+    $gp2_func_movers_mover_elevator.move( DIR_UP, 2293 );
+}
+
+void call_securityscanner_90( entity activatedEntity, entity activator )
+{
+     $gp1_func_movers_mover_securityscanner.time( 2 );
+     $gp1_func_movers_mover_securityscanner.accelTime( 0 );
+     $gp1_func_movers_mover_securityscanner.decelTime( 1 );
+     $gp1_func_movers_mover_securityscanner.rotateOnce( '0 -90 0' );
+}
+
+void call_elevator02( entity activatedEntity, entity activator )
+{
+	$joint_elevator_hatch01_2a.time( 3 );
+	$joint_elevator_hatch01_2a.accelTime( 0 );
+	$joint_elevator_hatch01_2a.decelTime( 0 );
+	$joint_elevator_hatch01_2a.rotateOnce( '-90 0 0' );
+	$joint_elevator_hatch01_2b.time( 3 );
+	$joint_elevator_hatch01_2b.accelTime( 0 );
+	$joint_elevator_hatch01_2b.decelTime( 0 );
+	$joint_elevator_hatch01_2b.rotateOnce( '90 0 0' );
+	sys.wait( 3 );
+    $gp_func_movers_mover_elevator01_2.time( 5 );
+    $gp_func_movers_mover_elevator01_2.accelTime( 0 );
+    $gp_func_movers_mover_elevator01_2.decelTime( 0 );
+    $gp_func_movers_mover_elevator01_2.move( DIR_UP, 319 );
+    $joint_elevator_hatch01_2a.time( 2 );
+    $joint_elevator_hatch01_2a.accelTime( 0 );
+    $joint_elevator_hatch01_2a.decelTime( 0 );
+    $joint_elevator_hatch01_2a.move( DIR_DOWN, 260 );
+    $joint_elevator_hatch01_2b.time( 2 );
+    $joint_elevator_hatch01_2b.accelTime( 0 );
+    $joint_elevator_hatch01_2b.decelTime( 0 );
+    $joint_elevator_hatch01_2b.move( DIR_DOWN, 260 );
+}
+
+
+void call_scanner_ring( entity activatedEntity, entity activator )
+{
+    $gp1_func_movers_mover_securityscanner_ring.time( 3 );
+    $gp1_func_movers_mover_securityscanner_ring.accelTime( 0 );
+    $gp1_func_movers_mover_securityscanner_ring.decelTime( 0 );
+    $gp1_func_movers_mover_securityscanner_ring.move( DIR_DOWN, 101 );
+	sys.wait( 5 );
+    $gp1_func_movers_mover_securityscanner_ring.time( 3 );
+    $gp1_func_movers_mover_securityscanner_ring.accelTime( 0 );
+    $gp1_func_movers_mover_securityscanner_ring.decelTime( 0 );
+    $gp1_func_movers_mover_securityscanner_ring.move( DIR_UP, 101 );
+
+}
+
+void call_no_air( entity activatedEntity, entity activator )
+{
+	vector viewAngles = $player1.getViewAngles(); 
+	viewAngles_x = 0.0;
+	viewAngles_z = 0.0;
+	$gp2_func_firstpersonevent_bj_no_air.teleport( $player1.getOrigin(), viewAngles );
+	$gp2_func_firstpersonevent_bj_no_air.activate( $player1 );
+}

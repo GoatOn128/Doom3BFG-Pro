@@ -1,0 +1,451 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [33];
+uniform sampler2D samp_dither256map;
+uniform sampler2D samp_transmap1;
+uniform sampler2D samp_minlodmap;
+uniform sampler2D samp_pagetablemap;
+uniform sampler2D samp_physicalmappingsmap;
+uniform sampler2D samp_physicalpagesmap0;
+uniform sampler2D samp_physicalpagesmap1;
+uniform sampler2D samp_physicalpagesmap2;
+uniform sampler2D samp_skinroughnessmap;
+uniform sampler2D samp_selfshadowmap;
+uniform sampler2D samp_beckmannmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord7;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+in vec4 vofi_TexCoord4;
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	vec4 sampleSpecular;
+	vec4 sampleYCoCg;
+	vec4 sampleNormal;
+	vec4 feedback;
+	vec3 surfaceDiffuse;
+	vec3 surfaceSpecular;
+	vec3 globalNormal;
+	vec4 color;
+	{ if ( _fa_[0 ].x < 1.0 ) {
+			vec2 texcoord = gl_FragCoord.xy * ( 1.0 / 256.0 );
+			float dither = _fa_[0 ].y * tex2D( samp_dither256map, texcoord ).x + _fa_[0 ].z;
+			clip( _fa_[0 ].x - 0.2 - dither * 0.6 );
+		}
+	};
+	vec4 coverage;
+	{
+		{
+			vec2 dx = dFdx( vofi_TexCoord7.xy ) * 0.5;
+			vec2 dy = dFdy( vofi_TexCoord7.xy ) * 0.5;
+			vec2 dxh = dx * 0.5;
+			vec2 dyh = dy * 0.5;
+			coverage = vec4( 0.0 );
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy - dxh - dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy + dxh - dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy - dxh + dyh, dx, dy);
+			coverage += tex2DGrad( samp_transmap1, vofi_TexCoord7.xy + dxh + dyh, dx, dy);
+			coverage *= vec4( 1.0 / 5.0 );
+		};
+	};
+	{
+		clip( coverage.w - 0.3 );
+	};
+	{
+		vec4 texCoords = vofi_TexCoord0; if ( _fa_[1 ].x > 0 ) {
+			vec2 offset = ( texCoords.zw - fract( texCoords.xy ) ) * _fa_[2 ].xy;
+			texCoords.xy = fract( texCoords.xy ) * _fa_[2 ].xy + _fa_[2 ].zw;
+			texCoords.zw = texCoords.xy + offset;
+		}
+		float anisoLOD;
+		float sampleLOD;
+		{
+			float widthInTexels = _fa_[3 ].z;
+			float maxAnisoLog2 = _fa_[4 ].z;
+			vec2 texelCoords = texCoords.xy * widthInTexels;
+			vec2 dx = dFdx( texelCoords );
+			vec2 dy = dFdy( texelCoords );
+			float px = dot2( dx, dx );
+			float py = dot2( dy, dy );
+			float maxLod = 0.0;
+			float minLod = 0.0;
+			if ( px > 0.0 && py > 0.0 ) {
+				maxLod = 0.5 * log2( max( px, py ) );
+				minLod = 0.5 * log2( min( px, py ) );
+			}
+			anisoLOD = maxLod - min( maxAnisoLog2, maxLod - minLod );
+		};
+		{
+			sampleLOD = anisoLOD;
+			if ( _fa_[5 ].x != 0.0 ) {
+				float minLod = tex2D( samp_minlodmap, texCoords.xy ).x * 16 - ( 0.49 + _fa_[6 ].x );
+				sampleLOD = max( anisoLOD, minLod );
+			}
+		};
+		{
+			vec3 physCoords;
+			{
+				vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD - 0.5 );
+				vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+				vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+				physCoords.xy = texCoords.xy * xform.x + xform.zw;
+				physCoords.z = xform.y;
+			};
+			{
+				sampleSpecular = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+				sampleYCoCg = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+				sampleNormal = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+			};
+			if ( _fa_[5 ].y != 0.0 ) {
+				vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+				{
+					vec4 virtCoordsLod = vec4( texCoords.xy.x, texCoords.xy.y, 0, sampleLOD + 0.5 );
+					vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+					vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+					physCoords.xy = texCoords.xy * xform.x + xform.zw;
+					physCoords.z = xform.y;
+				};
+				{
+					sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+					sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+					sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+				};
+				float trilinearFraction = fract( sampleLOD + _fa_[5 ].z );
+				sampleSpecular = mix( sampleSpecular, sampleSpecular2, trilinearFraction );
+				sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, trilinearFraction );
+				sampleNormal = mix( sampleNormal, sampleNormal2, trilinearFraction );
+			}
+		};
+		vec2 feedbackTexCoord = texCoords.xy; if ( _fa_[7 ].x > 0.0 ) {
+			vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+			{
+				vec3 physCoords;
+				{
+					vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD - 0.5 );
+					vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+					vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+					physCoords.xy = texCoords.zw * xform.x + xform.zw;
+					physCoords.z = xform.y;
+				};
+				{
+					sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+					sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+					sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+				};
+				if ( _fa_[5 ].y != 0.0 ) {
+					vec4 sampleSpecular2, sampleYCoCg2, sampleNormal2;
+					{
+						vec4 virtCoordsLod = vec4( texCoords.zw.x, texCoords.zw.y, 0, sampleLOD + 0.5 );
+						vec2 physPage = tex2Dlod( samp_pagetablemap, virtCoordsLod ).xy;
+						vec4 xform = tex2D( samp_physicalmappingsmap, physPage );
+						physCoords.xy = texCoords.zw * xform.x + xform.zw;
+						physCoords.z = xform.y;
+					};
+					{
+						sampleSpecular2 = h4texPhys( samp_physicalpagesmap0, physCoords.xy );
+						sampleYCoCg2 = h4texPhys( samp_physicalpagesmap1, physCoords.xy );
+						sampleNormal2 = h4texPhys( samp_physicalpagesmap2, physCoords.xy );
+					};
+					float trilinearFraction = fract( sampleLOD + _fa_[5 ].z );
+					sampleSpecular2 = mix( sampleSpecular2, sampleSpecular2, trilinearFraction );
+					sampleYCoCg2 = mix( sampleYCoCg2, sampleYCoCg2, trilinearFraction );
+					sampleNormal2 = mix( sampleNormal2, sampleNormal2, trilinearFraction );
+				}
+			};
+			sampleSpecular = mix( sampleSpecular, sampleSpecular2, vofi_TexCoord1.w );
+			sampleYCoCg = mix( sampleYCoCg, sampleYCoCg2, vofi_TexCoord1.w );
+			sampleNormal = mix( sampleNormal, sampleNormal2, vofi_TexCoord1.w );
+			vec2 fp = gl_FragCoord.xy * _fa_[8 ].zw;
+			vec2 xy = fract( fp ) - 0.5;
+			feedbackTexCoord = ( xy.x * xy.y < 0.0 ) ? texCoords.xy : texCoords.zw;
+		}
+		{
+			float pageSource = _fa_[3 ].x;
+			float widthInPages = _fa_[3 ].y;
+			float feedbackBias = _fa_[4 ].y;
+			feedback.xy = feedbackTexCoord * widthInPages;
+			feedback.z = max( 0.0, anisoLOD ) + feedbackBias;
+			feedback.w = pageSource;
+		};
+		{
+			feedback = floor( feedback ) / 256.0;
+			vec2 xy_low = fract( feedback.xy + 0.5 / 256.0 );
+			vec2 xy_high = floor( feedback.xy ) / 256.0;
+			vec4 pack;
+			pack.xy = xy_low;
+			pack.z = xy_high.y * 16.0 + 0.5 / 256 + xy_high.x;
+			pack.w = feedback.w * 16.0 + 0.5 / 256 + feedback.z;
+			feedback = pack;
+		};
+	};
+	{
+		sampleYCoCg.z = ( sampleYCoCg.z * 31.875 ) + 1.0;
+		sampleYCoCg.z = 1.0 / sampleYCoCg.z;
+		sampleYCoCg.xy *= sampleYCoCg.z;
+		surfaceDiffuse.x = dot4( sampleYCoCg, matrixCoCg1YtoRGB1X );
+		surfaceDiffuse.y = dot4( sampleYCoCg, matrixCoCg1YtoRGB1Y );
+		surfaceDiffuse.z = dot4( sampleYCoCg, matrixCoCg1YtoRGB1Z );
+	};
+	{
+		surfaceSpecular = sampleSpecular.xyz * 8.0 / ( sampleNormal.z * 255.0 + 8.0 );
+	};
+	{
+		vec3 localNormal;
+		{
+			localNormal = sampleNormal.wyz - 0.5;
+			localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+		};
+		{
+			globalNormal.x = dot3( localNormal, vofi_TexCoord1.xyz );
+			globalNormal.y = dot3( localNormal, vofi_TexCoord2.xyz );
+			globalNormal.z = dot3( localNormal, vofi_TexCoord3.xyz );
+			globalNormal = normalize( globalNormal );
+		};
+	};
+	surfaceDiffuse.xyz = pow3( abs( surfaceDiffuse.xyz ), 2.2 );
+	float specRoughness = tex2D( samp_skinroughnessmap, vofi_TexCoord0.xy ).x; if ( _fa_[9 ].x > 0 ) {
+		{
+			vec3 globalPosition = vofi_TexCoord4.xyz + _fa_[10 ].xyz;
+			vec3 selfShadow;
+			vec3 thickness;
+			float ambientOcclusion;
+			{ if( _fa_[9 ].y > 0 ) {
+					vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[11 ] );
+					vec4 encoded = tex2D( samp_selfshadowmap, texcoord );
+					encoded.xyz *= 2.0;
+					selfShadow = max( encoded.xyz - 1.0, vec3( 0.0 ) );
+					thickness = encoded.xyz + vec3( _fa_[12 ].y );
+					ambientOcclusion = 1.0 - _fa_[13 ].x * ( 1.0 - encoded.w );
+				} else {
+					selfShadow = vec3( 1.0 );
+					thickness = vec3( 100 );
+					ambientOcclusion = 1.0;
+				}
+			};
+			selfShadow.xyz = saturate( selfShadow.xyz + vec3( 0.0 ) );
+			vec3 light0Dir = _fa_[14 ].xyz - globalPosition;
+			vec3 light1Dir = _fa_[15 ].xyz - globalPosition;
+			vec3 light2Dir = _fa_[16 ].xyz - globalPosition;
+			vec3 light0DirNormalized = normalize( light0Dir );
+			vec3 light1DirNormalized = normalize( light1Dir );
+			vec3 light2DirNormalized = normalize( light2Dir );
+			float light0Dist = length( light0Dir );
+			float light1Dist = length( light1Dir );
+			float light2Dist = length( light2Dir );
+			float light0Attenuation = 1.0 - ( saturate( min( light0Dist, _fa_[17 ].w ) / max( _fa_[17 ].w, 0.001 ) ) );
+			float light1Attenuation = 1.0 - ( saturate( min( light1Dist, _fa_[18 ].w ) / max( _fa_[18 ].w, 0.001 ) ) );
+			float light2Attenuation = 1.0 - ( saturate( min( light2Dist, _fa_[19 ].w ) / max( _fa_[19 ].w, 0.001 ) ) );
+			vec3 light0Color = _fa_[17 ].xyz * light0Attenuation * saturate( selfShadow.x + _fa_[14 ].w );
+			vec3 light1Color = _fa_[18 ].xyz * light1Attenuation * saturate( selfShadow.y + _fa_[15 ].w );
+			vec3 light2Color = _fa_[19 ].xyz * light2Attenuation * saturate( selfShadow.z + _fa_[16 ].w );
+			vec3 ambientLight = ambientOcclusion * (
+			+ max( globalNormal.x * _fa_[20 ].xyz, 0 )
+			+ max( -globalNormal.x * _fa_[21 ].xyz, 0 )
+			+ max( globalNormal.y * _fa_[22 ].xyz, 0 )
+			+ max( -globalNormal.y * _fa_[23 ].xyz, 0 )
+			+ max( globalNormal.z * _fa_[24 ].xyz, 0 )
+			+ max( -globalNormal.z * _fa_[25 ].xyz, 0 ) );
+			float light0Factor = saturate( dot3( light0DirNormalized, globalNormal ) );
+			float light1Factor = saturate( dot3( light1DirNormalized, globalNormal ) );
+			float light2Factor = saturate( dot3( light2DirNormalized, globalNormal ) );
+			vec3 diffuseLight = light0Color * light0Factor +
+			light1Color * light1Factor +
+			light2Color * light2Factor +
+			ambientLight;
+			vec3 fromViewer = vofi_TexCoord4.xyz;
+			vec3 fromViewerNormalized = normalize( fromViewer );
+			float ksk0;
+			float ksk1;
+			float ksk2;
+			{
+				vec3 halfVec = light0DirNormalized + -fromViewerNormalized;
+				vec3 halfVecNormalized = normalize( halfVec );
+				float ndoth = dot3( globalNormal, halfVecNormalized );
+				float ndotl = max( dot3( globalNormal, light0DirNormalized ), 0.0 );
+				float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+				float fresnel;
+				{
+					float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+					{
+						float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+						fresnel = expVal + 0.028 * ( 1.0 - expVal );
+					};
+				};
+				float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+				ksk0 = ndotl * _fa_[26 ].x * fresSpec;
+			};
+			{
+				vec3 halfVec = light1DirNormalized + -fromViewerNormalized;
+				vec3 halfVecNormalized = normalize( halfVec );
+				float ndoth = dot3( globalNormal, halfVecNormalized );
+				float ndotl = max( dot3( globalNormal, light1DirNormalized ), 0.0 );
+				float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+				float fresnel;
+				{
+					float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+					{
+						float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+						fresnel = expVal + 0.028 * ( 1.0 - expVal );
+					};
+				};
+				float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+				ksk1 = ndotl * _fa_[26 ].x * fresSpec;
+			};
+			{
+				vec3 halfVec = light2DirNormalized + -fromViewerNormalized;
+				vec3 halfVecNormalized = normalize( halfVec );
+				float ndoth = dot3( globalNormal, halfVecNormalized );
+				float ndotl = max( dot3( globalNormal, light2DirNormalized ), 0.0 );
+				float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+				float fresnel;
+				{
+					float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+					{
+						float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+						fresnel = expVal + 0.028 * ( 1.0 - expVal );
+					};
+				};
+				float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+				ksk2 = ndotl * _fa_[26 ].x * fresSpec;
+			};
+			vec3 specularLight = light0Color * ksk0 +
+			light1Color * ksk1 +
+			light2Color * ksk2;
+			vec3 transmittance0;
+			vec3 transmittance1;
+			vec3 transmittance2; if( _fa_[9 ].y > 0.0 ) {
+				{
+					float tt = -thickness.x * thickness.x;
+					transmittance0 = vec3( 0.233, 0.455, 0.649 ) * exp( tt / 0.0064 ) +
+					vec3( 0.1, 0.336, 0.344 ) * exp( tt / 0.0484 ) +
+					vec3( 0.118, 0.198, 0.0 ) * exp( tt / 0.187 ) +
+					vec3( 0.113, 0.007, 0.007 ) * exp( tt / 0.567 ) +
+					vec3( 0.358, 0.004, 0.0 ) * exp( tt / 1.99 ) +
+					vec3( 0.078, 0.0, 0.0 ) * exp( tt / 7.41 );
+				};
+				{
+					float tt = -thickness.y * thickness.y;
+					transmittance1 = vec3( 0.233, 0.455, 0.649 ) * exp( tt / 0.0064 ) +
+					vec3( 0.1, 0.336, 0.344 ) * exp( tt / 0.0484 ) +
+					vec3( 0.118, 0.198, 0.0 ) * exp( tt / 0.187 ) +
+					vec3( 0.113, 0.007, 0.007 ) * exp( tt / 0.567 ) +
+					vec3( 0.358, 0.004, 0.0 ) * exp( tt / 1.99 ) +
+					vec3( 0.078, 0.0, 0.0 ) * exp( tt / 7.41 );
+				};
+				{
+					float tt = -thickness.z * thickness.z;
+					transmittance2 = vec3( 0.233, 0.455, 0.649 ) * exp( tt / 0.0064 ) +
+					vec3( 0.1, 0.336, 0.344 ) * exp( tt / 0.0484 ) +
+					vec3( 0.118, 0.198, 0.0 ) * exp( tt / 0.187 ) +
+					vec3( 0.113, 0.007, 0.007 ) * exp( tt / 0.567 ) +
+					vec3( 0.358, 0.004, 0.0 ) * exp( tt / 1.99 ) +
+					vec3( 0.078, 0.0, 0.0 ) * exp( tt / 7.41 );
+				};
+			} else {
+				transmittance0 = vec3( 0 );
+				transmittance1 = vec3( 0 );
+				transmittance2 = vec3( 0 );
+			}
+			float trans0Factor = saturate( - dot3( light0DirNormalized, globalNormal ) );
+			float trans1Factor = saturate( - dot3( light1DirNormalized, globalNormal ) );
+			float trans2Factor = saturate( - dot3( light2DirNormalized, globalNormal ) );
+			vec3 transmittanceLight = ( transmittance0 * trans0Factor * light0Attenuation * _fa_[17 ].xyz ) +
+			( transmittance1 * trans1Factor * light1Attenuation * _fa_[18 ].xyz ) +
+			( transmittance2 * trans2Factor * light2Attenuation * _fa_[19 ].xyz );
+			transmittanceLight *= ( 1.0 - 0.0 );
+			{
+				specularLight.xyz *= _fa_[27 ].xyz * _fa_[28 ].xyz;
+			};
+			{
+				diffuseLight.xyz *= _fa_[29 ].xyz;
+			};;;
+			transmittanceLight = pow3( abs( transmittanceLight ), 2.2 );
+			color.xyz = diffuseLight * surfaceDiffuse.xyz;
+			color.xyz += specularLight * surfaceSpecular.xyz;
+			color.xyz += transmittanceLight * vec3( 0.5 ) * surfaceDiffuse.xyz;
+			float lightFactor = 0.0;
+			{
+				lightFactor += dot3( light0Dir, globalNormal ) * light0Attenuation;
+			};
+			{
+				lightFactor += dot3( light1Dir, globalNormal ) * light1Attenuation;
+			};
+			{
+				lightFactor += dot3( light2Dir, globalNormal ) * light2Attenuation;
+			};
+			{
+				if( _fa_[9 ].z < 1.0 ) {
+					color.w = 0.0;
+				} else {
+					float tmpLightFactor = saturate( lightFactor );
+					vec3 tmpAmbient = ambientLight;
+					color.w = saturate( ( 1.0 - ( tmpAmbient.x, tmpAmbient.y, tmpAmbient.z )*(1.0/3.0) )
+					- ( saturate( tmpLightFactor - _fa_[30 ].y ) + 0.5 + _fa_[30 ].x ) ) * 0.75;
+				}
+			};
+		};
+	} else {
+		{
+			vec3 ambientLight = (
+			+ max( globalNormal.x * _fa_[20 ].xyz, 0 )
+			+ max( -globalNormal.x * _fa_[21 ].xyz, 0 )
+			+ max( globalNormal.y * _fa_[22 ].xyz, 0 )
+			+ max( -globalNormal.y * _fa_[23 ].xyz, 0 )
+			+ max( globalNormal.z * _fa_[24 ].xyz, 0 )
+			+ max( -globalNormal.z * _fa_[25 ].xyz, 0 ) );
+			float primeLightFactor = saturate( dot3( _fa_[31 ], globalNormal ) );
+			vec3 diffuseLight = _fa_[32 ].xyz * primeLightFactor + ambientLight;
+			vec3 fromViewer = vofi_TexCoord4.xyz;
+			vec3 fromViewerNormalized = normalize( fromViewer );
+			float ksk;
+			{
+				vec3 halfVec = _fa_[31 ].xyz + -fromViewerNormalized;
+				vec3 halfVecNormalized = normalize( halfVec );
+				float ndoth = dot3( globalNormal, halfVecNormalized );
+				float ndotl = max( dot3( globalNormal, _fa_[31 ].xyz ), 0.0 );
+				float ph = pow( 2.0 * tex2D( samp_beckmannmap, vec2( ndoth, specRoughness ) ).x, 10.0 );
+				float fresnel;
+				{
+					float cosv = dot3( -fromViewerNormalized, halfVecNormalized );
+					{
+						float expVal = pow( max( 1.0 - cosv, 0.0 ), 5.0 );
+						fresnel = expVal + 0.028 * ( 1.0 - expVal );
+					};
+				};
+				float fresSpec = max( ph * fresnel / dot3( halfVec, halfVec ), 0 );
+				ksk = ndotl * _fa_[26 ].x * fresSpec;
+			};
+			vec3 specularLight = _fa_[32 ].xyz * ksk;
+			{
+				diffuseLight.xyz *= _fa_[29 ].xyz;
+			};
+			{
+				specularLight.xyz *= _fa_[27 ].xyz * _fa_[28 ].xyz;
+			};;;
+			color.xyz = diffuseLight * surfaceDiffuse.xyz;
+			color.xyz += specularLight * surfaceSpecular.xyz;
+			{
+				color.w = 1.0 - ( saturate( primeLightFactor - _fa_[30 ].y ) + 0.5 + _fa_[30 ].x );
+			};
+		};
+	}
+	color.xyz = pow3( color.xyz, 1.0 / 2.2 );
+	{
+		out_FragColor0 = color;
+		out_FragColor1 = feedback;
+		{
+			out_FragColor2.xyz = globalNormal.xyz * vec3( 0.5 ) + vec3( 0.5 );
+			out_FragColor2.w = dot( surfaceSpecular.rgb, vec3( 1.0 / 3.0 ) );
+		};
+	};
+}

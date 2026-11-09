@@ -1,0 +1,28 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_fademap;
+uniform sampler2D samp_transmap1;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 animCoord;
+	animCoord.x = fract( vofi_TexCoord0.x * 1.5 + _fa_[0 ].x * 0.5 );
+	animCoord.y = 1.0 - vofi_TexCoord0.y;
+	animCoord.y *= 2.0;
+	animCoord.y -= _fa_[0 ].x * 0.5;
+	animCoord.y += vofi_TexCoord0.x * 2.0;
+	animCoord.y = mod( animCoord.y, 4.0 );
+	vec4 tex_mask = tex2D( samp_fademap, vofi_TexCoord0.xy );
+	vec4 tex_electric = tex2D( samp_transmap1, animCoord );
+	vec4 final;
+	final.xyz = vec3( 1.0, 0.8, 0.8 );
+	final.w = tex_mask.g * tex_electric.g * 1.5;
+	final.xyz *= final.w;
+	out_FragColor0 = final;
+}

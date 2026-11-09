@@ -1,0 +1,4 @@
+#pragma once
+#include "tungsten/game/clientgame/presentable/presentableanimatedphysics.h"
+#include "tungsten/game/clientgame/presentable/presentableplayer_shared.h"
+class idPresentableTurret:public idPresentable{public:idPresentableTurret(int rotationJoint=-1,int pitchJoint=-1,int spinJoint=-1);~idPresentableTurret()override;int GetType()const;void ClientThink(int time,float fraction,bool predict);void ApplyJointMod(int joint,const idMat3& axis);idWeapon* GetFiredWeapon()const;void Serialize(idSerializer* serializer);void SetFiredWeapon(idWeapon* value){firedWeapon=value;}idAngles GetAppliedRotation()const{return appliedRotation;}float GetAppliedPitch()const{return appliedPitch;}private:int jointRotation{-1};int jointPitch{-1};int jointSpinwheel{-1};int rotationYaw{0};int rotationPitch{0};int pitchPitch{0};int previousYaw{0};int previousRotationPitch{0};int previousPitch{0};idAngles appliedRotation{};float appliedPitch{0};idWeapon* firedWeapon{nullptr};};

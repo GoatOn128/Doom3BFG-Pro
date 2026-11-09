@@ -1,0 +1,34 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_lightdepthmap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texCoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float depth = tex2Ddepth_fast( samp_lightdepthmap, texCoord );
+	float dx = dFdx( depth );
+	float dy = dFdy( depth );
+	float moment1 = depth;
+	float moment2 = depth * depth;
+	float s = _fa_[0 ].z;
+	float d0 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.0 * vec2( -0.375, -0.125 ) );
+	float d1 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.0 * vec2( -0.125, 0.375 ) );
+	float d2 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.0 * vec2( 0.125, -0.375 ) );
+	float d3 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.0 * vec2( 0.375, 0.125 ) );
+	float d4 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.5 * vec2( -0.125, -0.375 ) );
+	float d5 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.5 * vec2( 0.375, -0.125 ) );
+	float d6 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.5 * vec2( -0.375, 0.125 ) );
+	float d7 = tex2Ddepth_fast( samp_lightdepthmap, texCoord + s * 2.5 * vec2( 0.125, 0.375 ) );
+	moment1 = ( moment1 * 0.5 ) + ( d0 + d1 + d2 + d3 ) * 0.25 * 0.25 + ( d4 + d5 + d6 + d7 ) * 0.25 * 0.25;
+	moment2 = ( moment2 * 0.5 ) + ( d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3 ) * 0.25 * 0.25 + ( d4 * d4 + d5 * d5 + d6 * d6 + d7 * d7 ) * 0.25 * 0.25;
+	out_FragColor0.x = moment1;
+	out_FragColor0.y = moment2 + 100 * ( dx * dx + dy * dy );
+	out_FragColor0.z = 0.0;
+	out_FragColor0.a = 1.0;
+}

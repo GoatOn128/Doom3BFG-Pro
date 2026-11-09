@@ -1,0 +1,8 @@
+#pragma once
+#include "tungsten/game/clientgame/presentable/presentableplayer_shared.h"
+#include <cstdint>
+#include <vector>
+class idBaseHealth{public:idBaseHealth(float current=100,float maximum=100):cur(current),max(maximum){}bool HasMaxCurBaseHealth()const;float GetCur()const{return cur;}float GetMax()const{return max;}private:float cur,max;};
+struct idPickupHudInfo{struct item_t{int id{-1};int category{0};int amount{0};bool operator==(const item_t&o)const{return id==o.id&&category==o.category&&amount==o.amount;}};idList<item_t,5>items;};
+class idSmartLootComponent{public:enum smartLootCategory_t:unsigned{LOOT_HEALTH=1,LOOT_ARMOR=2,LOOT_WEAPON=4,LOOT_AMMO=8,LOOT_CUSTOM=16,LOOT_ALL=31};struct idLootContainer{idInventoryItem*item{nullptr};unsigned category{0};bool owned{false};void DeleteItem();bool operator==(const idLootContainer&o)const{return item==o.item&&category==o.category;}};idSmartLootComponent();virtual ~idSmartLootComponent();void Activate(idEntity*owner,idInventoryCollection*inventory=nullptr);void Looted(const idLootContainer*loot);void GetLootItems(std::vector<idLootContainer>&output,unsigned category)const;bool CreateRandomItem(float healthRatio,float armorRatio);bool CreateRandomAmmo(const idInventoryCollection*inventory);void Update(const idEntity*owner,const idInventoryCollection*inventory);void GetPickupHudInfo(const idEntity*user,idPickupHudInfo&info,unsigned category)const;void SetSeed(std::uint32_t value){seed=value;}unsigned GetLatestLoot()const{return latestLoot;}bool HasLootedHealth()const{return hasLootedHealth;}private:idList<idLootContainer,5>lootableItems;unsigned latestLoot{0};bool hasLootedHealth{false};std::uint32_t seed{1};};
+bool IsCompatibleAmmo(const idInventoryItem*ammo,const idWeapon*weapon);

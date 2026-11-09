@@ -1,0 +1,461 @@
+/*
+================================================================================
+Map Script for C03p2.map
+================================================================================
+*/
+
+void TeleportToBridge( entity activatedEntity, entity activator ) {
+	sys.print("Temp: Teleport player to bridge part\r");
+	$player1.teleport( $cb_info_null_start_bridge_start.getOrigin(), $cb_info_null_start_bridge_start.getAngles() );
+}
+
+//start gate 
+void GateClose( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_2.time( 20.0 );
+     $gp_func_movers_mover_2.accelTime( 2 );
+     $gp_func_movers_mover_2.decelTime( 3 );
+     $gp_func_movers_mover_2.move( DIR_BACK, 381 );
+}
+
+//start gate quick
+void GateCloseFast( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_2.time( 1.0 );
+     $gp_func_movers_mover_2.move( DIR_BACK, 381 );
+}
+
+
+//First boom 
+void OpenBoom1( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_4.time( 3.0 );
+     $gp_func_mover_4.accelTime( 1 );
+     $gp_func_mover_4.decelTime( 1 );
+     $gp_func_mover_4.rotateOnce( '-60 0 0' );
+}
+
+
+void OpenBoom1lock( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_5.time( 1.0 );
+     $gp_func_mover_5.accelTime( 1 );
+     $gp_func_mover_5.decelTime( 1 );
+     $gp_func_mover_5.rotateOnce( '90 0 0' );
+}
+
+
+//Second boom 
+void OpenBoom2( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_2.time( 3.0 );
+     $gp_func_mover_2.accelTime( 1 );
+     $gp_func_mover_2.decelTime( 1 );
+     $gp_func_mover_2.rotateOnce( '60 0 0' );
+}
+
+void OpenBoom2lock( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_6.time( 1.0 );
+     $gp_func_mover_6.accelTime( 1 );
+     $gp_func_mover_6.decelTime( 1 );
+     $gp_func_mover_6.rotateOnce( '-90 0 0' );
+}
+
+
+//Boom close after car drives through  
+void CloseBoom1( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_boom1.time( 1.0 );
+     $gp_func_mover_boom1.accelTime( 1 );
+     $gp_func_mover_boom1.decelTime( 1 );
+     $gp_func_mover_boom1.rotateOnce( '-60 0 0' );
+}
+
+//View free look 
+void FreeLook( entity activatedEntity, entity activator ) {
+//	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 30.0f, 0.0f );
+}
+
+
+//View free look 
+void FreeLooktight( entity activatedEntity, entity activator ) {
+//	$thirdPersonHands_0.setViewAnglesFromCamera();
+	$thirdPersonHands_0.attachLimitViewCamera( "camera", 5, 1, 10.0f, 0.0f );
+}
+
+//
+//Bridge elevatorUp 1065
+//
+void ElevatorUp( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_elevator1.time( 30.0 );
+     $gp_func_mover_elevator1.accelTime( 2 );
+     $gp_func_mover_elevator1.decelTime( 3 );
+     $gp_func_mover_elevator1.move( DIR_UP, 1264 );
+}
+
+//
+//Bridge elevatorUp 1065 Fast After Checkpoint
+//
+void ElevatorUpFast( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_elevator1.time( 0.1 );
+     $gp_func_mover_elevator1.move( DIR_UP, 1264 );
+}
+//
+//Bridge elevatorDown 1065
+//
+void ElevatorDown( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_elevator1.time( 30.0 );
+     $gp_func_mover_elevator1.accelTime( 2 );
+     $gp_func_mover_elevator1.decelTime( 3 );
+     $gp_func_mover_elevator1.move( DIR_DOWN, 1264 );
+}
+
+//Bridge elevatorDown short 
+//
+void ElevatorDownShort( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_elevator1.time( 3.0 );
+     $gp_func_mover_elevator1.accelTime( 0 );
+     $gp_func_mover_elevator1.decelTime( 3 );
+     $gp_func_mover_elevator1.move( DIR_DOWN, 100 );
+}
+
+//Bridge elevatorDown short 
+//
+void ElevatorDownShortSet( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_elevator1.time( 0.1 );
+     $gp_func_mover_elevator1.accelTime( 0 );
+     $gp_func_mover_elevator1.decelTime( 0 );
+     $gp_func_mover_elevator1.move( DIR_UP, 100 );
+}
+
+
+void Train01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_7.time( 15.0 );
+     $gp_func_mover_7.move( DIR_FORWARD, 30000 );
+}
+
+void Train02( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_8.time( 16.0 );
+     $gp_func_mover_8.accelTime( 0 );
+     $gp_func_mover_8.decelTime( 0 );
+     $gp_func_mover_8.move( DIR_FORWARD, 32000 );
+}
+
+void ReverseTrain01( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_7.time( 0.001 );
+     $gp_func_mover_7.accelTime( 0 );
+     $gp_func_mover_7.decelTime( 0 );
+     $gp_func_mover_7.move( DIR_BACK, 30000 );
+}
+
+//CarElevator 432
+//
+void CarElevatorUp( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_roboelevator_2.time( 11.0 );
+     $gp_func_mover_roboelevator_2.accelTime( 4 );
+     $gp_func_mover_roboelevator_2.decelTime( 2 );
+     $gp_func_mover_roboelevator_2.move( DIR_UP, 432 );
+}
+
+//
+//CarElevatorFence 55
+//
+void CarElevatorFenceDown( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_railing_1.time( 5.0 );
+     $gp_func_mover_railing_1.accelTime( 2 );
+     $gp_func_mover_railing_1.decelTime( 2 );
+     $gp_func_mover_railing_1.move( DIR_UP, 260 );
+}
+
+void CarElevatorFenceinsta( entity activatedEntity, entity activator )
+{
+     $gp_func_mover_railing_1.time( 0.1 );
+     $gp_func_mover_railing_1.move( DIR_UP, 260 );
+}
+
+
+//Obsolete
+//Awesome Boom script Boom1 
+float   b1_orgXRotation = 0.0f;
+boolean b1_updateBarrier = true;
+
+void B1_updateBarrier( entity activatedEntity, entity activator )
+{
+    while (b1_updateBarrier) 
+    {
+        float percentDone = $gp_prop_useable_continuallyused_1.getUsePercent();
+        float angle = -60 * percentDone;
+        
+        vector v;       
+        v = $gp_func_mover_boom1.getAngles();
+        
+        if (b1_orgXRotation == 0.0f)
+        {
+            b1_orgXRotation = v_x;
+        }
+        
+        v_x = b1_orgXRotation + angle;
+        
+        $gp_func_mover_boom1.setAngles(v);
+        sys.waitFrame();
+    }
+}
+
+void B1_setBarrierDone( entity activatedEntity, entity activator )
+{
+    b1_updateBarrier = false;
+}
+
+
+//Awesome Boom script Boom2
+float   b2_orgXRotation = 0.0f;
+boolean b2_updateBarrier = true;
+
+void B2_updateBarrier( entity activatedEntity, entity activator )
+{
+    while (b2_updateBarrier) 
+    {
+        float percentDone = $gp_prop_useable_continuallyused_3.getUsePercent();
+        float angle = 60 * percentDone;
+        
+        vector v;       
+        v = $gp_func_mover_boom2.getAngles();
+        
+        if (b2_orgXRotation == 0.0f)
+        {
+            b2_orgXRotation = v_x;
+        }
+        
+        v_x = b2_orgXRotation - angle;
+        
+        $gp_func_mover_boom2.setAngles(v);
+        sys.waitFrame();
+    }
+}
+
+void B2_setBarrierDone( entity activatedEntity, entity activator )
+{
+    b2_updateBarrier = false;
+}
+
+void Elev_door_01( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_01.time( 5.0 );
+     $gp_func_movers_elevatordoor_01.accelTime( 2 );
+     $gp_func_movers_elevatordoor_01.decelTime( 3 );
+     $gp_func_movers_elevatordoor_01.move( DIR_FORWARD, 250 );
+}
+
+void Elev_door_02( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_02.time( 5.0 );
+     $gp_func_movers_elevatordoor_02.accelTime( 2 );
+     $gp_func_movers_elevatordoor_02.decelTime( 3 );
+     $gp_func_movers_elevatordoor_02.move( DIR_BACK, 250 );
+}
+
+void Elev_door_03( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_03.time( 5.0 );
+     $gp_func_movers_elevatordoor_03.accelTime( 2 );
+     $gp_func_movers_elevatordoor_03.decelTime( 3 );
+     $gp_func_movers_elevatordoor_03.move( DIR_FORWARD, 250 );
+}
+
+void Elev_door_04( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_04.time( 5.0 );
+     $gp_func_movers_elevatordoor_04.accelTime( 2 );
+     $gp_func_movers_elevatordoor_04.decelTime( 3 );
+     $gp_func_movers_elevatordoor_04.move( DIR_BACK, 250 );
+}
+
+void Elev_door_01open( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_01.time( 5.0 );
+     $gp_func_movers_elevatordoor_01.accelTime( 2 );
+     $gp_func_movers_elevatordoor_01.decelTime( 3 );
+     $gp_func_movers_elevatordoor_01.move( DIR_BACK, 250 );
+}
+
+void Elev_door_02open( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_02.time( 5.0 );
+     $gp_func_movers_elevatordoor_02.accelTime( 2 );
+     $gp_func_movers_elevatordoor_02.decelTime( 3 );
+     $gp_func_movers_elevatordoor_02.move( DIR_FORWARD, 250 );
+}
+
+void Elev_door_03open( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_03.time( 5.0 );
+     $gp_func_movers_elevatordoor_03.accelTime( 2 );
+     $gp_func_movers_elevatordoor_03.decelTime( 3 );
+     $gp_func_movers_elevatordoor_03.move( DIR_BACK, 250 );
+}
+
+void Elev_door_04open( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_04.time( 5.0 );
+     $gp_func_movers_elevatordoor_04.accelTime( 2 );
+     $gp_func_movers_elevatordoor_04.decelTime( 3 );
+     $gp_func_movers_elevatordoor_04.move( DIR_FORWARD, 250 );
+}
+
+void Elev_door_03instaopen( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_03.time( 0.1 );
+     $gp_func_movers_elevatordoor_03.move( DIR_BACK, 250 );
+}
+
+void Elev_door_04instaopen( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_04.time( 0.1 );
+     $gp_func_movers_elevatordoor_04.move( DIR_FORWARD, 250 );
+}
+
+
+float XrayTowerElev01pos = -1000;
+
+void XrayTowerElev01up( entity activatedEntity, entity activator )
+{
+	if (XrayTowerElev01pos == -1000){
+		XrayTowerElev01pos = Vec_z( $gp_func_movers_mover_elev.getWorldOrigin() );
+	}
+     $gp_func_movers_mover_elev.time( 6.0 );
+     $gp_func_movers_mover_elev.accelTime( 2 );
+     $gp_func_movers_mover_elev.decelTime( 3 );
+     $gp_func_movers_mover_elev.move( DIR_UP, 227 );
+	 $sound_sp_techelevator_up_front.activate( $acti );
+	 $sound_sp_techelevator_up_rear.activate( $acti );
+}
+
+void XrayTowerElev01down( entity activatedEntity, entity activator )
+{
+	float height = Vec_z( $gp_func_movers_mover_elev.getWorldOrigin() );
+
+     $gp_func_movers_mover_elev.time( 6.0 );
+     $gp_func_movers_mover_elev.accelTime( 2 );
+     $gp_func_movers_mover_elev.decelTime( 3 );
+     $gp_func_movers_mover_elev.move( DIR_DOWN, ( height - XrayTowerElev01pos ) );
+	 $sound_sp_techelevator_down_front.activate( $acti );
+	 $sound_sp_techelevator_down_rear.activate( $acti );
+}
+
+void XrayTowerElev01thingin( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_elevthingy.time( 1.0 );
+     $gp_func_movers_mover_elevthingy.accelTime( 0.2 );
+     $gp_func_movers_mover_elevthingy.decelTime( 0.2 );
+     $gp_func_movers_mover_elevthingy.move( DIR_FORWARD, 20 );
+}
+
+void XrayTowerElev01thingout( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_mover_elevthingy.time( 1.0 );
+     $gp_func_movers_mover_elevthingy.accelTime( 0.2 );
+     $gp_func_movers_mover_elevthingy.decelTime( 0.2 );
+     $gp_func_movers_mover_elevthingy.move( DIR_BACK, 20 );
+}
+
+float XrayTowerElev02pos = -1000;
+
+void XrayTowerElev02up( entity activatedEntity, entity activator )
+{
+	float height = Vec_z( $gp_lift_tower_02.getWorldOrigin() );
+     $gp_lift_tower_02.time( 16.0 );
+     $gp_lift_tower_02.accelTime( 5 );
+     $gp_lift_tower_02.decelTime( 5 );
+     $gp_lift_tower_02.move( DIR_UP, XrayTowerElev02pos - height );
+ 	 $sound_sp_shortelev_up_front.activate( $acti );
+ 	 $sound_sp_shortelev_up_rear.activate( $acti );	
+	 
+}
+
+void XrayTowerElev02down( entity activatedEntity, entity activator )
+{
+	float height = Vec_z( $gp_lift_tower_02.getWorldOrigin() );
+	if (XrayTowerElev02pos == -1000){
+		XrayTowerElev02pos = height;
+	}
+
+     $gp_lift_tower_02.time( 16.0 );
+     $gp_lift_tower_02.accelTime( 5 );
+     $gp_lift_tower_02.decelTime( 5 );
+     $gp_lift_tower_02.move( DIR_DOWN, height - ( XrayTowerElev02pos - 616 ) );
+ 	 $sound_sp_shortelev_down_front.activate( $acti );
+ 	 $sound_sp_shortelev_down_rear.activate( $acti );
+}
+
+void startgate480( entity activatedEntity, entity activator )
+{
+     $c03p2_front_gate.time( 15.0 );
+     $c03p2_front_gate.accelTime( 2 );
+     $c03p2_front_gate.decelTime( 3 );
+     $c03p2_front_gate.move( DIR_FORWARD, 480 );
+}
+
+void startgate480fast( entity activatedEntity, entity activator )
+{
+     $c03p2_front_gate.time( 0.01);
+     $c03p2_front_gate.move( DIR_FORWARD, 480 );
+}
+
+void Elev_door_06( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_6.time( 4.0 );
+     $gp_func_movers_elevatordoor_6.accelTime( 2 );
+     $gp_func_movers_elevatordoor_6.decelTime( 3 );
+     $gp_func_movers_elevatordoor_6.move( DIR_BACK, 224 );
+}
+
+void Elev_door_05( entity activatedEntity, entity activator )
+{
+	
+
+     $gp_func_movers_elevatordoor_5.time( 3.0 );
+     $gp_func_movers_elevatordoor_5.accelTime( 2 );
+     $gp_func_movers_elevatordoor_5.decelTime( 3 );
+     $gp_func_movers_elevatordoor_5.move( DIR_FORWARD, 120 );
+}
+
+void Elev_door_06fast( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_6.time( 0.1 );
+     $gp_func_movers_elevatordoor_6.move( DIR_BACK, 224 );
+}
+
+void Elev_door_05fast( entity activatedEntity, entity activator )
+{
+     $gp_func_movers_elevatordoor_5.time( 0.01 );
+     $gp_func_movers_elevatordoor_5.move( DIR_FORWARD, 120 );
+}
+
+
+void XrayTowerElev01setstate( entity activatedEntity, entity activator )
+{
+	 $gp_func_movers_mover_elev.time( 0.01 );
+     $gp_func_movers_mover_elev.move( DIR_DOWN, 32 );
+}
+void XrayTowerElevthingy01setstate( entity activatedEntity, entity activator )
+{
+	 $gp_func_movers_mover_elevthingy.time( 0.01 );
+     $gp_func_movers_mover_elevthingy.move( DIR_DOWN, 32 );
+}
+
+void sethealth100( entity activatedEntity, entity activator )
+{
+     $player1.setHealth ( 100 );
+}

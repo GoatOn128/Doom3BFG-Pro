@@ -1,0 +1,46 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [9];
+
+in vec4 in_Color;
+in vec4 in_Tangent;
+in vec4 in_Normal;
+in vec4 in_Position;
+in vec2 in_TexCoord;
+
+out vec4 vofi_TexCoord0;
+out vec4 vofi_Color;
+out vec4 vofi_TexCoord1;
+
+void main() {
+	vec4 col = swizzleColor( in_Color );
+	vec4 position;
+	{
+		float len = in_Tangent.x * 255.0 + in_Tangent.y;
+		float signVal = in_Tangent.w * 2.0 - 1.0;
+		vec3 axis = normalize( in_Normal.xyz * vec3( 2.0 ) - vec3( 1.0 ) );
+		vec3 fromViewer = normalize( in_Position.xyz - _va_[0 ].xyz );
+		vec3 side = normalize( cross( axis, fromViewer ) );
+		position.xyz = in_Position.xyz + ( side * len * signVal );
+	};
+	position.w = in_Position.w;
+	gl_Position.x = dot4( position, _va_[1 ] );
+	gl_Position.y = dot4( position, _va_[2 ] );
+	gl_Position.z = dot4( position, _va_[3 ] );
+	gl_Position.w = dot4( position, _va_[4 ] );
+	vec4 umat = _va_[5 ];
+	vec4 vmat = _va_[6 ];
+	float timeoffset = mod( dot( in_Position.xy, in_Position.xy ), 10.0 );
+	umat.w *= _va_[7 ].x + timeoffset;
+	vmat.w *= _va_[7 ].x + timeoffset;
+	vec2 texcoord0 = in_TexCoord.xy;
+	vofi_TexCoord0.x = dot4( vec4( texcoord0.x, texcoord0.y, 0, 1.0 ), umat );
+	vofi_TexCoord0.y = dot4( vec4( texcoord0.x, texcoord0.y, 0, 1.0 ), vmat );
+	vofi_TexCoord0.z = texcoord0.x;
+	vofi_TexCoord0.w = texcoord0.y;
+	vofi_TexCoord1.xyz = position.xyz;
+	vofi_TexCoord1.w = 0.0;
+	vofi_Color = _va_[8 ];
+}

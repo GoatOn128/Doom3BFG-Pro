@@ -1,0 +1,85 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [3];
+uniform sampler2D samp_viewcolormap;
+uniform sampler2D samp_viewdepthmap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	{
+		vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+		vec4 centerPixel = tex2Dlod( samp_viewcolormap, vec4( texcoord.xy, 0.0, 0.0 ) );
+		float ndcZ;
+		{
+			ndcZ = tex2Ddepth_fast( samp_viewdepthmap, texcoord.xy ) * 2.0 - 1.0;
+		};
+		float centerDof = centerPixel.a * 10.0;
+		vec2 sampleDir = _fa_[1 ].xy;
+		vec3 color1;
+		{
+			float bleedingBias = 0.02;
+			float bleedingMult = 30.0;
+			float power = 4.0;
+			color1 = vec3( 0.0 );
+			float totalWeight = 0.0;
+			vec2 texstep = sampleDir.xy * _fa_[2 ].zw * centerDof * (10 * 0.5 / 20);
+			vec2 txy = texcoord.xy - texstep * (20 * 0.5);
+			for ( int t = 0; t < 20; t++ )
+			{
+				txy += texstep;
+				float lod = centerDof * _fa_[1 ].w;
+				vec4 samplePixel = tex2Dlod( samp_viewcolormap, vec4( txy, 0.0, lod ) );
+				samplePixel.xyz = pow3( samplePixel.xyz, power );
+				float sampleDepth_ndc;
+				{
+					sampleDepth_ndc = tex2Ddepth_fast( samp_viewdepthmap, txy.xy ) * 2.0 - 1.0;
+				};
+				float sampleDof = samplePixel.a * 10.0;
+				float weight = ( sampleDepth_ndc < ndcZ ) ? ( sampleDof * bleedingMult ) : 1.0;
+				weight = (centerDof > sampleDof + bleedingBias) ? weight : 1.0;
+				weight = clamp( weight, 0.0, 1.0 );
+				color1 += samplePixel.xyz * weight;
+				totalWeight += weight;
+			}
+			color1 = color1 / totalWeight;
+			color1.xyz = pow3( color1.xyz, 1.0 / power );
+		};
+		sampleDir.x = -sampleDir.x;
+		vec3 color2;
+		{
+			float bleedingBias = 0.02;
+			float bleedingMult = 30.0;
+			float power = 4.0;
+			color2 = vec3( 0.0 );
+			float totalWeight = 0.0;
+			vec2 texstep = sampleDir.xy * _fa_[2 ].zw * centerDof * (10 * 0.5 / 20);
+			vec2 txy = texcoord.xy - texstep * (20 * 0.5);
+			for ( int t = 0; t < 20; t++ )
+			{
+				txy += texstep;
+				float lod = centerDof * _fa_[1 ].w;
+				vec4 samplePixel = tex2Dlod( samp_viewcolormap, vec4( txy, 0.0, lod ) );
+				samplePixel.xyz = pow3( samplePixel.xyz, power );
+				float sampleDepth_ndc;
+				{
+					sampleDepth_ndc = tex2Ddepth_fast( samp_viewdepthmap, txy.xy ) * 2.0 - 1.0;
+				};
+				float sampleDof = samplePixel.a * 10.0;
+				float weight = ( sampleDepth_ndc < ndcZ ) ? ( sampleDof * bleedingMult ) : 1.0;
+				weight = (centerDof > sampleDof + bleedingBias) ? weight : 1.0;
+				weight = clamp( weight, 0.0, 1.0 );
+				color2 += samplePixel.xyz * weight;
+				totalWeight += weight;
+			}
+			color2 = color2 / totalWeight;
+			color2.xyz = pow3( color2.xyz, 1.0 / power );
+		};
+		out_FragColor0.xyz = min( color1, color2 );
+		out_FragColor0.w = 1.0;
+	};
+}

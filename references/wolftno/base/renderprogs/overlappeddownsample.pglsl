@@ -1,0 +1,23 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_viewcolormap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy - 0.5, _fa_[0 ] );
+	vec2 translate = _fa_[0 ].zw;
+	vec4 total = pow4(h4tex2D( samp_viewcolormap, clamp( texcoord.xy, _fa_[1 ].xy, _fa_[1 ].zw ) ), 4.0);
+	texcoord.x += translate.x;
+	total += pow4(h4tex2D( samp_viewcolormap, clamp( texcoord.xy, _fa_[1 ].xy, _fa_[1 ].zw ) ), 4.0);
+	texcoord.y += translate.y;
+	total += pow4(h4tex2D( samp_viewcolormap, clamp( texcoord.xy, _fa_[1 ].xy, _fa_[1 ].zw ) ), 4.0);
+	texcoord.x -= translate.x;
+	total += pow4(h4tex2D( samp_viewcolormap, clamp( texcoord.xy, _fa_[1 ].xy, _fa_[1 ].zw ) ), 4.0);
+	out_FragColor0 = pow4(total * 0.25, 1.0 / 4.0);
+}

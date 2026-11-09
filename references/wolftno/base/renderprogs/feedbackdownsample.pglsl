@@ -1,0 +1,15 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_viewcolormap;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	out_FragColor0 = h4tex2D( samp_viewcolormap, texcoord.xy );
+}

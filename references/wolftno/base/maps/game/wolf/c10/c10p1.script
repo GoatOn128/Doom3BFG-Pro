@@ -1,0 +1,578 @@
+/*
+================================================================================
+Map Script for c10p1.map
+================================================================================
+*/
+
+#ifndef C10_MAIN
+#define C10_MAIN
+
+#include "c10p1_combat.script"
+
+
+/*================================================================================
+SEWERS 
+================================================================================*/
+/*void main()
+{
+	int i;
+	entity mine;
+	for(i = 1; i <= 3 ; i++)
+	{
+		vector movement = '5 5 0';
+		movement_x+= sys.random(5);
+		movement_y+= sys.random(5);		
+		movement_z+= sys.random(5);		
+		
+		mine = sys.getEntity("gp_mover_mine_"+i);
+		mine.bob(0.5, sys.random(1), movement);
+
+	}
+
+	//Randomize the waterwheel starting pos so it doesn't look so conspicuously perfect
+	//Don't bother with sys.random() because all random values will be the same (61 & 92)
+	$gp_moverjoint_waterwheel_1.rotateOnceXYZ(32, 0, 0);	
+	$gp_moverjoint_waterwheel_2.rotateOnceXYZ(10, 0, 0);
+}*/
+
+void unBindParticle(entity targ, entity acti)
+{
+	$particle.unbind();
+}
+
+
+/*================================================================================
+Hallway door controlled by player. Sick! Oh you're so pro Grawert~
+================================================================================*/
+
+object waterlevel
+{
+	int risingSpeed;
+	int height;
+	int parentWaterLevel;
+
+	float _initialPos;
+	
+	void init();
+		
+	void startWaterlevel();
+	void stopWaterlevel();
+	void updateWaterLevel();
+	
+	boolean isAtTop();	
+	boolean isAtPipe();
+};
+
+boolean waterlevel::isAtTop()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos + self.height - pos_z);
+	
+	return (dist < 0.1);
+}
+
+boolean waterlevel::isAtPipe()
+{
+	vector pos = self.getOrigin();
+	float dist2 = abs(self._initialPos + self.parentWaterLevel - pos_z);
+	
+	return (pos_z > _initialPos + parentWaterLevel );
+}
+
+
+void waterlevel::init()
+{
+	vector pos = self.getOrigin();
+	self._initialPos = pos_z;
+	
+	if(!self.height)
+	{
+		pos = self.getMaxs() - self.getMins();
+		self.height = pos_z - 24;
+	}
+	
+	if(!self.parentWaterLevel)
+	{
+		pos = self.getMaxs() - self.getMins();
+		self.parentWaterLevel = pos_z - 24;
+	}
+	
+	if(!self.risingSpeed) self.risingSpeed = 100;
+}
+
+void waterlevel::startWaterlevel()
+{
+	thread updateWaterLevel();
+}
+
+
+void waterlevel::updateWaterLevel( )
+{
+	sys.println( "Raise water" );
+	self.stopMoving();
+
+	sys.wait( 1.8 );
+
+	vector pos = self.getOrigin();
+			
+	float dist = self._initialPos + self.height - pos_z;
+	if(dist == 0) return;
+		
+	float t = dist/self.risingSpeed;
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;				
+								
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);
+	
+	while( true )
+	{ 
+		sys.waitFrame();
+		
+		if(self.isAtPipe()) 
+		{
+			sys.println( "Bind sewer water" );
+			$gp_func_dynamicwater_20.bind( $gp_func_dynamicwater_19 );
+			break;
+		}	
+	}
+	
+	sys.waitFor( self );
+			
+	if(self.isAtTop()) 
+	{
+		sys.println( "Water at Top Level" );
+		$gp_holdhandle_fpevent_raisewater.setFirstPersonEventAnimState( 2 );
+		$gp_use_raisewaterlevel.remove();
+	}
+}
+
+void waterlevel::stopWaterlevel()
+{
+	sys.println( "Stop water again" );
+		
+	sys.wait( 0.4 );	
+	
+	self.stopMoving();
+}
+
+void raiseWaterlevel(entity targ, entity acti)
+{
+	entity water = $water;
+	water.callFunction("startWaterlevel");		
+}
+
+void stopWaterlevel(entity targ, entity acti)
+{
+	entity water = $water;
+	water.callFunction("stopWaterlevel");	
+}
+
+/*================================================================================
+Waterwheels puzzle and mine bobbing 
+================================================================================*/
+
+float targetSpeed, currentSpeed;
+
+
+void startWheels(entity targ, entity acti)
+{
+	sys.println( "Start wheels" );
+	
+	targetSpeed = 25;
+}
+
+void stopWheels(entity targ, entity acti)
+{
+	sys.println( "Stop wheels" );
+	
+	targetSpeed = 0;
+}
+
+boolean inArea = true; 
+
+void main()
+{
+	vector movement = '5 5 0';
+	movement_x+= sys.random(5);
+	movement_y+= sys.random(5);		
+	movement_z+= sys.random(5);		
+
+	$gp_mover_mine_20.bob(0.5, sys.random(1), movement);
+	$gp_mover_mine_21.bob(0.5, sys.random(1), movement);
+	
+	sys.println( "ACTIVATE" );
+	while( inArea )
+	{
+		
+		if(currentSpeed < targetSpeed) currentSpeed = currentSpeed + 0.1;
+		if(currentSpeed > targetSpeed) currentSpeed = currentSpeed - 0.3;
+		
+		$wheel1.action_SetRotateSpeed(0, 0, currentSpeed);		
+		$wheel2.action_SetRotateSpeed(0, 0, currentSpeed);
+		
+		sys.waitFrame();
+	}
+}
+
+void stopWheelLoop(entity targ, entity acti)
+{
+	sys.println( "INACTIVATE" );
+	inArea = false;
+}
+
+
+/*================================================================================
+CISTERN 2
+================================================================================*/
+
+void call_mine_20_cutchain_highwaterlevel ( entity actiEnt, entity acti )
+{
+	$sound_sp_mine_drift_01.activate( acti );	
+	$gp_mover_mine_20.time( 30 );
+	$gp_mover_mine_20.accelTime( 3 );
+	$gp_mover_mine_20.followSpline ( $gp_spline_mine_20_low, false, false );
+}
+
+void call_mine_21_cutchain_highwaterlevel ( entity actiEnt, entity acti )
+{
+	$sound_sp_mine_drift_02.activate( acti );	
+	$gp_mover_mine_21.time( 30 );
+	$gp_mover_mine_21.accelTime( 3 );
+	$gp_mover_mine_21.followSpline ( $gp_spline_mine_21_low, false, false );
+}
+
+void call_mine_20_explode ( entity actiEnt, entity acti )
+{
+	$gp_mover_mine_20.remove();
+	$gp_func_chain_anim_01.remove();
+	$gp_fx_mine_explode_01.unbind();
+	$gp_fx_mine_explode_01.activate( acti );
+	
+	$gp_trigger_call_mine_20_explode_close.remove();
+	$fx_func_emitter_minetrail_20.remove();
+}
+
+void call_mine_21_explode ( entity actiEnt, entity acti )
+{
+	$gp_mover_mine_21.remove();
+	$gp_func_chain_anim_02.remove();
+	$gp_fx_mine_explode_02.unbind();	
+	$gp_fx_mine_explode_02.activate( acti );
+	
+	$gp_trigger_call_mine_21_explode_close.remove();
+	$fx_func_emitter_minetrail_21.remove();
+}
+
+/*================================================================================
+WELL AND ELEVATOR  
+================================================================================*/
+
+void call_elevator ( entity actiEnt, entity acti )
+{
+	$gp_use_elevator.hide();
+	$gp_use_elevator_down.hide();
+	
+	$sound_sp_elevator_front.activate( acti );	
+	$sound_sp_elevator_rear.activate( acti );	
+	$gp_mover_elevator.time( 5.0f );
+	$gp_mover_elevator.accelTime( 2.0f );
+	$gp_mover_elevator.decelTime( 2.0f );
+	$gp_mover_elevator.move( DIR_UP, 704 );
+	
+	sys.wait( 5.0f );
+	$gp_use_elevator_down.show();
+}
+
+void call_elevator_down ( entity actiEnt, entity acti )
+{
+	$gp_use_elevator.hide();
+	$gp_use_elevator_down.hide();
+	
+	$gp_mover_elevator.time( 5.0f );
+	$gp_mover_elevator.accelTime( 2.0f );
+	$gp_mover_elevator.decelTime( 2.0f );
+	$gp_mover_elevator.move( DIR_DOWN, 704 );
+	
+	sys.wait( 5.0f );
+	$gp_use_kickstartelevator.show();
+}
+
+void ammoRatio ( entity actiEnt, entity acti )
+{	
+	//float ratio = $player1.getWeaponAmmoRatio( EQUIP_RIGHT_HAND );
+	
+	sys.wait( 1.5 );
+
+/*	if ( ratio < 1 )
+	{
+		$gp_mover_elevator.time( 2 );
+		$gp_mover_elevator.accelTime( 1.5 );
+		$gp_mover_elevator.move( DIR_UP, 100*ratio );
+		
+		sys.waitFor( $gp_mover_elevator );
+		$gp_mover_elevator.time( 2 );
+		$gp_mover_elevator.decelTime( 1.5 );
+		$gp_mover_elevator.move( DIR_DOWN, 100*ratio );
+		
+		sys.wait( 3 );
+		$gp_use_kickstartelevator.show();
+	}
+	
+	else
+	{*/
+		call_elevator( actiEnt, acti);
+	//}
+}
+
+
+
+/*
+================================================================================
+TRAINSECTOIN SuperSoldaten Intro door controlled by player. Sick! Oh you're so pro Grawert~
+================================================================================
+*/
+
+object holding_door
+{
+	int openSpeed;
+	int closeSpeed;
+	int height;
+
+	entity roller;
+
+	float _initialPos;
+	
+	void init();
+	
+	void startOpen();
+	void abortOpen();
+	
+	boolean isAtTop();
+	boolean isAtBottom();
+	
+};
+
+boolean holding_door::isAtTop()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos + self.height - pos_z);
+	
+	return (dist < 0.1);
+}
+
+boolean holding_door::isAtBottom()
+{
+	vector pos = self.getOrigin();
+	float dist = abs(self._initialPos - pos_z);
+	return (dist < 0.1);
+}
+
+void holding_door::init()
+{
+	vector pos = self.getOrigin();
+	self._initialPos = pos_z;
+	
+	if(!self.height)
+	{
+		pos = self.getMaxs() - self.getMins();
+		self.height = pos_z - 24;
+	}
+	if(!self.openSpeed) self.openSpeed = 100;
+	if(!self.closeSpeed) self.closeSpeed = 110;
+	
+}
+
+void holding_door::startOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();	
+	
+	vector pos = self.getOrigin();
+	float dist = self._initialPos + self.height - pos_z;
+	
+	if(dist == 0) return;	
+	
+	float t = dist/self.openSpeed;
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+	
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);	
+	self.roller.time(t);
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing open sounds
+	$sound_sp_servo_down.off(); //Make sure closing sound is off		
+	$sound_sp_servo_up.on(); //Servo loop
+	$sound_sp_steelshutter_start_up.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		$sound_sp_metal_loop.on(); //Movement loop
+	}
+
+	sys.waitFor(self);	
+	if(self.isAtTop()) 
+	{
+		//Stop playing the opening sounds.
+		$sound_sp_servo_up.off(); //Servo loop
+		$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing top hit sounds.
+		$sound_sp_steel_shutter_stop_top.on();
+		$gp_holdhandle_fpevent.setFirstPersonEventAnimState( 2 );
+	}
+}
+
+
+void holding_door::abortOpen()
+{
+	self.stopMoving();
+	roller.stopMoving();
+
+	vector pos = self.getOrigin();
+	float dist = self._initialPos - pos_z;
+	if(dist == 0) return;	
+	
+	float t = abs(dist/self.closeSpeed);
+	float at;
+	if(t > 0.5) at = 0.5;
+	else at = t;
+
+	self.time(t);
+	self.accelTime(at);
+	self.move(DIR_UP, dist);
+	self.roller.time( t );
+	self.roller.accelTime(at);
+	float rotate_ang = dist * 360 / 64; //64 = ca cirucumference of roller
+	roller.rotateOnceXYZ( 0, rotate_ang, 0 ); //Sometimes this randomly rotates in the wrong direction? Why?
+	
+	//Start playing close sounds
+	$sound_sp_servo_up.off(); //Make sure opening sound is off	
+	$sound_sp_servo_down.on(); //Servo loop
+	$sound_sp_steelshutter_startdown.on(); //Start "clang"
+	if(t > 0.3) 
+	{ 
+		sys.wait(0.3);
+		$sound_sp_metal_loop.on(); //Movement loop
+	}
+	
+	sys.waitFor(self);
+
+	if(self.isAtBottom()) //The door hasn't changed direction during this call
+	{
+		//Stop playing the closing sounds.
+		$sound_sp_servo_down.off(); //Servo loop
+		$sound_sp_metal_loop.off(); //Movement loop
+		//Start playing bottom hit sounds.
+		$sound_sp_steel_shutter_stop_floor.on();
+	}
+}
+
+
+void holding_door_start_open(entity targ, entity acti)
+{
+	entity door = $gp_mover_soldatenintro_door;
+	door.callFunction("startOpen");		
+}
+
+
+void holding_door_abort_open(entity targ, entity acti)
+{
+	entity door = $gp_mover_soldatenintro_door;
+	door.callFunction("abortOpen");	
+}
+
+void switch_traintrack(entity targ, entity acti)
+{
+	$gp_mover_traintrack.time( 3 );
+	$gp_mover_traintrack.accelTime( 1 );
+	$gp_mover_traintrack.decelTime( 1 );
+	$gp_mover_traintrack.rotateOnce( '0 29.6 0' );	
+}
+
+
+
+
+/*================================================================================
+Perception Scripts
+================================================================================*/
+
+void supersoldat_detect( entity actiEnt, entity acti )
+{
+	$cb_relay_supersoldat_onshooting.activate( acti );
+}
+
+void firstencounter_detect( entity actiEnt, entity acti )
+{
+	$cb_relay_firstencounter_onshooting.activate( acti );
+}
+
+/*================================================================================
+CHECKPOINTS  
+================================================================================*/
+
+void call_checkpoint_sewers ( entity actiEnt, entity acti )
+{
+	$gp_playercontrolled_tunnelglider.teleport( $gp_pos_tunnelglider_checkpoint.getOrigin(), $gp_pos_tunnelglider_checkpoint.getAngles()); 
+}
+
+void call_checkpoint_waterwheels ( entity actiEnt, entity acti )
+{
+	$gp_target_teleport_4.activate( $player1 );
+	$wheel1.teleport( $gp_info_null_2.getOrigin(), $gp_info_null_2.getAngles());
+}
+
+void call_checkpoint_waterlevel ( entity actiEnt, entity acti )
+{
+	$gp_target_teleport_4.activate( acti );
+	
+	$water_waterwheels.time( 0.5 );	
+	$water_waterwheels.move( DIR_UP, 346 );
+
+	$water.time( 0.5 );
+	$water.move( DIR_UP, 420 );
+}
+
+void call_checkpoint_elevator ( entity actiEnt, entity acti )
+{
+	$sound_tr_hatch_explode.remove();
+	$vo_tr_bj_c10_7012.remove();
+	$gp_fx_mine_explode_01.remove();
+	sys.waitFrame();
+	call_mine_20_explode( actiEnt, acti );
+	sys.waitFrame();
+	$gp_relay_mine_20_explode_near.activate( actiEnt );
+}
+
+void call_checkpoint_elevator_secondBarrier ( entity actiEnt, entity acti )
+{
+	$sound_tr_hatch_explode.remove();
+	$gp_fx_mine_explode_02.remove();
+	sys.waitFrame();
+	call_mine_21_explode( actiEnt, acti );
+	sys.waitFrame();
+}
+
+void call_checkpoint_after_elevator ( entity actiEnt, entity acti )
+{
+	$gp_mover_elevator.time( 0.1f );
+	$gp_mover_elevator.move( DIR_UP, 704 );
+	
+	$gp_anim_changestate_kickstartelevator_panel_checkpoint.activate( acti );
+}
+
+void call_checkpoint_tunnel ( entity actiEnt, entity acti )
+{
+	call_elevator( actiEnt, acti );
+	$gp_anim_changestate_kickstartelevator_panel_checkpoint.activate( acti );
+}
+
+
+#endif

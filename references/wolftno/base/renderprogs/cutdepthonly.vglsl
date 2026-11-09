@@ -1,0 +1,21 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _va_ [7];
+
+in vec4 in_Position;
+in vec2 in_TexCoord1;
+
+out vec4 vofi_TexCoord0;
+
+void main() {
+	vec4 position = in_Position * _va_[0 ] + _va_[1 ];
+	gl_Position.x = dot( position, _va_[2 ] );
+	gl_Position.y = dot( position, _va_[3 ] );
+	gl_Position.z = dot( position, _va_[4 ] );
+	gl_Position.w = dot( position, _va_[5 ] );
+	vofi_TexCoord0.xy = ( in_TexCoord1.xy * _va_[6 ].xy + _va_[6 ].zw ).xy;
+	vofi_TexCoord0.z = 0.0;
+	vofi_TexCoord0.w = saturate( gl_Position.w * 0.000667 );
+}

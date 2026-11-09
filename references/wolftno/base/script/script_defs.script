@@ -1,0 +1,69 @@
+
+#ifndef __SCRIPT_DEFS__
+#define __SCRIPT_DEFS__
+
+/*
+===============================================================================
+
+  Defines some common values and expressions used in script.
+	
+===============================================================================
+*/
+
+
+#define BIT( num )			( 1 << ( num ) )
+#define eachFrame			for( 0; 1; sys.waitFrame() )
+#define waitUntil( x )		while( !( x ) ) { sys.waitFrame(); }
+
+#define GAME_FPS			60			// number of game frames per second.  rendering framerate is independent of game frames.
+#define GAME_FRAMETIME		0.016		// 16 milliseconds
+
+#define NULL				0
+
+#define TRUE				1
+#define FALSE				0
+#define true				1
+#define false				0
+
+#define EAST				0
+#define NORTH				90
+#define WEST				180
+#define SOUTH				270
+
+#define X_AXIS				0
+#define Y_AXIS				1
+#define Z_AXIS				2
+						
+#define YAW					0
+#define PITCH				1
+#define ROLL				2
+
+#define M_PI				3.14159265358979323846
+#define DEG2RAD( a )		( (a) * (M_PI / 180.0f ) )
+#define RAD2DEG( a )		( (a) * (180.0f / M_PI ) )
+
+#define ALL_PARTICLES		-1		// used with setSmokeVisibility
+
+#define JOBRESULT_OK			0
+#define JOBRESULT_PLAYER_LEFT	1
+#define JOBRESULT_ERROR			2
+
+// Clipmasks for traces
+#define CLIPMASK_SOLID					1
+#define CLIPMASK_MONSTERSOLID			106513
+#define CLIPMASK_PLAYER					32768
+#define CLIPMASK_PLAYERSOLID			99337
+#define CLIPMASK_VEHICLESOLID			107553
+#define CLIPMASK_NPCSOLID				17		// don't collide against other NPCs / AI
+#define CLIPMASK_PLAYERDEADSOLID		9
+#define CLIPMASK_PLAYERCLIP				8
+#define CLIPMASK_WATER					4
+#define CLIPMASK_OPAQUE					3
+#define CLIPMASK_PLAYERFOCUS			2209987
+#define CLIPMASK_SHOT					8396933
+#define CLIPMASK_PROJECTILE				8429697
+#define CLIPMASK_RADIUS_DAMAGE			8462337
+#define CLIPMASK_THIRDPERSONCROSSHAIR	238593
+#define CLIPMASK_PLAYERCOVER			8201
+
+#endif

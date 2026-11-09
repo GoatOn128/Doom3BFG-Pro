@@ -1,0 +1,22 @@
+/*
+================================================================================
+Map Script for c06p1.map
+================================================================================
+*/
+
+#ifndef C06_MAIN
+#include "c06p1.script"
+
+#else
+
+void vo_anya_033( entity activatedEntity, entity activator )
+{
+	$vo_anya_033.activate( activator );
+}
+
+void vo_anya_048( entity activatedEntity, entity activator )
+{
+	$vo_anya_048.activate( activator );
+}
+
+#endif

@@ -1,0 +1,1467 @@
+/*
+================================================================================
+Map Script for c16p2.map
+================================================================================
+*/
+  
+void main() {
+
+}
+
+
+// Not exposed to script, should fix.
+#define AISTIMULUS_HEARING 	1
+#define AISTIMULUS_SIGHT	8
+
+
+void printclass (entity activatedEntity, entity activator) 
+{
+	sys.print(activator.getClass());
+}
+
+boolean useDebug() {
+	return ( sys.getcvar( "animatedSimple_debugLevel" ) == "-1" );
+}
+
+//
+//Door controllers
+//
+
+void open_exitdoors (entity activatedEntity, entity activator) 
+{
+	$gp_func_mover_exitdoor_left.time(1);
+	$gp_func_mover_exitdoor_left.accelTime(0.3);
+	$gp_func_mover_exitdoor_left.decelTime(0.2);
+	$gp_func_mover_exitdoor_left.move(DIR_FORWARD, 110);
+
+	$gp_func_mover_exitdoor_right.time(1);
+    $gp_func_mover_exitdoor_right.accelTime(0.3);
+    $gp_func_mover_exitdoor_right.decelTime(0.2);
+	$gp_func_mover_exitdoor_right.move(DIR_BACK, 110);
+	
+	/* 
+	$gp_func_mover_labdoor1.time(1);
+	$gp_func_mover_labdoor1.accelTime(0.3);
+	$gp_func_mover_labdoor1.decelTime(0.2);
+	$gp_func_mover_labdoor1.move(DIR_UP, 120);
+
+	$gp_func_mover_labdoor2.time(1);
+    $gp_func_mover_labdoor2.accelTime(0.3);
+    $gp_func_mover_labdoor2.decelTime(0.2);
+	$gp_func_mover_labdoor2.move(DIR_DOWN, 120);
+	*/
+}
+
+void close_exitdoors (entity activatedEntity, entity activator) 
+{
+	$gp_func_mover_exitdoor_left.time(6);
+	$gp_func_mover_exitdoor_left.accelTime(0.3);
+	$gp_func_mover_exitdoor_left.decelTime(0.2);
+	$gp_func_mover_exitdoor_left.move(DIR_BACK, 110);
+
+	$gp_func_mover_exitdoor_right.time(6);
+    $gp_func_mover_exitdoor_right.accelTime(0.3);
+    $gp_func_mover_exitdoor_right.decelTime(0.2);
+	$gp_func_mover_exitdoor_right.move(DIR_FORWARD, 110);
+}
+
+void close_labdoors (entity activatedEntity, entity activator) 
+{
+	$gp_func_mover_labdoor1.time(1);
+	$gp_func_mover_labdoor1.accelTime(0.3);
+	$gp_func_mover_labdoor1.decelTime(0.2);
+	$gp_func_mover_labdoor1.move(DIR_DOWN, 120);
+
+	$gp_func_mover_labdoor2.time(1);
+    $gp_func_mover_labdoor2.accelTime(0.3);
+    $gp_func_mover_labdoor2.decelTime(0.2);
+	$gp_func_mover_labdoor2.move(DIR_UP, 120);
+}
+
+void open_helicopter_lift (entity activatedEntity, entity activator) 
+{
+	$func_mover_9.time(7);
+	$func_mover_9.accelTime(3);
+	$func_mover_9.decelTime(1.5);
+	$func_mover_9.move(DIR_RIGHT, 380);
+
+	$func_mover_10.time(7);
+    $func_mover_10.accelTime(3);
+    $func_mover_10.decelTime(1.5);
+	$func_mover_10.move(DIR_LEFT, 380);
+}
+
+void elevator_going_up (entity activatedEntity, entity activator) 
+{
+	$c16p2_elevator.time(16);
+	$c16p2_elevator.accelTime(0);
+	$c16p2_elevator.decelTime(5);
+	$c16p2_elevator.move(DIR_UP, 550);
+
+	$cb_func_mover_tank.time(16);
+    $cb_func_mover_tank.accelTime(0);
+    $cb_func_mover_tank.decelTime(5);
+	$cb_func_mover_tank.move(DIR_UP, 550);
+}
+
+void call_player_start_scene_setup( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.hideAttachment( "right_hand" );
+	if ( $player1.getHealth() > 21.0 ) {
+		$player1.setHealth( 21.0 );
+	}
+}
+
+void call_stop_lightning( entity activatedEntity, entity activator ){
+	$fx_script_random_activator_lightning.callFunction( "stop" );
+}
+
+// Pre battle tesla dummy attack /////////////////////////////////////////////////////////////
+boolean prebattleAttackActive = false;
+int preBattleAttackNum = 0;
+ 
+void call_prebattle_robotattack_start( entity activatedEntity, entity activator ){
+	preBattleAttackNum++;
+    $cb_ai_prototyperobot.startFX( FX_CINEMATIC_10 ); // Just in case Yann wants to prettify
+    $cb_ai_prototyperobot.startFX( FX_TESLA_CHARGE ); 
+    prebattleAttackActive = true;
+
+    sys.wait( 0.8 );
+
+	if ( !prebattleAttackActive ) {
+		return;
+	}
+
+	// Discharge
+    $cb_ai_prototyperobot.startFX( FX_TESLA_DISCHARGE ); 
+	vector teslaPos = $gp_func_fx_prebattle_teslaexplosion.getWorldOrigin();
+	vector targetDir = $player1.getWorldOrigin() - teslaPos;
+	targetDir_z = 0.0f;
+	teslaPos = teslaPos + targetDir * 0.4;
+	$gp_func_fx_prebattle_teslaexplosion.setWorldOrigin( teslaPos );
+    $gp_func_fx_prebattle_teslaexplosion.startFX( FX_TESLA_BOMB );
+	$gp_misc_electricbolt_prebattleattack.activate( $cb_ai_prototyperobot ); 
+
+	// Bomb is being charged
+    float bombExplodeTime = sys.getTime() + 4.2;
+	int flickerCountdown = 10 + sys.randomInt( 10 );
+	while ( prebattleAttackActive && ( sys.getTime() < bombExplodeTime ) ) {
+		sys.radiusDamage( teslaPos, $cb_ai_prototyperobot, $cb_ai_prototyperobot, $cb_ai_prototyperobot, "damage/tungsten/ai/robot/teslabomb_buildup", 1.0 ); 
+		flickerCountdown--;
+		if ( flickerCountdown <= 0 ) {
+			$gp_misc_electricbolt_prebattleattack.activate( $cb_ai_prototyperobot ); 
+			flickerCountdown = 10 + sys.randomInt( 10 );
+		}
+		sys.waitFrame();
+	} 
+
+	if ( !prebattleAttackActive ) {
+		return;
+	}
+
+	// Kablazappo!
+    $cb_ai_prototyperobot.startFX( FX_CINEMATIC_9 );
+    $cb_ai_prototyperobot.stopFX( FX_CINEMATIC_10 );
+    $cb_ai_prototyperobot.stopFX( FX_TESLA_BOMB );
+    $gp_func_fx_prebattle_teslaexplosion.startFX( FX_TESLA_EXPLOSION );
+    $gp_func_fx_prebattle_teslaexplosion.stopFX( FX_TESLA_BOMB );
+	vector dir = $player1.getWorldOrigin() - $gp_func_fx_prebattle_teslaexplosion.getWorldOrigin();
+	if ( preBattleAttackNum > 1 ) {
+		// Lethal attack
+	    $player1.damage( $cb_ai_prototyperobot, $cb_ai_prototyperobot, @damage( "damage/tungsten/ai/robot/prototyperobot_tesla" ), 1000.0f, dir ); 
+	} else {
+		// Non-lethal attack
+	    $player1.damage( $cb_ai_prototyperobot, $cb_ai_prototyperobot, @damage( "damage/tungsten/ai/robot/prototyperobot_tesla_nonlethal" ), 1.0f, dir ); 
+		float curHealth = FMax( $player1.getHealth(), 1.0 );
+		$player1.setHealth( FMin( curHealth, sys.randomInt( 8 ) + 3 ) );	
+	}
+	$gp_target_anim_changestate_prebattle_exit.activate( $cb_ai_prototyperobot );	
+	
+	sys.wait( 3.0 );
+	if ( prebattleAttackActive ) {	
+		// Rinse and repeat
+		$gp_ai_scriptedanimweb_prototype_robot_introattack.activate( $cb_ai_prototyperobot );	
+	}
+}
+
+
+void call_prebattle_robotattack_abort( entity activatedEntity, entity activator ){
+	prebattleAttackActive = false;	
+    $cb_ai_prototyperobot.stopFX( FX_CINEMATIC_10 );
+    $cb_ai_prototyperobot.stopFX( FX_TESLA_ABORT );
+	$gp_misc_electricbolt_prebattleattack.hide();
+    $gp_func_fx_prebattle_teslaexplosion.stopFX( FX_TESLA_ABORT );
+    $gp_func_fx_prebattle_teslaexplosion.stopFX( FX_TESLA_BOMB );
+	$gp_target_relay_prebattle_robotattack_started.makeActivatable( false );
+	$gp_ai_scriptedanimweb_prototype_robot_introattack.makeActivatable( false );
+	$gp_target_relay_prebattle_robotattack_animdelay.makeActivatable( false );
+	$gp_target_ai_aicommand_prebattle_robotattack.makeActivatable( false );
+	$gp_target_relay_prebattle_robotattack.makeActivatable( false );
+	$gp_misc_electricbolt_prebattleattack.hide();
+}
+// Pre battle tesla dummy attack end /////////////////////////////////////////////////////////
+boolean isStage1 = false;
+
+void call_stage1_prepare( entity activatedEntity, entity activator ){
+}
+
+void call_stage1_start( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "start" );
+	isStage1 = true;
+}
+
+void call_prototyperobot_forcejump( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "jump" );
+}
+
+void call_prototyperobot_jump_launch( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "jumpLaunch" );
+}
+
+void call_prototyperobot_jump_land( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "jumpLand" );
+}
+
+void call_prototyperobot_jump_smash( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "jumpSmash" );
+}
+
+void call_prototyperobot_jump_done( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "jumpDone" );
+}
+
+void call_prototyperobot_stunned( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "stunned" );
+}
+
+void call_prototyperobot_vulnerable( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "vulnerable" );
+}
+
+void call_prototyperobot_invulnerable( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "invulnerable" );
+}
+
+// For obstacles robot should slide over
+void call_pushfromobstacle( entity activatedEntity, entity activator ){
+	if ( isStage1 && ( activator == $cb_ai_prototyperobot ) ) {
+		if (useDebug()) sys.debugArrow( Vec(1,1,0), $cb_ai_prototyperobot.getWorldOrigin(), $cb_ai_prototyperobot.getWorldOrigin() + ($cb_ai_prototyperobot.getModelForward() * 100 ), 1, 2.0 );
+		$cb_ai_prototyperobot.push( $cb_ai_prototyperobot.getModelForward(), 200, 0.5 );
+	}
+}
+
+// For obstacles robot should slide away from
+void call_pushaway( entity activatedEntity, entity activator ) {
+	if ( isStage1 && ( activator == $cb_ai_prototyperobot ) ) {
+		vector away = $cb_ai_prototyperobot.getWorldOrigin() - activatedEntity.getWorldOrigin();
+		away_z = 0.0;
+		if ( abs( away_x ) < 0.1 ) {
+			// Make sure we slide east/west (currently we can only get stuck south of one such obstacle)
+			if ( away_x > 0.0) {
+				away_x = 0.1; 
+			} else {
+				away_x = -0.1;
+			}
+		}
+		if (useDebug()) sys.debugArrow( Vec(1,1,0), $cb_ai_prototyperobot.getWorldOrigin(), $cb_ai_prototyperobot.getWorldOrigin() + (away * 100 ), 1, 2.0 );
+		$cb_ai_prototyperobot.push( away, 100.0, 0.5 );
+	}
+}
+
+void enablePushFromObstacleTriggers( boolean enabled ) {
+	// Disable cover slide triggers
+	$cb_triggers_trigger_pushfromobstacle1.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle2.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle3.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle4.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle5.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle6.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle7.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle8.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle9.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle10.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle11.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle12.makeActivatable( enabled );
+	$cb_triggers_trigger_pushfromobstacle13.makeActivatable( enabled );
+}
+
+void call_stage1_end( entity activatedEntity, entity activator ){
+	$cb_ai_prototyperobot.callFunction( "disabled" );
+	isStage1 = false;
+	enablePushFromObstacleTriggers( false );
+	
+	//Abort ongoing stun, then trigger event
+	$cb_ai_prototyperobot.setEMPStunDuration( 0.0 );
+	$gp_ai_scriptedanimweb_disable_prototype_robot_brain_control.activate( $player1 );
+}
+
+void call_stage2_start( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage2.callFunction( "start" );	
+	isStage1 = false;
+	enablePushFromObstacleTriggers( false );
+	
+	// Prototype robot switcheroo
+	$cb_ai_prototyperobot.hide();
+	$gp_target_relay_fakedeadprototyperobot.activate( $player1 );
+	
+	// Move player into good position to see MDH, zeppelin and tesla coil
+	$player1.teleport( $gp_player_start_checkpoint_2.getWorldOrigin(), $gp_player_start_checkpoint_2.getAngles() );
+}
+
+void call_disableTesla_Stage2( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage2.setTeslaCooldown( 1.0 );
+}
+
+boolean hiddenAtCuttable = false;
+void call_hideAtCuttable( entity activatedEntity, entity activator ){
+	hiddenAtCuttable = true;
+	int count = sys.randomInt(10) + 10;
+	while ( hiddenAtCuttable ) {
+		sys.wait( 0.5 );
+		count--;
+		if ( count == 0 ) {
+			// Fake spot player so MDH will shoot through cuttable
+			$cb_ai_mecha_deathshead_stage2.fakeSenseStimulus( AISTIMULUS_SIGHT, $player1, $player1.getWorldOrigin() + Vec( sys.random( 80.0 ) - 40.0, sys.random( 80.0 ) - 40.0, sys.random( 16.0 ) ), 1.0 );
+			if ( !$cb_ai_mecha_deathshead_stage2.teslaIsActive() ) {
+				$cb_ai_mecha_deathshead_stage2.setTeslaCooldown( 4.0 );
+			}
+			count = sys.randomInt(20) + 10;
+		}
+	}
+}
+void call_unhideAtCuttable( entity activatedEntity, entity activator ){
+	hiddenAtCuttable = false;	
+}
+
+void call_zeppelins_down( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage2.callFunction( "zeppelinsDown" );	
+}
+
+void call_stage2_end( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage2.callFunction( "end" );	
+}
+
+void call_stage2_deathsheadishit ( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage2.startFX( FX_CINEMATIC_2 );
+}
+
+void call_stage2_updatecowardspeech ( entity activatedEntity, entity activator ){
+	// Speak coward line if player is running away from deaths head for a while
+	float runningAwayTime = sys.getTime();
+	float playingVOTime = sys.getTime(); // Don't allow coward speech for a little while
+	while ( true ) {
+		if ( $cb_ai_mecha_deathshead_stage2.isPlayingVoiceOver() ) {
+			playingVOTime = sys.getTime();	
+		} 
+		
+		// Only allow coward speech after being silent a while
+		if ( sys.getTime() > playingVOTime + 2.0 ) { 
+			if ( ( Vec_x( $player1.getUserMove() ) > 10 ) &&
+				 ( sys.vecDotProduct( $cb_ai_mecha_deathshead_stage2.getWorldOrigin() - $player1.getWorldOrigin(), sys.angToForward( $player1.getViewAngles() ) ) < 0.0 ) ) {
+				// Running forward and facing away from MDH
+				if ( sys.getTime() > runningAwayTime + 1.0 ) {
+					// Speech time!
+					break;
+				}
+												
+			} else {
+				// Not running away
+				runningAwayTime = sys.getTime();
+			}
+		} else {
+			// Not allowed to speak
+			runningAwayTime = sys.getTime();
+		}
+		sys.wait( 0.1 );
+	}
+
+	// Speech time!
+	$gp_target_relay_cowardspeech.activate( $cb_ai_mecha_deathshead_stage2 );	
+}
+
+
+void call_stage3_start( entity activatedEntity, entity activator ){
+	$cb_ai_mecha_deathshead_stage3.callFunction( "start" );	
+}
+
+void call_stage3_vo( entity activatedEntity, entity activator ) {
+	$cb_ai_mecha_deathshead_stage3.callFunction( "speakWhenReady" );
+}
+void call_stage3_vo_done( entity activatedEntity, entity activator ) {
+	$cb_ai_mecha_deathshead_stage3.callFunction( "doneSpeaking" );
+}
+
+void call_stage3_end( entity activatedEntity, entity activator ); // Defined below flame burst stuff
+
+boolean endUsableActivated = false;
+void call_stage3_mdh_collapsed( entity activatedEntity, entity activator ){
+
+	$sound_mus_killhim_01.setWorldOrigin( $cb_ai_mecha_deathshead_stage3.getWorldOrigin() );
+	$sound_mus_killhim_02.setWorldOrigin( $cb_ai_mecha_deathshead_stage3.getWorldOrigin() );
+
+	if ( endUsableActivated ){
+		return;
+	} 
+	
+	// Unhide safety backup usables (can be used from all directions) in case MDH has collapsed in an awkward position
+	if ( Vec_y( $cb_prop_useable_use_stage3_end.getWorldOrigin() ) < Vec_y( $pipe_func_fx_01_decorative.getWorldOrigin() ) ) {
+		$cb_prop_useable_use_stage3_end_safetybackup1.show();
+		$cb_prop_useable_use_stage3_end_safetybackup2.show();
+		$cb_prop_useable_use_stage3_end_safetybackup3.show();
+		$cb_prop_useable_use_stage3_end_safetybackup4.show();
+		$cb_prop_useable_use_stage3_end_safetybackup5.show();
+	} else {
+		// Unhide safety backup usables as a last resort if player stands near MDH for a while looking at usable
+		vector usablePos = $cb_prop_useable_use_stage3_end.getWorldOrigin();
+		//vector usableFwd = sys.angToForward( $cb_prop_useable_use_stage3_end.getAngles() );
+		int lookAtUsableCount = 0;
+		while ( lookAtUsableCount < 100 ) {
+			sys.wait( 0.1 );
+
+			// Is player close?
+			if ( $player1.distanceTo( $cb_ai_mecha_deathshead_stage3 ) < 200.0 ) {
+				if ( useDebug() ) sys.debugCircle( Vec(0,1,0), usablePos, Vec(0,0,1), 200, 12, 0.1 );
+				
+				// Is player looking towards interactive marker?
+				vector fromPlayerView = sys.vecNormalize( $gp_misc_interactivemarker_use_deathshead.getWorldOrigin() - $player1.getViewPos() );
+				if ( sys.vecDotProduct( fromPlayerView, sys.angToForward( $player1.getViewAngles() ) ) > 0.9 ) {
+					lookAtUsableCount++;						
+					if ( useDebug() ) sys.debugArrow( Vec(0,1,0), $player1.getWorldOrigin(), usablePos, 1, 0.1 );
+				}
+			}
+			
+			if ( endUsableActivated ){
+				return;
+			} 
+		}
+		
+		// We've been trying to find usable long enough
+		if ( useDebug() ) sys.debugBounds( Vec(0,1,0), $cb_prop_useable_use_stage3_end_safetybackup1.getWorldOrigin() - Vec(10,10,10), $cb_prop_useable_use_stage3_end_safetybackup1.getWorldOrigin() + Vec(10,10,10), 2000 );
+		if ( useDebug() ) sys.debugBounds( Vec(0,1,0), $cb_prop_useable_use_stage3_end_safetybackup2.getWorldOrigin() - Vec(10,10,10), $cb_prop_useable_use_stage3_end_safetybackup2.getWorldOrigin() + Vec(10,10,10), 2000 );
+		if ( useDebug() ) sys.debugBounds( Vec(0,1,0), $cb_prop_useable_use_stage3_end_safetybackup3.getWorldOrigin() - Vec(10,10,10), $cb_prop_useable_use_stage3_end_safetybackup3.getWorldOrigin() + Vec(10,10,10), 2000 );
+		if ( useDebug() ) sys.debugBounds( Vec(0,1,0), $cb_prop_useable_use_stage3_end_safetybackup4.getWorldOrigin() - Vec(10,10,10), $cb_prop_useable_use_stage3_end_safetybackup4.getWorldOrigin() + Vec(10,10,10), 2000 );
+		if ( useDebug() ) sys.debugBounds( Vec(0,1,0), $cb_prop_useable_use_stage3_end_safetybackup5.getWorldOrigin() - Vec(10,10,10), $cb_prop_useable_use_stage3_end_safetybackup5.getWorldOrigin() + Vec(10,10,10), 2000 );
+		$cb_prop_useable_use_stage3_end_safetybackup1.show();
+		$cb_prop_useable_use_stage3_end_safetybackup2.show();
+		$cb_prop_useable_use_stage3_end_safetybackup3.show();
+		$cb_prop_useable_use_stage3_end_safetybackup4.show();
+		$cb_prop_useable_use_stage3_end_safetybackup5.show();
+	}
+}
+
+void call_stage3_hide_end_usables( entity activatedEntity, entity activator ){
+	endUsableActivated = true;
+}
+
+
+void call_pushawayfromstairswhendying( entity activatedEntity, entity activator ){
+	
+	// Push backwards off the stairs
+	vector dir = Vec( 0.0, 1.0, 0.0 );
+	if ( Vec_y( $cb_ai_mecha_deathshead_stage3.getModelForward() ) > 0.0f ) {
+		dir_y = -1.0;		
+	}
+	$cb_ai_mecha_deathshead_stage3.push( dir, 150.0, 1.5 );
+	
+	//sys.debugArrow( Vec(1,1,0), $cb_ai_mecha_deathshead_stage3.getWorldOrigin(), $cb_ai_mecha_deathshead_stage3.getWorldOrigin() + dir * 400.0, 1, 5.0 );
+	//sys.debugArrow( Vec(0,1,0), $cb_ai_mecha_deathshead_stage3.getWorldOrigin() + Vec(0,0,100), $cb_ai_mecha_deathshead_stage3.getWorldOrigin() + $cb_ai_mecha_deathshead_stage3.getModelForward() * 400.0 + Vec(0,0,100), 1, 5.0 );
+}
+
+boolean playerIsAtGlassCover() {
+	return $cb_volume_default_jumping_restrict1.isPointInVolume( $player1.getWorldOrigin() );
+}
+
+//------------------------------------------------------------------------------------
+
+object prototyperobot {
+	void init();
+	void onTrigger( entity activator ){};	
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );	
+	vector getWantedAnimDeltaScale();
+	
+	void start();
+	void disabled();
+	void update();
+	boolean canJump();
+	boolean jumpLandingAllowed( vector posLand, vector posSlide );
+	void jump();
+	void forceJump();
+	void jumpLaunch();
+	void updateJump();
+	void jumpLand();
+	void jumpDone();
+	void allowJump();
+	void whiteBrainsCantJump();
+	void stunned();
+	void vulnerable();
+	void invulnerable();
+	void startUseTesla();
+	
+	__noedit boolean allowJumping;
+	__noedit float jumpCooldownTime;
+	__noedit boolean isJumping;
+	__noedit float jumpLengthScale;
+	__noedit list jumpingVolumes;
+	__noedit list jumpingNoLandingVolumes;
+	__noedit int stunnedCount;
+};
+
+void prototyperobot::init(){ 
+	allowJumping = false; 
+	jumpCooldownTime = 0;
+	isJumping = false;
+	jumpLengthScale = 8.0; // Land after ~1000 units, slide another ~200 units.
+};
+
+void prototyperobot::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ) {
+}
+
+void prototyperobot::start(){
+	self.showAttachment( "right_hand" );
+	allowJump();
+	
+	jumpingVolumes.append( $cb_volume_default_jumping1 );
+	jumpingVolumes.append( $cb_volume_default_jumping2 );
+	jumpingVolumes.append( $cb_volume_default_jumping3 );
+	jumpingVolumes.append( $cb_volume_default_jumping4 );
+	jumpingVolumes.append( $cb_volume_default_jumping5 );
+	jumpingVolumes.append( $cb_volume_default_jumping6 );
+	jumpingVolumes.append( $cb_volume_default_jumping7 );
+	
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict1 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict2 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict3 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict4 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict5 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict6 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict7 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict8 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict9 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict10 );
+	jumpingNoLandingVolumes.append( $cb_volume_default_jumping_restrict11 );
+	
+	stunnedCount = 0;
+	self.setEMPStunDuration( 0.1 );
+	$cb_target_show_stage1_vulnerable_use.makeActivatable( false );
+	$cb_target_show_stage1_vulnerable_marker.makeActivatable( false );
+	
+	self.startFX( FX_CINEMATIC_2 );
+	
+	thread update();
+}
+
+void prototyperobot::disabled(){
+	sys.killThread( "prototyperobot::update" );
+	sys.killThread( "prototyperobot::updateJump" );
+	sys.killThread( "prototyperobot::forceJump" );
+	allowJumping = false;
+	self.setTakesDamage( false ); // Do not allow stun during end event
+}
+
+vector prototyperobot::getWantedAnimDeltaScale() {
+	return Vec( jumpLengthScale, 1.0, 1.0 + ( jumpLengthScale * 0.0625 ) );
+}
+
+//head
+//hide_brainjar
+
+void prototyperobot::update(){
+	float lastVisibleTime = sys.getTime();
+	float curTime;
+	while ( true ) {
+		curTime = sys.getTime();
+		
+		boolean playerAtGlassCover = playerIsAtGlassCover();
+		if ( self.isEntityVisible( $player1 ) || playerAtGlassCover ) {
+			lastVisibleTime = curTime + sys.getFrameTime();
+		}
+
+		if ( playerAtGlassCover ) {
+			if ( sys.random( 1.0 ) < 0.1 ) {
+				self.fakeSenseStimulus( AISTIMULUS_SIGHT, $player1, $player1.getWorldOrigin(), 1.0 ); // Robot will fire on glass
+			} else {
+				self.fakeSenseStimulus( AISTIMULUS_HEARING, $player1, $player1.getWorldOrigin(), 1.0 ); // Robot will just walk to scenepoints
+			}
+		}
+
+		if ( sys.getcvar( "ai_debuglevel" ) != "0" ) {
+			// Debug draw avoid entity name if we have one
+		    entity ae = self.getAvoidEntity();
+		    if ( ae != $null ) {
+				sys.drawText("Avoid " + ae.getName(), self.getWorldOrigin() + Vec(0,0,220), 1, Vec(1,0,0), 1, 0.5 );	
+			} else {
+				sys.drawText("No avoid entity", self.getWorldOrigin() + Vec(0,0,220), 1, Vec(0,1,0), 1, 0.5 );	
+			}
+		}
+			
+		if ( allowJumping && !isJumping && ( curTime > jumpCooldownTime ) ) {
+			entity avoidEntity = self.getAvoidEntity();
+			if ( avoidEntity != $null ) {
+				if ( avoidEntity.getClass() == "idProjectile_Grenade" ) {
+					// Grenade dodge!
+					thread forceJump();
+				}
+			} else if ( ( curTime > jumpCooldownTime + 4.0 ) && 
+						( curTime > lastVisibleTime + 1.0 ) ) {
+				// Peekaboo!
+				if ( canJump( ) ) {
+					jump();
+				}
+			} else if ( ( curTime > jumpCooldownTime + 7.0 ) &&
+						( self.distanceTo( $player1 ) > 1000.0 ) ) {
+				if ( canJump() ) {
+					// Too far to slog along ground, Geronimo!
+					jump();
+				}
+			} 
+		}
+		
+		// In case of bugs where jump isn't launched for whatever reason
+		if ( curTime > jumpCooldownTime + 30 ) {
+			isJumping = false;
+		}
+		
+		sys.wait( 0.5 );
+	} 	
+}
+
+boolean prototyperobot::jumpLandingAllowed( vector posLand, vector posSlide ) {
+	int i;
+	entity volume;
+	vector ownPos = self.getWorldOrigin();
+	for ( i = 0; i < jumpingNoLandingVolumes.size(); i++ ) {
+		volume = jumpingNoLandingVolumes.get( i );
+		if ( volume != $null ) {
+			if ( volume.isPointInVolume( posLand ) ) {
+				// Restricted landing zone
+				if (useDebug()) sys.debugBounds( Vec(1,0,0), posLand - Vec(10,10,10), posLand + Vec(10,10,10), 5 );
+				if (useDebug()) sys.debugBounds( Vec(1,0,0), posSlide - Vec(10,10,10), posSlide + Vec(10,10,10), 5 );
+				return false;
+			}
+			if ( volume.isPointInVolume( posSlide ) ) {
+				// Restricted landing zone
+				if (useDebug()) sys.debugBounds( Vec(0,1,0), posLand - Vec(10,10,10), posLand + Vec(10,10,10), 5 );
+				if (useDebug()) sys.debugBounds( Vec(1,0,0), posSlide - Vec(10,10,10), posSlide + Vec(10,10,10), 5 );
+				return false;
+			}
+		}
+	}
+	// All clear!
+	if (useDebug()) sys.debugBounds( Vec(0,1,0), posLand - Vec(10,10,10), posLand + Vec(10,10,10), 5 );
+	if (useDebug()) sys.debugBounds( Vec(0,1,0), posSlide - Vec(10,10,10), posSlide + Vec(10,10,10), 5 );
+	return true;
+}
+
+boolean prototyperobot::canJump(){
+
+	// Check which volumes we're in
+	// Note: isPointInVolume checks against AA bounding box, not against actual volume, so we use only AABB volumes :P
+	int i;
+	list insideVolumes;
+	entity volume;
+	vector ownPos = self.getWorldOrigin();
+	for ( i = 0; i < jumpingVolumes.size(); i++ ) {
+		volume = jumpingVolumes.get( i );
+		if ( volume != $null ) {
+			if ( volume.isPointInVolume( ownPos ) ) {
+				insideVolumes.append( volume );
+
+				if (useDebug()) sys.debugBounds( Vec(0.5,0.5,0.5), volume.getWorldOrigin() + volume.getMins(), volume.getWorldOrigin() + volume.getMaxs(), 1.0 );
+			}			
+		}	
+	}
+	
+	// If jumping towards player, we should adjust length to land on top of him. Otherwise jump as far as possible.
+	float minDist = 400.0;
+	float maxDist = 1000.0;
+	float idealDist = maxDist;
+	vector jumpDir = self.getModelForward();
+	vector toPlayer = $player1.getWorldOrigin() - ownPos;
+	float playerDist = sys.vecLength( toPlayer );
+	if ( playerDist > minDist ) {
+		if ( sys.vecDotProduct( jumpDir, toPlayer / playerDist ) > 0.95 ) {
+			idealDist = playerDist;			
+		}
+	}
+
+	if (useDebug()) sys.debugArrow(Vec(1,1,0), ownPos, ownPos + toPlayer, 1.0, 1.0);	
+	
+	// Check if we can make a jump inside volume
+	float dist = idealDist;
+	float delta = -200.0;
+	vector landPos; 
+	vector slidePos; 
+	while ( dist <= maxDist ) {
+		landPos = ownPos + jumpDir * dist; 
+		slidePos = ownPos + jumpDir * dist * 1.3;
+		for ( i = 0; i < insideVolumes.size(); i++ ) {
+			volume = insideVolumes.get( i );
+			if ( volume.isPointInVolume( landPos ) ) {
+				// End pos is inside same volume, check for landing restrictions 
+				if ( jumpLandingAllowed( landPos, slidePos ) ) {
+					// Found valid jump distance!
+					jumpLengthScale = dist / 125.0; // Scale 8.0 == 1000 units
+					if (useDebug()) sys.debugArrow(Vec(0,1,0), ownPos, ownPos + jumpDir * 300, 1.0, 1.0);	
+					return true;
+				}
+			}
+		}
+		
+		// Try next range
+		dist = dist + delta;
+		if ( dist < minDist ) {
+			// Below min, try longer ranges than ideal
+			delta = 200.0;
+			dist = idealDist + delta;
+		} 
+		// Spread the load, to be safe
+		sys.waitFrame();
+		jumpDir = self.getModelForward();
+		ownPos = self.getWorldOrigin();
+	}
+	
+	// Cannot jump in any jumping volumes
+	if (useDebug()) sys.debugArrow(Vec(1,0,0), ownPos, ownPos + jumpDir * 300, 1.0, 1.0);	
+	return false;
+}
+
+
+void prototyperobot::forceJump(){
+	// Move into position to jump as soon as possible, counts as jumping until we do or jump is aborted
+	isJumping = true;
+	
+	if ( canJump() ) {
+		jump();
+		return;
+	} 
+	
+	// Turn towards center
+	$cb_info_scenepoint_modifyscenepoint_enable_forcejump.activate( self );
+	self.setOverrideScenePoint( $cb_info_scenepoint_forcejump );
+	sys.waitFrame();
+	
+	// Try to jump until aborted or timed out
+	float endTime = sys.getTime() + 3.0;
+	while ( isJumping && allowJumping && ( sys.getTime() < endTime ) ) {
+		if ( canJump() ) {
+			$cb_info_scenepoint_modifyscenepoint_disable_forcejump.activate( self );
+			jump();
+			return;
+		} 
+		sys.waitFrame();
+	}
+
+	// Failed to jump
+	$cb_info_scenepoint_modifyscenepoint_disable_forcejump.activate( self );
+	isJumping = false;
+}
+
+void prototyperobot::jump(){
+	// Trigger jump anim. This will trigger jump launch in turn.
+	isJumping = true;
+	$cb_target_anim_changestate_jump_single.activate( self );
+	
+	// No push from obstacles until we land
+	enablePushFromObstacleTriggers( false );
+}
+
+void prototyperobot::jumpLaunch(){
+	// No damage while jumping (so we don't get emp'd in mid air)
+	self.setTakesDamage( false );
+	thread updateJump();
+}
+
+void prototyperobot::updateJump() {
+	// Push player aside when in air
+	float endTime = sys.getTime() + 2.0f; //Jump should never be longer than this
+	vector jumpDir = self.getModelForward();
+	vector sideDir = sys.vecCrossProduct( jumpDir, Vec( 0,0,1 ) );
+
+	while ( sys.getTime() < endTime ) {
+		vector toPlayer = $player1.getWorldOrigin() - self.getWorldOrigin();
+		if ( sys.vecDotProduct( jumpDir, toPlayer ) > 0.0 ) { 
+			// Player in front of us
+			float dist = sys.vecLength( toPlayer );
+			if ( dist < 200.0 ) {
+				toPlayer_z = 20.0; // Count player as sligthly up
+				vector dir = ( toPlayer / dist ); // Bias to side if player is way below us
+				if ( sys.vecDotProduct( sideDir, toPlayer ) ) {
+					dir = dir + sideDir;
+				} else {
+					dir = dir - sideDir;
+				}
+				// Push player aside
+				$player1.push( dir, 500.0, 0.5 );
+			}
+		}
+		sys.waitFrame();		
+	}
+}
+
+void prototyperobot::jumpLand(){
+	sys.killThread( "prototyperobot::updateJump" );
+
+	// Can take damage again
+	self.setTakesDamage( true );
+	
+	// Slide off obstacles	
+	enablePushFromObstacleTriggers( true );
+}
+
+void prototyperobot::jumpSmash(){
+	// Mighty fist of doom!
+	int handJoint = self.getJointHandle( "tm_lefthand" );
+	vector smashPos = self.getJointPos( handJoint );
+	sys.radiusDamage( smashPos, self, self, self, "damage/tungsten/ai/melee/prototyperobot_jumpsmash", 1.0 );
+}
+
+void prototyperobot::jumpDone(){
+	isJumping = false;
+	jumpCooldownTime = sys.getTime() + 1.0f;
+}
+
+void prototyperobot::allowJump(){
+	allowJumping = true;
+}
+void prototyperobot::whiteBrainsCantJump(){
+	allowJumping = false;
+}
+
+void prototyperobot::stunned(){
+	// No jumping for a while
+	isJumping = false;
+	jumpCooldownTime = sys.getTime() + 10.0f;
+	self.setTakesDamage( true );
+}
+void prototyperobot::vulnerable(){
+	if ( sys.getcvar( "ai_debuglevel" ) != "0" ) {
+		sys.drawText( "VULNERABLE", self.getWorldOrigin() + Vec(0,0,100), 1, Vec(1,1,1), 1, 3 );
+	}
+}
+void prototyperobot::invulnerable(){
+	// Ready to jump when exiting stun
+	jumpCooldownTime = sys.getTime(); 
+
+	// After we've been vulnerable once, we can grab the brain holder and end the stage 	
+	$cb_target_show_stage1_vulnerable_use.makeActivatable( true );
+	$cb_target_show_stage1_vulnerable_marker.makeActivatable( true );
+
+	// Increase stun time for next stun	
+	if ( stunnedCount < 4 ) {
+		stunnedCount++;
+		self.setEMPStunDuration( stunnedCount );
+	}
+}
+
+// Called from animevent
+void prototyperobot::startUseTesla() {
+	jumpCooldownTime = sys.getTime() + 5.0f;
+}
+
+
+//------------------------------------------------------------------------------------
+// Grenade respawning system
+
+int numGrenadesPickedUp = 0;
+void call_stage1_pickupgrenade( entity activatedEntity, entity activator ){
+	numGrenadesPickedUp++;
+}
+
+object grenaderespawner {
+	void init();
+	void onTrigger( entity activator ){};	
+	
+	void respawnGrenade();
+};
+
+void grenaderespawner::init(){ 
+	thread respawnGrenade(); 
+};
+
+void grenaderespawner::respawnGrenade() {
+	
+	// Wait until enough grenades have been picked up before respawning any
+	while ( numGrenadesPickedUp < 10 ) {
+		sys.wait( sys.random( 10.0 ) );
+	}
+
+	// Start checking for respawn	
+	while ( isStage1 && ( self.numTargets() > 0 ) ) {
+		
+		entity grenade = self.getTarget( 0 );
+		if ( grenade == $null ) {
+			// Grenade has been picked up, respawn if player is far enough away
+			if ( self.distanceTo( $player1 ) > 1000.0 ) {
+				grenade = sys.spawn( "prop/weapon/handgrenadeemp" );
+				grenade.setWorldOrigin( self.getWorldOrigin() );
+				grenade.setAngles( self.getAngles() );
+				self.clearTargets();
+				self.addTarget( grenade );
+				if ( useDebug() ) sys.drawText( "RESPAWNED " + grenade.getName(), self.getWorldOrigin(), 1, Vec(1,1,1), 1, 5.0 );				
+			} else {
+				if ( useDebug() ) sys.drawText( "PLAYER IS CLOSE, DON'T RESPAWN", self.getWorldOrigin(), 1, Vec(1,1,1), 1, 5.0 );				
+			}			
+		} 
+		sys.wait( sys.random( 12.0 ) );
+	}
+}
+
+//------------------------------------------------------------------------------------
+
+object mechadeathshead_stage2 {
+	void init();
+	void onTrigger( entity activator ){};	
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );	
+	
+	void start();
+	void end();
+	void rechargeShield( boolean stagger );
+	void zeppelinsDown();
+	void setShieldEffects( float prevFraction, float curFraction );
+	void setShieldGlow( float curFraction );
+	void update();
+
+	float shieldStrength;
+	__noedit float curShieldStrength;
+	__noedit boolean isRecharging;
+	__noedit boolean rechargeWillOverload;
+	__noedit boolean hasBeenHit;
+	__noedit float damageEffectCooldown;
+	__noedit boolean stageDone;
+};
+
+void mechadeathshead_stage2::init(){
+}
+
+void mechadeathshead_stage2::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ) {
+	
+	if ( damageAmount == 0 ) {
+		return;
+	}
+	
+	// Shield is hit
+	if ( sys.getTime() > damageEffectCooldown ) {
+		self.startFX( FX_CINEMATIC_2 );
+		damageEffectCooldown = sys.getTime() + 0.5 + sys.random( 0.5 );
+	}
+
+	
+	// Don't actually suffer any damage
+	self.resetHealth();
+
+	// No damage suffered while recharging
+	if ( !isRecharging ) {
+		
+		// Do we need to recharge?
+		curShieldStrength = curShieldStrength - damageAmount;
+		
+		if ( curShieldStrength <= 0 ) {
+			thread rechargeShield( true );
+		} else {
+			setShieldEffects( ( curShieldStrength + damageAmount ) / shieldStrength, curShieldStrength / shieldStrength ); 
+			
+			if ( !hasBeenHit ) {
+				// Play stagger anim first time we're hit
+				hasBeenHit = true;
+				$cb_target_anim_changestate_stagger.activate( self );
+			}
+		}
+	}
+}	
+
+void mechadeathshead_stage2::start(){
+	curShieldStrength = 0.0;
+	isRecharging = false;
+	rechargeWillOverload = false;
+	hasBeenHit = false;
+	damageEffectCooldown = 0.0;
+	stageDone = false;
+	
+	// Start exhaust effects
+	self.startFX( FX_CINEMATIC_4 ); 
+	
+	// Switch to proper mesh kit
+	self.switchMeshKit( MESH_KIT_GEAR, "Stage2" ); 
+
+	// Always start by recharging
+	thread rechargeShield( false );
+	
+	thread update();
+}
+
+void mechadeathshead_stage2::end(){
+	sys.killThread( "mechadeathshead_stage2::rechargeShield" );
+	sys.killThread( "mechadeathshead_stage2::update" );
+	stageDone = true;
+}
+
+
+void mechadeathshead_stage2::rechargeShield( boolean stagger ) {
+	isRecharging = true;
+	curShieldStrength = 0.0;
+	
+	if ( rechargeWillOverload ) {
+		// Uh, oh, tesla coil has gone haywire. Stage2 complete!
+		self.stopFX( FX_START_DAMAGE_LEVEL_1 );
+		self.stopFX( FX_START_DAMAGE_LEVEL_2 );
+		self.stopFX( FX_START_DAMAGE_LEVEL_3 );
+		self.stopFX( FX_START_DAMAGE_LEVEL_4 );
+		sys.println( sys.getTime( ) + " Stopped FX_START_DAMAGE_LEVEL_1,2,3,4 on overload" );
+		self.startFX( FX_AI_DMG_TANK );
+		$cb_target_relay_stage2_end.activate( self );
+		return;	
+	}
+	
+	if ( stagger ) {
+		// Stagger, then recharge
+		$gp_target_relay_deathshead_recharge_vo.activate( self );
+		$cb_target_anim_changestate_rechargeshield_stagger.activate( self );
+		sys.wait( 2.5 );
+	} else {
+		// No stagger, straight to recharge
+		$gp_target_relay_deathshead_recharge_vo.activate( self );
+		$cb_target_anim_changestate_recharge_direct.activate( self );
+		sys.wait( 1.0 );
+	}
+	
+	// Stop shield stages effects
+	self.stopFX( FX_START_DAMAGE_LEVEL_1 );
+	self.stopFX( FX_START_DAMAGE_LEVEL_2 );
+	self.stopFX( FX_START_DAMAGE_LEVEL_3 );
+	self.stopFX( FX_START_DAMAGE_LEVEL_4 );
+	sys.println( sys.getTime( ) + " Stopped FX_START_DAMAGE_LEVEL_1,2,3,4 on recharge start" );
+	
+	// Recharge effect
+	self.startFX( FX_CINEMATIC_1 ); 
+
+	// Increase shield glow over time
+	while ( curShieldStrength < shieldStrength ) {
+		curShieldStrength = curShieldStrength + ( shieldStrength / 70.0 );
+		setShieldGlow( curShieldStrength / shieldStrength );
+		sys.wait( 0.1 );
+	} 
+		
+	// Shield is fully operational
+	curShieldStrength = shieldStrength;
+	self.startFX( FX_START_DAMAGE_LEVEL_1 );
+	sys.println( sys.getTime( ) + " Started FX_START_DAMAGE_LEVEL_1 on recharge end" );
+	
+	// Exit recharge anim
+	isRecharging = false;
+	$cb_target_anim_changestate_rechargeshield_exit.activate( self );
+}
+
+void mechadeathshead_stage2::zeppelinsDown() {
+	rechargeWillOverload = true;
+}
+
+void mechadeathshead_stage2::setShieldEffects( float prevFraction, float curFraction ){
+
+	// Switch effects at appropriate fractions
+	if ( curFraction <= 0.3 ) {
+		if ( prevFraction > 0.3 ) {
+			self.startFX( FX_START_DAMAGE_LEVEL_4 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_1 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_2 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_3 );
+			sys.println( sys.getTime( ) + " Stopped FX_START_DAMAGE_LEVEL_1, 2, 3, started 4" );
+		}
+	} else if ( curFraction <= 0.7 ) {
+		if ( prevFraction > 0.7 ) {
+			self.startFX( FX_START_DAMAGE_LEVEL_3 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_1 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_2 );
+			sys.println( sys.getTime( ) + " Stopped FX_START_DAMAGE_LEVEL_1, 2, started 3" );
+		}
+	} else if ( curFraction <= 0.95 ) {
+		if ( prevFraction > 0.95 ) {
+			self.startFX( FX_START_DAMAGE_LEVEL_2 );
+			self.stopFX( FX_START_DAMAGE_LEVEL_1 );
+			sys.println( sys.getTime( ) + " Stopped FX_START_DAMAGE_LEVEL_1, started 2" );
+		}
+	}
+	
+	setShieldGlow( curFraction );
+}
+
+void mechadeathshead_stage2::setShieldGlow( float curFraction ){
+	// Glow on coils
+	float glow; 
+	if ( curFraction > 0.8 ) {
+		glow = ( ( curFraction - 0.8 ) / 0.2 ) * 990.0 + 10.0;
+	} else {
+		glow = ( curFraction / 0.8 );
+		glow = glow * glow * glow * 9.5 + 0.5;	
+	}
+	self.blendRenderParameter( AIRENDERPARAM_SELFDESTRUCTGLOW, glow, 0.1 ); 
+}
+
+void mechadeathshead_stage2::update() {
+	float teslaWasActive = false;
+	while ( !stageDone ) {
+		
+		// Deathshead has access to camera feeds inside his cockpit :)
+	    self.fakeSenseStimulus( AISTIMULUS_HEARING, $player1, $player1.getWorldOrigin(), 0.5 );
+	
+		// Update tesla fire at glass cover stuff
+		if ( playerIsAtGlassCover() ) {
+
+			// Fire at one of these points
+			self.addTeslaBlindFirePosition( $cb_info_null_behindglass_teslatarget_01.getWorldOrigin() );			
+			self.addTeslaBlindFirePosition( $cb_info_null_behindglass_teslatarget_02.getWorldOrigin() );			
+			self.addTeslaBlindFirePosition( $cb_info_null_behindglass_teslatarget_03.getWorldOrigin() );			
+			self.addTeslaBlindFirePosition( $cb_info_null_behindglass_teslatarget_04.getWorldOrigin() );			
+			
+			if ( self.teslaIsActive() ) {
+				teslaWasActive = true;
+			} else if ( teslaWasActive ) {
+				// Reduced cooldown when target is behind glass cover
+				self.setTeslaCooldown( 3.0 );
+				teslaWasActive = false;
+			}
+			
+		} else {
+			// Player is not at glass cover, clear blind fire positions
+			self.clearTeslaBlindFirePositions();
+		}
+		
+		// Zap player if he comes too close
+		vector away = $player1.getWorldOrigin() - self.getWorldOrigin();
+		float dist = sys.vecLength( away );
+		if ( dist < 250 ) {
+			float damageScale = 1.0 - ( 0.01 * ( dist - 150 ) );
+	    	$player1.damage( self, self, @damage( "damage/tungsten/ai/melee/mechadeatshhead_proximityzapper" ), damageScale, away ); 
+		  	self.startFX( FX_CINEMATIC_5 );
+	  	}
+	  	sys.wait( 0.2 );
+    }
+}
+
+
+//------------------------------------------------------------------------------------
+
+object mechadeathshead_stage3 {
+	void init(){};
+	void onTrigger( entity activator ){};	
+    void onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed );	
+	
+	void start();
+	void die();
+	void updatePlayerVisible();
+	void speakWhenReady();
+	void doneSpeaking();
+	
+	__noedit float maxHealth;
+	__noedit float healthFraction;
+	__noedit float staggerCoolDown;
+	__noedit boolean dying;
+	__noedit float damageEffectCooldown;
+	__noedit float staggerDamage;
+	__noedit float lastDamageTime;
+	__noedit int vo_index;
+	__noedit float playerVisibleTime;
+	__noedit boolean isSpeaking;
+};
+
+void mechadeathshead_stage3::start(){
+	// Start exhaust effects
+	self.startFX( FX_CINEMATIC_4 );
+	
+	// Switch to proper mesh kit
+	self.switchMeshKit( MESH_KIT_GEAR, "Stage3" ); 
+	self.hideIndividualMeshKit( MESH_KIT_GEAR, "tesla" ); 
+	
+	
+	$cb_prop_useable_use_stage3_end.hide();
+	$cb_prop_useable_use_stage3_end_safetybackup1.hide();
+	$cb_prop_useable_use_stage3_end_safetybackup2.hide();
+	$cb_prop_useable_use_stage3_end_safetybackup3.hide();
+	$cb_prop_useable_use_stage3_end_safetybackup4.hide();
+	$cb_prop_useable_use_stage3_end_safetybackup5.hide();
+	$gp_misc_interactivemarker_use_deathshead.hide();
+	
+	maxHealth = self.getHealth();
+	healthFraction = 1.0;
+	staggerCoolDown = 0.0;
+	dying = false;
+	damageEffectCooldown = 0.0;
+	self.setAnimWebScriptBlend( 1.0 ); 
+	staggerDamage = -1.0;
+	vo_index = 0;
+	playerVisibleTime = 0.0;
+	isSpeaking = false;
+	
+	thread updatePlayerVisible();
+	
+	// Autospot player after "die allied schweinhund" line to start fight if player hides.
+	sys.wait( 5.0 );
+    self.fakeSenseStimulus( AISTIMULUS_HEARING, $player1, $player1.getWorldOrigin(), 3.0 );
+}
+
+void mechadeathshead_stage3::die(){
+	dying = true;
+};
+
+void mechadeathshead_stage3::onDamage( entity attacker, float health, decl damageDecl, float damageAmount, int killed ) {
+	if ( dying ) {
+		return;
+	}
+	
+	// Free to act if damaged while speaking
+	doneSpeaking();
+
+	// Random damage effects from time to time 	
+	if ( sys.getTime() > damageEffectCooldown ) {
+	    self.startFX( FX_AI_DMG_SMOKE );
+	  self.startFX( FX_EXPLODABLE_STEAM_01 + sys.randomInt( 4 ) );
+		damageEffectCooldown = sys.getTime() + 0.5 + sys.random( 0.5 );
+	}
+
+	// Check for damage thresholds		
+	float curFraction = health / maxHealth;
+	if ( ( curFraction <= 0.9 ) && ( healthFraction > 0.9 ) ) {
+		self.startFX( FX_START_DEATH_1 );
+		$cb_target_anim_changestate_deathshead_angry_1.activate( self );
+		self.setAnimWebScriptBlend( 0.7 ); 
+		if ( useDebug() ) sys.drawText( "DAMAGE 1", self.getWorldOrigin() + Vec(0,0,200), 1, Vec(1,1,1), 1, 5.0 );
+	} 
+	if ( ( curFraction <= 0.75 ) && ( healthFraction > 0.75 ) ) {
+		self.startFX( FX_START_DEATH_2 );
+		self.setSkin( "Damaged1" );
+		$cb_target_anim_changestate_deathshead_angry_2.activate( self );
+		self.setAnimWebScriptBlend( 0.4 ); 
+		if ( useDebug() ) sys.drawText( "DAMAGE 2", self.getWorldOrigin() + Vec(0,0,200), 1, Vec(1,1,1), 1, 5.0 );
+	} 
+	if ( ( curFraction <= 0.5 ) && ( healthFraction > 0.5 ) ) {
+		self.startFX( FX_START_DEATH_3 );
+		self.setSkin( "Damaged1" );
+		$cb_target_anim_changestate_deathshead_angry_3.activate( self );
+		self.setAnimWebScriptBlend( 0.0 ); 
+		if ( useDebug() ) sys.drawText( "DAMAGE 3", self.getWorldOrigin() + Vec(0,0,200), 1, Vec(1,1,1), 1, 5.0 );
+	} 
+	if ( ( curFraction <= 0.2 ) && ( healthFraction > 0.2 ) ) {
+		self.startFX( FX_START_DEATH_4 );
+		self.setSkin( "Damaged1" );
+		$cb_target_anim_changestate_deathshead_angry_1.activate( self );
+		
+		// Switch to broken walk cycle
+		self.setAnimWebScriptBlend( 2.0 ); 
+		
+		if ( useDebug() ) sys.drawText( "DAMAGE 4", self.getWorldOrigin() + Vec(0,0,200), 1, Vec(1,1,1), 1, 5.0 );
+	} 
+		
+	// Check for staggers
+	if ( staggerDamage < 0 ) {
+		// Bonus stagger damage the first time we're hit
+		staggerDamage = damageAmount + 50.0;
+	} else if ( sys.getTime() > lastDamageTime + 2.0 ) {
+		// Reset accumulated stagger damage if we haven't kept the pressure up
+		staggerDamage = damageAmount;
+	} else {
+		staggerDamage = staggerDamage + damageAmount;
+	}
+		
+	if ( sys.getTime() > staggerCoolDown ) {
+		// Less damage required to cause stagger the less health MDH has.
+		if ( staggerDamage > ( 50.0 + 50.0 * curFraction ) ) {
+			$cb_ai_scriptedanimweb_mdh_stagger.activate( self );
+			staggerCoolDown = sys.getTime() + 8.0;
+			staggerDamage = 0;
+		}
+	}
+	
+	// Save current health fraction
+	healthFraction = curFraction;
+
+	// Save time of damage	
+	lastDamageTime = sys.getTime();
+}	
+
+void mechadeathshead_stage3::updatePlayerVisible(){
+	while ( !dying ) {
+		if ( self.isEntityVisible( $player1 ) ) {
+			playerVisibleTime = sys.getTime();
+		}
+		sys.wait( 0.1 );
+	}
+}
+
+void mechadeathshead_stage3::speakWhenReady() {
+	// This is called when appropriate time has passed since last dialogue. 
+	// Wait until MDH is somewhat distant from player and hasn't seen him for a while, then speak line.
+	while ( ( sys.getTime() < playerVisibleTime + 6.0 ) || 
+			( sys.getTime() < lastDamageTime + 6.0 ) ||
+		    ( self.distanceTo( $player1 ) < 300.0 ) ) {
+		sys.wait( 0.2 );
+	}		
+	if ( vo_index < $gp_info_null_stage3_vo_list.numTargets() ) {
+		// Speak, and stop shooting for a while (or until we get shot back or get close to target)
+		entity vo = $gp_info_null_stage3_vo_list.getTarget( vo_index );
+		vo.makeActivatable( true );
+		vo.activate( self );
+		vo_index++;
+		isSpeaking = true;
+		$gp_target_ai_aicommand_vo_stage3_pause_fire.activate( self );
+		
+		while ( isSpeaking ) {
+			sys.wait( 0.5 );
+			float dist = self.distanceTo( $player1 );
+			if ( ( dist < 200.0 ) || 
+				 ( ( dist < 600.0 ) && ( sys.getTime() < playerVisibleTime + 0.6 ) ) ){
+				// Target is close, don't hold off firing anymore
+				doneSpeaking();
+			}
+		}
+	}
+}
+
+void mechadeathshead_stage3::doneSpeaking() {
+	if ( isSpeaking ) {
+		isSpeaking = false;
+		$gp_target_ai_aicommand_vo_stage3_unpausepause_fire.activate( self );				
+	}
+}
+
+//------------------------------------------------------------------------------------
+
+int numActiveFlames = 0;
+int smokeCondition = FX_CINEMATIC_1;
+
+list lActiveFlamesBursts;
+
+object flameburstprefab {
+	void init();
+	void onTrigger( entity activator );	
+	void turnOff();	
+	
+	float warningFlameDuration;
+	__noedit int flameCondition;
+};
+
+void flameburstprefab::init() {
+	// Save the start condition for later and change it to the warning effect condition.  
+	// This enables us to more easily preview the flame effects as well as have varying flames even though we use the same warning effect.
+	flameCondition = self.getStartCondition();
+	self.setStartCondition( FX_CINEMATIC_1 );
+}
+
+void flameburstprefab::onTrigger( entity activator ) {
+
+	sys.setThreadName( self.getName() + "::onTrigger" );
+
+	// We're active
+	lActiveFlamesBursts.append( self );
+
+	// Show warning effect
+	self.show();
+	
+	sys.wait( warningFlameDuration );
+	
+	// Flame is on! 
+	self.stopFX( FX_CINEMATIC_1 );
+	self.startFX( flameCondition );
+	
+	// Set clip contents to obscure sight
+	self.setContents( CONTENTS_OPAQUE );
+	
+	// Make all targets activatable and activate them (hurt triggers etc)
+	int i = 0;
+	for (; i < self.numTargets(); i++ ) {
+		self.getTarget( i ).makeActivatable( true );
+		self.getTarget( i ).activate( self );		
+	}
+	
+	// Check if we should increase general smoke level
+	numActiveFlames++;
+	if ( ( numActiveFlames % 3 ) == 0 ) {
+		// Allow increase of smoke level every three flames
+		if (useDebug()) sys.drawText( "Increase smoke to " + smokeCondition, $player1.getWorldOrigin() + Vec(100, 0, 80 ), 1, Vec(1,1,0), 1, 5);
+		$pipe_func_fx_postprocess_smoke.stopFX( smokeCondition - 1);
+		$pipe_func_fx_postprocess_smoke.startFX( smokeCondition );
+		smokeCondition++;
+	}
+}
+
+void flameburstprefab::turnOff() {
+	sys.killThread( self.getName() + "::onTrigger" );
+	
+	self.stopFX( FX_CINEMATIC_1 );
+	self.stopFX( flameCondition );
+	
+	// Disable all targets (hurt triggers etc)
+	int i = 0;
+	for (; i < self.numTargets(); i++ ) {
+		self.getTarget( i ).makeActivatable( false );
+	}
+}
+
+void turnOffNearbyFlames( vector pos, float range ) {
+	int i = 0;
+	entity flameBurst;
+	for (; i < lActiveFlamesBursts.size(); i++ ) {
+		flameBurst = lActiveFlamesBursts.get( i );
+		if ( flameBurst != $null ) {
+			// If flame is near position, turn it off
+			vector flamePos = flameBurst.getWorldOrigin() + ( 100 * sys.angToForward( flameBurst.getAngles() ) );
+			if ( sys.vecLength( pos - flamePos ) < range ) {
+				flameBurst.callFunction( "turnOff" );
+				
+				// Wait a while before turning off next flame		
+				sys.wait( sys.random( 1.0 ) + 0.5 );
+			}
+		}
+	}
+}
+
+//------------------------------------------------------------------------------------
+
+void call_stage3_end( entity activatedEntity, entity activator ) {
+	// MDH is dying
+	$cb_ai_mecha_deathshead_stage3.callFunction( "die" );
+	
+	// Deathshead will stop looking at player
+	$cb_func_animatedsimple_character_deathshead_stage3.setFocus( $null, false, false, 0 );	
+	
+	// Push away from stairs
+	$cb_triggers_trigger_pushawayfromstairswhendying.makeActivatable( true );
+	
+	// Wait for MDH to collapse
+	sys.wait( 7.0 );
+
+	// Turn off all flames near MDH	
+	thread turnOffNearbyFlames( $cb_ai_mecha_deathshead_stage3.getWorldOrigin(), 250.0 );
+	
+	// Stop pushing
+	$cb_triggers_trigger_pushawayfromstairswhendying.makeActivatable( false );
+	
+	// Set up event MDH
+	$gp_func_animatedsimple_generic_deathsheadsmech_deceive_event.setSkin( "Damaged1" );
+	$gp_func_animatedsimple_generic_deathsheadsmech_deceive_event.switchMeshKit( MESH_KIT_GEAR, "Dead" );
+}
+
+void call_smotherFlamesOnDecieve( entity activatedEntity, entity activator ) {
+	// Turn off all flames near player	
+	thread turnOffNearbyFlames( $gp_info_null_deceivepos.getWorldOrigin(), 450.0 );
+}
+
+void disablebrain_fpevent (entity activatedEntity, entity activator) 
+{
+	vector angles = $cb_ai_prototyperobot.getBodyOrientation();
+	angles_x = 0.0;	
+	angles_z = 0.0;	
+	angles_y = angles_y + 180;
+	$cb_func_firstpersonevent_disable_prototype_robots_brain_control.teleport( $cb_ai_prototyperobot.getOrigin(), angles );
+	$cb_func_firstpersonevent_disable_prototype_robots_brain_control.activate( activator );
+
+}
+
+void deathshead_notarget (entity activatedEntity, entity activator) 
+{
+	$cb_ai_mecha_deathshead_stage2.setIndicateTarget(FALSE);
+	$cb_ai_mecha_deathshead_stage2.setPlayerShouldLowerWeapon(TRUE);
+
+}
+
+void dh_bloodknife (entity activatedEntity, entity activator) 
+{
+	$gp_func_movers_mover_deceive_knife.setSkin("blood");
+}

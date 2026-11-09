@@ -1,0 +1,293 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [33];
+uniform sampler2D samp_dither256map;
+uniform sampler2D samp_sparediffusemap;
+uniform sampler2D samp_sparespecularmap;
+uniform sampler2D samp_sparebumpmap;
+uniform sampler2D samp_sparediffusemap2;
+uniform sampler2D samp_sparespecularmap2;
+uniform sampler2D samp_sparebumpmap2;
+uniform sampler2D samp_selfshadowmap;
+uniform samplerCube samp_dynamicenvmap;
+
+in vec4 gl_FragCoord;
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+in vec4 vofi_TexCoord4;
+in vec4 vofi_TexCoord2;
+in vec4 vofi_TexCoord3;
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	vec4 sampleNormal;
+	vec3 fromViewerN;
+	vec3 globalNormal;
+	vec4 globalReflection;
+	vec3 surfaceDiffuse;
+	vec3 surfaceSpecular;
+	vec4 color;
+	{ if ( _fa_[0 ].x < 1.0 ) {
+			vec2 texcoord = gl_FragCoord.xy * ( 1.0 / 256.0 );
+			float dither = _fa_[0 ].y * tex2D( samp_dither256map, texcoord ).x + _fa_[0 ].z;
+			clip( _fa_[0 ].x - 0.2 - dither * 0.6 );
+		}
+	};
+	{
+		surfaceDiffuse = tex2D( samp_sparediffusemap, vofi_TexCoord0.xy ).xyz;
+		surfaceSpecular = tex2D( samp_sparespecularmap, vofi_TexCoord0.xy ).xyz;
+		sampleNormal = tex2D( samp_sparebumpmap, vofi_TexCoord0.xy ); if ( _fa_[1 ].x > 0.0 ) {
+			float morphScale = vofi_TexCoord1.w;
+			vec3 blendDiffuse = tex2D( samp_sparediffusemap2, vofi_TexCoord0.xy ).xyz;
+			vec3 blendSpecular = tex2D( samp_sparespecularmap2, vofi_TexCoord0.xy ).xyz;
+			vec4 blendNormal = tex2D( samp_sparebumpmap2, vofi_TexCoord0.xy );
+			surfaceDiffuse = mix( surfaceDiffuse, blendDiffuse, morphScale );
+			surfaceSpecular = mix( surfaceSpecular, blendSpecular, morphScale );
+			sampleNormal = mix( sampleNormal, blendNormal, morphScale );
+		}
+	}
+	{
+		fromViewerN = normalize( vofi_TexCoord4.xyz.xyz );
+	};
+	{
+		vec3 localNormal;
+		{
+			localNormal = sampleNormal.wyz - 0.5;
+			localNormal.z = sqrt( abs( dot( localNormal.xy, localNormal.xy ) - 0.25 ) );
+		};
+		{
+			globalNormal.x = dot3( localNormal, vofi_TexCoord1.xyz );
+			globalNormal.y = dot3( localNormal, vofi_TexCoord2.xyz );
+			globalNormal.z = dot3( localNormal, vofi_TexCoord3.xyz );
+			globalNormal = normalize( globalNormal );
+		};
+	};
+	{
+		globalReflection.xyz = fromViewerN - ( globalNormal * dot3( fromViewerN, globalNormal ) * 2.0 );
+	};
+	{
+		float graze;
+		{
+			graze = dot3( -fromViewerN, globalNormal );
+			graze = ( _fa_[2 ].x - max( graze, -graze ) ) / max( _fa_[2 ].x, 0.0001 );
+		};
+		{
+			surfaceDiffuse.xyz = mix( surfaceDiffuse.xyz, _fa_[3 ].xyz, saturate( graze * _fa_[3 ].w ) );
+		};
+		{
+			surfaceSpecular.xyz = mix( surfaceSpecular.xyz, _fa_[4 ].xyz, saturate( graze * _fa_[4 ].w ) );
+		};
+	};
+	surfaceDiffuse.xyz = pow3( abs( surfaceDiffuse.xyz ), 2.2 ); if ( _fa_[5 ].x > 0 ) {
+		vec3 fragmentXYZ;
+		{
+			fragmentXYZ = vofi_TexCoord4.xyz + _fa_[6 ].xyz;
+		};
+		{
+			{
+				globalReflection.w = ( 1.0 - sampleNormal.x ) * 4.0 + _fa_[7 ].x;
+			};
+			float powerExp = 4 + sampleNormal.x * 100;
+			vec3 selfShadow;
+			vec3 thickness;
+			float ao;
+			{ if( _fa_[5 ].y > 0 ) {
+					vec2 texcoord = screenPosToTexcoord( gl_FragCoord.xy, _fa_[8 ] );
+					vec4 encoded = tex2D( samp_selfshadowmap, texcoord );
+					encoded.xyz *= 2.0;
+					selfShadow = max( encoded.xyz - 1.0, vec3( 0.0 ) );
+					thickness = encoded.xyz + vec3( _fa_[9 ].y );
+					ao = 1.0 - _fa_[10 ].x * ( 1.0 - encoded.w );
+				} else {
+					selfShadow = vec3( 1.0 );
+					thickness = vec3( 100 );
+					ao = 1.0;
+				}
+			};
+			vec3 specularLight = vec3( 0.0 );
+			vec3 diffuseLight = vec3( 0.0 );
+			vec4 light0Color;
+			vec3 light0Dir;
+			{
+				vec3 wsPixelToLight = _fa_[11 ].xyz - fragmentXYZ.xyz;
+				float distanceToLight = length( wsPixelToLight );
+				float attenuation = 1.0 - ( min( distanceToLight, _fa_[12 ].w ) / max( _fa_[12 ].w, 0.00001 ) );
+				light0Dir.xyz = normalize( wsPixelToLight );
+				light0Color.xyz = _fa_[12 ].xyz * attenuation * saturate( selfShadow.x + _fa_[11 ].w );
+				light0Color.w = attenuation;
+			};
+			{
+				float lightFactor = saturate( dot3( light0Dir, globalNormal ) );
+				float lightSpecDot = saturate( dot3( light0Dir, globalReflection ) );
+				float lightPow = pow( lightSpecDot, powerExp ) * lightFactor;
+				diffuseLight += light0Color.xyz * lightFactor;
+				specularLight += light0Color.xyz * lightPow;
+			};
+			vec4 light1Color;
+			vec3 light1Dir;
+			{
+				vec3 wsPixelToLight = _fa_[13 ].xyz - fragmentXYZ.xyz;
+				float distanceToLight = length( wsPixelToLight );
+				float attenuation = 1.0 - ( min( distanceToLight, _fa_[14 ].w ) / max( _fa_[14 ].w, 0.00001 ) );
+				light1Dir.xyz = normalize( wsPixelToLight );
+				light1Color.xyz = _fa_[14 ].xyz * attenuation * saturate( selfShadow.y + _fa_[13 ].w );
+				light1Color.w = attenuation;
+			};
+			{
+				float lightFactor = saturate( dot3( light1Dir, globalNormal ) );
+				float lightSpecDot = saturate( dot3( light1Dir, globalReflection ) );
+				float lightPow = pow( lightSpecDot, powerExp ) * lightFactor;
+				diffuseLight += light1Color.xyz * lightFactor;
+				specularLight += light1Color.xyz * lightPow;
+			};
+			vec4 light2Color;
+			vec3 light2Dir;
+			{
+				vec3 wsPixelToLight = _fa_[15 ].xyz - fragmentXYZ.xyz;
+				float distanceToLight = length( wsPixelToLight );
+				float attenuation = 1.0 - ( min( distanceToLight, _fa_[16 ].w ) / max( _fa_[16 ].w, 0.00001 ) );
+				light2Dir.xyz = normalize( wsPixelToLight );
+				light2Color.xyz = _fa_[16 ].xyz * attenuation * saturate( selfShadow.z + _fa_[15 ].w );
+				light2Color.w = attenuation;
+			};
+			{
+				float lightFactor = saturate( dot3( light2Dir, globalNormal ) );
+				float lightSpecDot = saturate( dot3( light2Dir, globalReflection ) );
+				float lightPow = pow( lightSpecDot, powerExp ) * lightFactor;
+				diffuseLight += light2Color.xyz * lightFactor;
+				specularLight += light2Color.xyz * lightPow;
+			};
+			vec3 ambientLight = vec3( 0.0 )
+			+ max( globalNormal.x * _fa_[17 ].xyz, 0 )
+			+ max( -globalNormal.x * _fa_[18 ].xyz, 0 )
+			+ max( globalNormal.y * _fa_[19 ].xyz, 0 )
+			+ max( -globalNormal.y * _fa_[20 ].xyz, 0 )
+			+ max( globalNormal.z * _fa_[21 ].xyz, 0 )
+			+ max( -globalNormal.z * _fa_[22 ].xyz, 0 );
+			diffuseLight += ambientLight;
+			vec3 environment;
+			{
+				environment = texCUBElod( samp_dynamicenvmap, globalReflection ).xyz;;
+				environment = pow3( abs( environment ), 2.2 );
+			};
+			environment *= diffuseLight;
+			{
+				environment.xyz *= _fa_[23 ].xyz * _fa_[24 ].xyz;
+			};
+			{
+				specularLight.xyz *= _fa_[23 ].xyz * _fa_[24 ].xyz;
+			};
+			{
+				diffuseLight.xyz *= _fa_[25 ].xyz;
+			};;;;
+			vec3 finalColor = ( specularLight * surfaceSpecular.xyz ) + ( diffuseLight * surfaceDiffuse.xyz ) + ( environment * surfaceSpecular.xyz );
+			color.xyz = finalColor;
+			float lightFactor = 0.0;
+			{
+				lightFactor += dot3( light0Dir, globalNormal ) * light0Color.w;
+			};
+			{
+				lightFactor += dot3( light1Dir, globalNormal ) * light1Color.w;
+			};
+			{
+				lightFactor += dot3( light2Dir, globalNormal ) * light2Color.w;
+			};
+			{
+				if( _fa_[5 ].z < 1.0 ) {
+					color.w = 0.0;
+				} else {
+					float tmpLightFactor = saturate( lightFactor );
+					vec3 tmpAmbient = ambientLight;
+					color.w = saturate( ( 1.0 - ( tmpAmbient.x, tmpAmbient.y, tmpAmbient.z )*(1.0/3.0) )
+					- ( saturate( tmpLightFactor - _fa_[26 ].y ) + 0.5 + _fa_[26 ].x ) ) * 0.75;
+				}
+			};
+		};
+	} else {
+		vec3 specular = vec3( 0.0 );
+		{
+			{
+				globalReflection.w = ( 1.0 - sampleNormal.x ) * 4.0 + _fa_[7 ].x;
+			};
+			vec3 envColor;
+			{
+				envColor = texCUBElod( samp_dynamicenvmap, globalReflection ).xyz;;
+				envColor = pow3( abs( envColor ), 2.2 );
+			};
+			specular += envColor;
+		};
+		{
+			float glossPowerMask = saturate( dot( surfaceSpecular.xyz, vec3( 0.299, 0.587, 0.114 ) ) );
+			float cosi = max( dot3( globalReflection.xyz, _fa_[27 ].xyz ), 0.0 );
+			float glossPower;
+			float glossScale;
+			if ( globalReflection.w <= 1.0 ) {
+				glossPower = mix( _fa_[28 ].x, _fa_[28 ].y, globalReflection.w );
+				glossScale = mix( _fa_[29 ].x, _fa_[29 ].y, globalReflection.w );
+			} else if ( globalReflection.w <= 2.0 ) {
+				float amount = globalReflection.w - 1.0;
+				glossPower = mix( _fa_[28 ].y, _fa_[28 ].z, amount );
+				glossScale = mix( _fa_[29 ].y, _fa_[29 ].z, amount );
+			} else {
+				float amount = saturate( globalReflection.w - 2.0 );
+				glossPower = mix( _fa_[28 ].z, _fa_[28 ].w, amount );
+				glossScale = mix( _fa_[29 ].z, _fa_[29 ].w, amount );
+			}
+			glossPower *= glossPowerMask;
+			float glossIntensity;
+			{
+				float oneOverPi8 = 0.039808917197;
+				float glossPowMax = max( glossPower, 0.000001 );
+				glossIntensity = pow( max( cosi, 0.0 ), glossPowMax );
+				glossIntensity *= ( glossPowMax + 8.0 ) * oneOverPi8;
+				glossIntensity *= glossScale;
+			};
+			specular += vec3( glossIntensity );
+		};
+		{
+			float primeLightFactor = saturate( dot3( _fa_[27 ], globalNormal ) );
+			vec3 primeLight = _fa_[30 ].xyz * primeLightFactor;
+			vec3 channelLight = vec3( 0.0 )
+			+ max( globalNormal.x * _fa_[17 ].xyz, 0 )
+			+ max( -globalNormal.x * _fa_[18 ].xyz, 0 )
+			+ max( globalNormal.y * _fa_[19 ].xyz, 0 )
+			+ max( -globalNormal.y * _fa_[20 ].xyz, 0 )
+			+ max( globalNormal.z * _fa_[21 ].xyz, 0 )
+			+ max( -globalNormal.z * _fa_[22 ].xyz, 0 );
+			vec3 light = primeLight + channelLight;
+			{
+				vec3 specularLight = light * specular * surfaceSpecular.xyz;
+				vec3 diffuseLight = light;
+				{
+					specularLight.xyz *= _fa_[23 ].xyz * _fa_[24 ].xyz;
+				};
+				{
+					diffuseLight.xyz *= _fa_[25 ].xyz;
+				};;;
+				color.xyz = ( diffuseLight * surfaceDiffuse.xyz ) + specularLight;
+				{
+					color.w = 1.0 - ( saturate( primeLightFactor - _fa_[26 ].y ) + 0.5 + _fa_[26 ].x );
+				};
+			};
+		};
+	}
+	color.xyz = pow3( color.xyz, 1.0 / 2.2 );
+	{
+		float k = 1.0 - saturate( abs( dot3( globalNormal.xyz, _fa_[31 ].xyz ) ) );
+		float r = ( k - 0.25 ) * 1.333333;
+		color.xyz += _fa_[32 ].xyz * vec3( r * r );
+	};
+	{
+		out_FragColor0 = color;
+		out_FragColor1 = vec4( 0.0 );
+		{
+			out_FragColor2.xyz = globalNormal.xyz * vec3( 0.5 ) + vec3( 0.5 );
+			out_FragColor2.w = dot( surfaceSpecular.rgb, vec3( 1.0 / 3.0 ) );
+		};
+	};
+}

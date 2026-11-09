@@ -1,0 +1,18 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_transmap;
+
+in vec4 vofi_TexCoord0;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec4 sampleAttributes = tex2D( samp_transmap, vofi_TexCoord0.xy );
+	float mask = saturate( ceil( ( 1.000001 - ( _fa_[0 ].a * 1.0 ) ) - sampleAttributes.w ) );
+	vec3 color = mix( vec3( 0.5 ), vec3( sampleAttributes.x ), mask );
+	out_FragColor0.xyz = color;
+	out_FragColor0.w = 1.0;
+}

@@ -1,0 +1,13 @@
+#version 150
+
+#include "global.inc"
+
+in vec2 in_TexCoord;
+in vec4 in_Position;
+
+out vec4 vofi_TexCoord0;
+
+void main() {
+	vofi_TexCoord0 = in_TexCoord.xyxy;
+	gl_Position = in_Position;
+}

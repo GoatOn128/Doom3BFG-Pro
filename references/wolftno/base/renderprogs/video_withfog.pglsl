@@ -1,0 +1,32 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [1];
+uniform sampler2D samp_texturemap;
+
+in vec4 vofi_TexCoord0;
+in vec4 vofi_TexCoord1;
+
+out vec4 out_FragColor0;
+out vec4 out_FragColor1;
+out vec4 out_FragColor2;
+
+void main() {
+	vec4 YCoCg = tex2D( samp_texturemap, vofi_TexCoord0.xy );
+	vec3 color;
+	YCoCg.z = ( YCoCg.z * 31.875 ) + 1.0;
+	YCoCg.z = 1.0 / YCoCg.z;
+	YCoCg.xy *= YCoCg.z;
+	color.x = dot4( YCoCg, matrixCoCg1YtoRGB1X );
+	color.y = dot4( YCoCg, matrixCoCg1YtoRGB1Y );
+	color.z = dot4( YCoCg, matrixCoCg1YtoRGB1Z );
+	float fog = saturate( exp2( vofi_TexCoord1.w ) );
+	out_FragColor0.xyz = mix( _fa_[0 ].xyz, color.xyz, fog );
+	out_FragColor0.w = 1;
+	out_FragColor1 = vec4( 0.0 );
+	{
+		out_FragColor2.xyz = vec3( 0.0 ).xyz * vec3( 0.5 ) + vec3( 0.5 );
+		out_FragColor2.w = dot( vec4( 0.0 ).rgb, vec3( 1.0 / 3.0 ) );
+	};
+}

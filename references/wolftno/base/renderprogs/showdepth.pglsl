@@ -1,0 +1,18 @@
+#version 150
+
+#include "global.inc"
+
+uniform vec4 _fa_ [2];
+uniform sampler2D samp_spare1map;
+
+in vec4 gl_FragCoord;
+
+out vec4 out_FragColor0;
+
+void main() {
+	vec2 tc = screenPosToTexcoord( gl_FragCoord.xy, _fa_[0 ] );
+	float depth = tex2Ddepth( samp_spare1map, tc );
+	depth = depth * 2.0 - 1.0;
+	float clipZ = -( _fa_[1 ].w / ( -depth - _fa_[1 ].z ) ) * depth;
+	out_FragColor0 = vec4( clipZ / 1000.0 );
+}
