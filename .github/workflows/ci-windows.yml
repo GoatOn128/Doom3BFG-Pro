@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The engine only ships a Windows system layer (neo/sys/win32, XAudio2
+# sound). There is no posix/linux/osx/macos layer to build against yet,
+# so linux and macos legs stay out of the matrix until one exists.
 jobs:
   build:
     name: windows-x86-${{ matrix.configuration }}
@@ -29,9 +32,8 @@ jobs:
         shell: pwsh
         run: |
           $fail = 0
-          # no hardcoded generator: the runner's installed Visual Studio
-          # is the one that works, whatever version the image ships
-          & cmake -S . -B out -A Win32 2>&1 | Tee-Object -FilePath build.log
+          # the CMake project lives in neo/, not the repo root
+          & cmake -S neo -B out -A Win32 2>&1 | Tee-Object -FilePath build.log
           if ($LASTEXITCODE -ne 0) { $fail = $LASTEXITCODE }
           if ($fail -eq 0) {
             & cmake --build out --config ${{ matrix.configuration }} --parallel 2>&1 | Tee-Object -FilePath build.log -Append
@@ -64,143 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bin-windows-x86-${{ matrix.configuration }}
-          path: |
-            bin/*.exe
-            bin/*.dll
-            main/*.dll
-          if-no-files-found: warn
-
-  build-linux:
-    name: linux-x86-64-${{ matrix.configuration }}
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration: [Debug, Release]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: build SDL3
-        # ubuntu-24.04 has no libsdl3-dev package, so build the same
-        # version as the vendored windows binaries from the official
-        # tarball and install it system-wide; everything it prints goes
-        # into build.log so failures show up in the digest. SDL3 refuses
-        # to configure without X11 or Wayland headers, so install its
-        # usual linux build dependencies first.
-        run: |
-          set -o pipefail
-          sudo apt-get update -q
-          sudo apt-get install -yq libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev libdbus-1-dev libudev-dev libdrm-dev libgbm-dev libasound2-dev libpulse-dev libxrender-dev wayland-protocols libdecor-0-dev libxkbcommon-x11-dev libpipewire-0.3-dev libjack-dev libsamplerate0-dev libopenal-dev 2>&1 | tee build.log
-          curl -fsSL -o SDL3.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.20/SDL3-3.4.20.tar.gz
-          tar xf SDL3.tar.gz
-          cmake -S SDL3-3.4.20 -B sdl-build -DCMAKE_BUILD_TYPE=Release 2>&1 | tee -a build.log
-          cmake --build sdl-build --parallel 2>&1 | tee -a build.log
-          sudo cmake --install sdl-build 2>&1 | tee -a build.log
-
-      - name: build
-        id: build
-        shell: bash
-        run: |
-          set -o pipefail
-          cmake -S . -B out -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} 2>&1 | tee -a build.log
-          cmake --build out --parallel 2>&1 | tee -a build.log
-
-      - name: digest
-        if: always()
-        env:
-          LEG: linux-x86-64-${{ matrix.configuration }}
-          STATUS: ${{ steps.build.outcome }}
-        run: python3 .github/scripts/digest.py
-
-      - name: upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-linux-x86-64-${{ matrix.configuration }}
-          path: |
-            build.log
-            status-*
-            digest-fragment-*
-            log-*.log
-          if-no-files-found: error
-
-      - name: upload binaries
-        if: steps.build.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: bin-linux-x86-64-${{ matrix.configuration }}
-          path: |
-            bin/WolfSP
-            main/*.so
-          if-no-files-found: warn
-
-  build-macos:
-    name: macos-arm64-${{ matrix.configuration }}
-    runs-on: macos-14
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration: [Debug, Release]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: build SDL3
-        # homebrew ships whatever sdl3 version it wants; build the same
-        # 3.4.20 tarball as the linux job so the API matches the vendored
-        # windows binaries on every platform
-        run: |
-          set -o pipefail
-          curl -fsSL -o SDL3.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.20/SDL3-3.4.20.tar.gz
-          tar xf SDL3.tar.gz
-          cmake -S SDL3-3.4.20 -B sdl-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${PWD}/sdl-prefix" 2>&1 | tee build.log
-          cmake --build sdl-build --parallel 2>&1 | tee -a build.log
-          cmake --install sdl-build 2>&1 | tee -a build.log
-
-      - name: build OpenAL Soft
-        # build OpenAL Soft from the official tarball into the same
-        # prefix as SDL3; homebrew's keg-only package needs extra wiring
-        # cmake 4 dropped compatibility with the <3.5 minimum this older
-        # tarball declares, the policy flag restores it
-        run: |
-          set -o pipefail
-          curl -fsSL -o openal.tar.gz https://github.com/kcat/openal-soft/archive/refs/tags/1.23.1.tar.gz
-          tar xf openal.tar.gz
-          cmake -S openal-soft-1.23.1 -B openal-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${PWD}/sdl-prefix" -DCMAKE_POLICY_VERSION_MINIMUM=3.5 2>&1 | tee -a build.log
-          cmake --build openal-build --parallel 2>&1 | tee -a build.log
-          cmake --install openal-build 2>&1 | tee -a build.log
-      - name: build
-        id: build
-        shell: bash
-        run: |
-          set -o pipefail
-          cmake -S . -B out -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DCMAKE_PREFIX_PATH="${PWD}/sdl-prefix" 2>&1 | tee -a build.log
-          cmake --build out --parallel 2>&1 | tee -a build.log
-
-      - name: digest
-        if: always()
-        env:
-          LEG: macos-arm64-${{ matrix.configuration }}
-          STATUS: ${{ steps.build.outcome }}
-        run: python3 .github/scripts/digest.py
-
-      - name: upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-macos-arm64-${{ matrix.configuration }}
-          path: |
-            build.log
-            status-*
-            digest-fragment-*
-            log-*.log
-          if-no-files-found: error
-
-      - name: upload binaries
-        if: steps.build.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: bin-macos-arm64-${{ matrix.configuration }}
-          path: |
-            bin/WolfSP
-            main/*.dylib
+          path: out/bin/*.exe
           if-no-files-found: warn

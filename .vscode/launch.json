@@ -2,16 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "WolfSP (Win32 debug)",
+            "name": "Darklight (Win32 debug)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/WolfSP.exe",
+            "program": "${workspaceFolder}/out/bin/Darklight.exe",
             "args": [
                 "+set",
                 "r_fullscreen",
                 "0"
             ],
-            "cwd": "${workspaceFolder}/bin",
+            "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build (Win32 debug)",
             "console": "integratedTerminal"
         }
