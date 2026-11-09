@@ -1,0 +1,48 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "terminal.integrated.profiles.windows": {
+            "VS 2026 Developer Command Prompt (x64)": {
+                "path": "${env:windir}\\System32\\cmd.exe",
+                "args": [
+                    "/k",
+                    "call .\\.vscode\\scripts\\VS2026DevCmd.cmd"
+                ],
+                "icon": "terminal-cmd"
+            }
+        },
+        "terminal.integrated.cwd": "${workspaceFolder}",
+        "terminal.integrated.defaultProfile.windows": "VS 2026 Developer Command Prompt (x64)",
+        "terminal.integrated.scrollback": 10000,
+        "terminal.integrated.enablePersistentSessions": true,
+        "search.exclude": {
+            "**/build": true,
+            "**/bin": true,
+            "**/.scons_cache": true
+        },
+        "files.watcherExclude": {
+            "**/build/**": true,
+            "**/bin/**": true,
+            "**/.scons_cache/**": true
+        },
+        "C_Cpp.default.cStandard": "c11",
+        "C_Cpp.default.cppStandard": "c++17",
+        "C_Cpp.errorSquiggles": "enabled",
+        "C_Cpp.intelliSenseEngine": "default",
+        "editor.formatOnSave": false
+    },
+    "extensions": {
+        "recommendations": [
+            "vadimcn.vscode-lldb",
+            "ms-vscode.cpptools",
+            "ms-vscode.powershell",
+            "editorconfig.editorconfig",
+            "usernamehw.errorlens",
+            "ms-vscode.hexeditor"
+        ]
+    }
+}

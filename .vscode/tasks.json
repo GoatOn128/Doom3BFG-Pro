@@ -1,0 +1,38 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Configure (Visual Studio Win32)",
+            "type": "shell",
+            "command": "cmake --preset visual-studio",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build (Win32 debug)",
+            "type": "shell",
+            "command": "cmake --build --preset visual-studio-debug",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": { "kind": "build", "isDefault": true },
+            "dependsOn": "Configure (Visual Studio Win32)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build (Win32 release)",
+            "type": "shell",
+            "command": "cmake --build --preset visual-studio-release",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": "build",
+            "dependsOn": "Configure (Visual Studio Win32)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean (Win32)",
+            "type": "shell",
+            "command": "cmake --build --preset visual-studio-debug --target clean",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        }
+    ]
+}

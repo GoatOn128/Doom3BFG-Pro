@@ -44,21 +44,14 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef _D3SDK
 #ifndef GAME_DLL
 
-#ifndef WINVER
-#define WINVER				0x0600
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT		WINVER
-#endif
+#include <sdkddkver.h>		// MSDN told me to add this
 
 #include <winsock2.h>
 #include <mmsystem.h>
 #include <mmreg.h>
 
 #define DIRECTINPUT_VERSION  0x0800			// was 0x0700 with the old mssdk
-#define DIRECTSOUND_VERSION  0x0800
 
-#include <dsound.h>
 #include <dinput.h>
 
 #endif /* !GAME_DLL */
@@ -72,6 +65,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma warning(disable : 4714)				// function marked as __forceinline not inlined
 #pragma warning(disable : 4996)				// unsafe string operations
 
+#include <xmmintrin.h>						// needed for SIMD instructions like MXCSR manipulation
 #include <malloc.h>							// no malloc.h on mac or unix
 #include <windows.h>						// for qgl.h
 #undef FindText								// fix namespace pollution
@@ -89,13 +83,20 @@ If you have questions concerning this license or the applicable additional terms
 	#define NDEBUG
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
-#include <assert.h>
-#include <time.h>
-#include <ctype.h>
+// STD
+#include <cstdio>
+#include <cstdlib>
+#include <cstdarg>
+#include <cstring>
+#include <cassert>
+#include <ctime>
+#include <cctype>
+#include <cerrno>
+#include <cmath>
+#include <climits>
+#include <thread>
+
+// STL
 #include <typeinfo>
 #include <errno.h>
 #include <math.h>

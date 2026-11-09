@@ -59,6 +59,123 @@ idSoundHardware_XAudio2::idSoundHardware_XAudio2() {
 	lastResetTime = 0;
 }
 
+#if ID_PC_WIN_8
+/*
+========================
+GetAudioDeviceDetails
+========================
+*/
+HRESULT GetAudioDeviceDetails( _In_ IMMDevice* immDevice, _Out_ AudioDevice* pInfo ) {
+	IPropertyStore* propStore = NULL;
+	PROPVARIANT     varName;
+	PROPVARIANT     varId;
+
+	PropVariantInit( &varId );
+	PropVariantInit( &varName );
+
+	HRESULT hResult = immDevice->OpenPropertyStore( STGM_READ, &propStore );
+
+	if ( SUCCEEDED( hResult ) ) {
+		hResult = propStore->GetValue( PKEY_AudioEndpoint_Path, &varId );
+	}
+
+	if ( SUCCEEDED( hResult ) ) {
+		hResult = propStore->GetValue( PKEY_Device_FriendlyName, &varName );
+	}
+
+	if ( SUCCEEDED( hResult ) ) {
+		assert( varId.vt == VT_LPWSTR );
+		assert( varName.vt == VT_LPWSTR );
+
+		// Now save somewhere the device display name & id
+		pInfo->name = varName.pwszVal;
+		pInfo->id = varId.pwszVal;
+	}
+
+	PropVariantClear( &varName );
+	PropVariantClear( &varId );
+
+	if ( propStore != NULL ) {
+		propStore->Release();
+	}
+
+	return hResult;
+}
+
+/*
+========================
+EnumerateAudioDevices
+========================
+*/
+std::vector<AudioDevice> EnumerateAudioDevices( _Out_opt_ AudioDevice* defaultDevice = NULL ) {
+	UINT32                   deviceCount      = 0;
+	IMMDeviceEnumerator*     immDevEnum       = NULL;
+	IMMDeviceCollection*     immDevCollection = NULL;
+	IMMDevice*               immDev           = NULL;
+	std::vector<AudioDevice> vAudioDevices;
+
+	HRESULT hResult = CoCreateInstance(
+						  __uuidof( MMDeviceEnumerator ), NULL,
+						  CLSCTX_ALL, __uuidof( IMMDeviceEnumerator ), ( void** ) &immDevEnum );
+
+	if ( FAILED( hResult ) ) {
+		idLib::Warning( "Failed to get audio enumerator" );
+		return std::move( vAudioDevices );
+	}
+
+	if ( defaultDevice != NULL ) {
+		ZeroMemory( defaultDevice, sizeof( AudioDevice ) );
+
+		IMMDevice* defaultImmDev = NULL;
+
+		// @pjb: get the default audio endpoint and make it the first one in the list
+		if ( SUCCEEDED( immDevEnum->GetDefaultAudioEndpoint( eRender, eConsole, &defaultImmDev ) ) ) {
+			GetAudioDeviceDetails( defaultImmDev, defaultDevice );
+			defaultImmDev->Release();
+		}
+	}
+
+	hResult = immDevEnum->EnumAudioEndpoints( eRender, DEVICE_STATE_ACTIVE, &immDevCollection );
+	if ( FAILED( hResult ) ) {
+		idLib::Warning( "Failed to get audio endpoints" );
+		return std::move( vAudioDevices );
+	}
+
+	hResult = immDevCollection->GetCount( &deviceCount );
+	if ( FAILED( hResult ) ) {
+		idLib::Warning( "No audio devices found" );
+		return std::move( vAudioDevices );
+	}
+
+	for ( UINT i = 0; i < deviceCount; i++ ) {
+		AudioDevice ad;
+
+		hResult = immDevCollection->Item( i, &immDev );
+		if ( SUCCEEDED( hResult ) ) {
+			hResult = GetAudioDeviceDetails( immDev, &ad );
+		}
+
+		if ( SUCCEEDED( hResult ) ){
+			vAudioDevices.push_back( ad );
+		}
+
+		if ( immDev != NULL ) {
+			immDev->Release();
+		}
+	}
+
+	immDevCollection->Release();
+	immDevEnum->Release();
+
+	return std::move( vAudioDevices );
+}
+#endif
+
+/*
+========================
+listDevices_f
+========================
+*/
 void listDevices_f( const idCmdArgs & args ) {
 
 	IXAudio2 * pXAudio2 = soundSystemLocal.hardware.GetIXAudio2();
@@ -68,6 +185,20 @@ void listDevices_f( const idCmdArgs & args ) {
 		return;
 	}
 
+#if ID_PC_WIN_8
+	AudioDevice defaultDevice;
+	auto vAudioDevices = EnumerateAudioDevices( &defaultDevice );
+	if( vAudioDevices.size() == 0 )
+	{
+		idLib::Warning( "No audio devices found" );
+		return;
+	}
+
+	for( size_t i = 0; i < vAudioDevices.size(); ++i )
+	{
+		idLib::Printf( "%s %3d: %S %S\n", vAudioDevices[i].id == defaultDevice.id ? "*" : " ", i, vAudioDevices[i].name.c_str(), vAudioDevices[i].id.c_str() );
+	}
+#else
 	UINT32 deviceCount = 0;
 	if ( pXAudio2->GetDeviceCount( &deviceCount ) != S_OK || deviceCount == 0 ) {
 		idLib::Warning( "No audio devices found" );
@@ -156,6 +287,7 @@ void listDevices_f( const idCmdArgs & args ) {
 			idLib::Printf( ", and %s\n", roles[roles.Num() - 1] );
 		}
 	}
+#endif
 }
 
 /*
@@ -168,13 +300,14 @@ void idSoundHardware_XAudio2::Init() {
 	cmdSystem->AddCommand( "listDevices", listDevices_f, 0, "Lists the connected sound devices", NULL );
 
 	DWORD xAudioCreateFlags = 0;
-#ifdef _DEBUG
+#if !ID_PC_WIN_8 && defined( _DEBUG )
 	xAudioCreateFlags |= XAUDIO2_DEBUG_ENGINE;
 #endif
 
 	XAUDIO2_PROCESSOR xAudioProcessor = XAUDIO2_DEFAULT_PROCESSOR;
 
 	if ( FAILED( XAudio2Create( &pXAudio2, xAudioCreateFlags, xAudioProcessor ) ) ) {
+#if !ID_PC_WIN_8 && defined( _DEBUG )
 		if ( xAudioCreateFlags & XAUDIO2_DEBUG_ENGINE ) {
 			// in case the debug engine isn't installed
 			xAudioCreateFlags &= ~XAUDIO2_DEBUG_ENGINE;
@@ -182,7 +315,9 @@ void idSoundHardware_XAudio2::Init() {
 				idLib::FatalError( "Failed to create XAudio2 engine.  Try installing the latest DirectX." );
 				return;
 			}
-		} else {
+		} else
+#endif
+		{
 			idLib::FatalError( "Failed to create XAudio2 engine.  Try installing the latest DirectX." );
 			return;
 		}
@@ -197,7 +332,56 @@ void idSoundHardware_XAudio2::Init() {
 	// Register the sound engine callback
 	pXAudio2->RegisterForCallbacks( &soundEngineCallback );
 	soundEngineCallback.hardware = this;
+	DWORD outputSampleRate = 44100; // Max( (DWORD)XAUDIO2FX_REVERB_MIN_FRAMERATE, Min( (DWORD)XAUDIO2FX_REVERB_MAX_FRAMERATE, deviceDetails.OutputFormat.Format.nSamplesPerSec ) );
 
+#if ID_PC_WIN_8
+	AudioDevice defaultDevice;
+	std::vector<AudioDevice> vAudioDevices = EnumerateAudioDevices( &defaultDevice );
+
+	if ( !vAudioDevices.empty() ) {
+
+		AudioDevice selectedDevice;
+
+		int preferredDevice = s_device.GetInteger();
+		bool validPreference = ( preferredDevice >= 0 && preferredDevice < ( int )vAudioDevices.size() );
+		// Do we select a device automatically?
+		if ( validPreference ) {
+			// Use the user's selected device
+			selectedDevice = vAudioDevices[preferredDevice];
+		} else if( !defaultDevice.id.empty() ) {
+			// Fall back to the default device if there is one
+			selectedDevice = defaultDevice;
+		} else {
+			// Fall back to first device
+			selectedDevice = vAudioDevices[0];
+		}
+
+		if ( SUCCEEDED( pXAudio2->CreateMasteringVoice( &pMasterVoice,
+					   XAUDIO2_DEFAULT_CHANNELS,
+					   outputSampleRate,
+					   0,
+					   selectedDevice.id.c_str(),
+					   NULL,
+					   AudioCategory_GameEffects ) ) ) {
+			XAUDIO2_VOICE_DETAILS deviceDetails;
+			pMasterVoice->GetVoiceDetails( &deviceDetails );
+
+			pMasterVoice->SetVolume( DBtoLinear( s_volume_dB.GetFloat() ) );
+
+			outputChannels = deviceDetails.InputChannels;
+			DWORD win8_channelMask;
+			pMasterVoice->GetChannelMask( &win8_channelMask );
+
+			channelMask = ( unsigned int )win8_channelMask;
+			idLib::Printf( "Using device: %S\n", selectedDevice.name.c_str() );
+		} else {
+			idLib::Warning( "Failed to create master voice" );
+			pXAudio2->Release();
+			pXAudio2 = NULL;
+			return;
+		}
+	}
+#else
 	UINT32 deviceCount = 0;
 	if ( pXAudio2->GetDeviceCount( &deviceCount ) != S_OK || deviceCount == 0 ) {
 		idLib::Warning( "No audio devices found" );
@@ -244,8 +428,6 @@ void idSoundHardware_XAudio2::Init() {
 		return;
 	}
 
-	DWORD outputSampleRate = 44100; // Max( (DWORD)XAUDIO2FX_REVERB_MIN_FRAMERATE, Min( (DWORD)XAUDIO2FX_REVERB_MAX_FRAMERATE, deviceDetails.OutputFormat.Format.nSamplesPerSec ) );
-
 	if ( FAILED( pXAudio2->CreateMasteringVoice( &pMasterVoice, XAUDIO2_DEFAULT_CHANNELS, outputSampleRate, 0, preferredDevice, NULL ) ) ) {
 		idLib::Warning( "Failed to create master voice" );
 		pXAudio2->Release();
@@ -256,6 +438,7 @@ void idSoundHardware_XAudio2::Init() {
 
 	outputChannels = deviceDetails.OutputFormat.Format.nChannels;
 	channelMask = deviceDetails.OutputFormat.dwChannelMask;
+#endif
 
 	idSoundVoice::InitSurround( outputChannels, channelMask );
 

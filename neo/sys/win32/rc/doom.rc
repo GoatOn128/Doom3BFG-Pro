@@ -9,12 +9,6 @@
 //
 #include <winres.h>
 
-#ifndef RT_MANIFEST
-#define RT_MANIFEST 24
-#endif
-
-1 RT_MANIFEST "doom.manifest"
-
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 

@@ -1,0 +1,38 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/engine",
+                "${workspaceFolder}/engine/client",
+                "${workspaceFolder}/engine/qcommon",
+                "${workspaceFolder}/engine/renderer",
+                "${workspaceFolder}/engine/sound",
+                "${workspaceFolder}/engine/server",
+                "${workspaceFolder}/engine/sys/sdl",
+                "${workspaceFolder}/engine/sys/win32",
+                "${workspaceFolder}/engine/splines",
+                "${workspaceFolder}/gamedll/game",
+                "${workspaceFolder}/gamedll/cgame",
+                "${workspaceFolder}/gamedll/ui",
+                "${workspaceFolder}/gamedll/botlib",
+                "${workspaceFolder}/external/SDL3/include",
+                "${workspaceFolder}/external/glad/include",
+                "${workspaceFolder}/external/openal-soft/include",
+                "${workspaceFolder}/external/stb",
+                "${workspaceFolder}/external/recast/Recast/Include",
+                "${workspaceFolder}/external/recast/Detour/Include"
+            ],
+            "defines": [
+                "WIN32",
+                "_WINDOWS",
+                "_CRT_SECURE_NO_WARNINGS",
+                "NDEBUG"
+            ],
+            "intelliSenseMode": "windows-msvc-x86",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
