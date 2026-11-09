@@ -38,13 +38,27 @@ If you have questions concerning this license or the applicable additional terms
 ================================================================================================
 */
 
-
-#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS	// prevent auto literal to string conversion
-
 #ifndef _D3SDK
 #ifndef GAME_DLL
 
 #include <sdkddkver.h>		// MSDN told me to add this
+
+// idStudio is built into the executable, like the original DoomEdit tools.
+// Keep MFC out of ordinary engine translation units; only editor sources are
+// compiled with IDSTUDIO and see the MFC declarations.
+#if defined( IDSTUDIO )
+#define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS	// prevent auto literal to string conversion
+#include "../tools/comafx/StdAfx.h"
+
+// DoomEdit predates the idVec operator migration and uses these Quake-style
+// vector helpers throughout its geometry code.
+#define DotProduct( a, b )            ( (a)[0] * (b)[0] + (a)[1] * (b)[1] + (a)[2] * (b)[2] )
+#define VectorSubtract( a, b, c )     ( (c)[0] = (a)[0] - (b)[0], (c)[1] = (a)[1] - (b)[1], (c)[2] = (a)[2] - (b)[2] )
+#define VectorAdd( a, b, c )          ( (c)[0] = (a)[0] + (b)[0], (c)[1] = (a)[1] + (b)[1], (c)[2] = (a)[2] + (b)[2] )
+#define VectorCopy( a, b )            ( (b)[0] = (a)[0], (b)[1] = (a)[1], (b)[2] = (a)[2] )
+#define VectorScale( a, b, c )        ( (c)[0] = (a)[0] * (b), (c)[1] = (a)[1] * (b), (c)[2] = (a)[2] * (b) )
+#define VectorMA( a, s, b, c )        ( (c)[0] = (a)[0] + (s) * (b)[0], (c)[1] = (a)[1] + (s) * (b)[1], (c)[2] = (a)[2] + (s) * (b)[2] )
+#endif
 
 #include <winsock2.h>
 #include <mmsystem.h>
