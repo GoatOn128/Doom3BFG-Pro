@@ -55,40 +55,118 @@ jobs:
         env:
           LEG: windows-x86-${{ matrix.configuration }}
         run: |
-          # job logs are admin-only, so the failure reasons are surfaced
-          # as annotations: they are readable without auth. build.log is
-          # read directly because the digest regex can miss error kinds.
+          # job logs are admin-only on this repo, so the failure reasons
+          # are surfaced as annotations, which are readable without auth
+          $leg = $env:LEG
+          function Emit([string]$title, [string]$msg) {
+            $msg = ($msg -replace '%', '%25') -replace "\r|\n", ' '
+            if ($msg.Length -gt 450) { $msg = $msg.Substring(0, 450) }
+            Write-Host "::error title=$title ($leg)::$msg"
+          }
           $lines = @()
           if (Test-Path build.log) { $lines = Get-Content build.log }
-          $clean = { param($s) (($s -replace '%', '%25') -replace "\r|\n", ' ') }
-          $seen = New-Object 'System.Collections.Generic.HashSet[string]'
-          $count = 0
-          foreach ($l in $lines) {
-            if ($count -ge 8) { break }
-            $t = $l.Trim()
-            if ($t.Length -lt 8) { continue }
-            if ($t -notmatch 'cmake error|fatal error|error [A-Z]+[0-9]|command line error|build failed|FAILED') { continue }
-            if (-not $seen.Add($t)) { continue }
-            $msg = & $clean $t
-            if ($msg.Length -gt 400) { $msg = $msg.Substring(0, 400) }
-            Write-Host "::error title=error $($count + 1) ($env:LEG)::$msg"
-            $count++
-          }
-          # always also post the log tail: failures that print no
-          # recognized error line (crashes, aborts) stay visible this way
-          $tail = [array]($lines | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -Last 24)
-          if ($tail.Count -gt 0) {
-            $chunks = [Math]::Ceiling($tail.Count / 8)
-            for ($c = 0; $c -lt $chunks; $c++) {
-              $part = @()
-              for ($k = $c * 8; $k -lt [Math]::Min($c * 8 + 8, $tail.Count); $k++) {
-                $l = $tail[$k].Trim()
-                if ($l.Length -gt 110) { $l = $l.Substring(0, 110) }
-                $part += $l
+
+          $rcFailed = $false
+          foreach ($l in $lines) { if ($l -match 'error RC|RC1107') { $rcFailed = $true; break } }
+
+          if ($rcFailed) {
+            # resource compiler failure: capture the exact rc options.
+            # the full diagnostics also land in log-<leg>-diag.log, which
+            # the publish job merges into the committed build log
+            $diag = New-Object System.Text.StringBuilder
+            [void]$diag.AppendLine('=== resource compiler diagnostics ===')
+
+            try { $where = (where.exe rc 2>&1 | Out-String).Trim() } catch { $where = 'where.exe rc failed' }
+            [void]$diag.AppendLine('where rc: ' + $where)
+            Emit 'diag where rc' $where
+
+            if (Test-Path 'neo/sys/win32/rc/doom.rc') {
+              New-Item -ItemType Directory -Force -Path 'diag' | Out-Null
+              $probe = & rc /nologo /fo:diag\probe.res 'neo\sys\win32\rc\doom.rc' 2>&1 | Out-String
+              [void]$diag.AppendLine('bare rc probe (exit=' + $LASTEXITCODE + '): ' + $probe)
+              Emit 'diag rc bare probe' ('exit=' + $LASTEXITCODE + ' ' + $probe)
+            } else {
+              [void]$diag.AppendLine('doom.rc missing on the runner')
+              Emit 'diag rc bare probe' 'doom.rc missing on the runner'
+            }
+
+            if (Test-Path 'out/Darklight.vcxproj') {
+              $vc = Get-Content 'out/Darklight.vcxproj' -Raw
+              foreach ($cfg in @('Debug', 'Release')) {
+                $pat = ('<ItemDefinitionGroup Condition="''$(Configuration)|$(Platform)''==''{0}|Win32''">' -f $cfg)
+                $m = [regex]::Match($vc, [regex]::Escape($pat) + '(?s)(.*?)</ItemDefinitionGroup>')
+                if ($m.Success) {
+                  $r = [regex]::Match($m.Groups[1].Value, '(?s)<ResourceCompile>(.*?)</ResourceCompile>')
+                  if ($r.Success) {
+                    $body = ($r.Groups[1].Value -replace '\s+', ' ').Trim()
+                    [void]$diag.AppendLine('ResourceCompile ' + $cfg + ': ' + $body)
+                    Emit ('diag vcx RC ' + $cfg) $body
+                  } else {
+                    [void]$diag.AppendLine('ResourceCompile ' + $cfg + ': element not found')
+                    Emit ('diag vcx RC ' + $cfg) 'no ResourceCompile element'
+                  }
+                } else {
+                  [void]$diag.AppendLine('ItemDefinitionGroup not found for ' + $cfg)
+                  Emit ('diag vcx RC ' + $cfg) 'no ItemDefinitionGroup for this config'
+                }
               }
-              $msg = & $clean ($part -join ' | ')
-              if ($msg.Length -gt 900) { $msg = $msg.Substring(0, 900) }
-              Write-Host "::error title=log tail $($c + 1) ($env:LEG)::$msg"
+
+              # rerun only the resource compile at detailed verbosity so
+              # the exact rc.exe command line is captured
+              $cfgHere = $leg -replace '^windows-x86-', ''
+              $other = 'Release'
+              if ($cfgHere -eq 'Release') { $other = 'Debug' }
+              foreach ($cfg in @($cfgHere, $other)) {
+                $log = 'diag-rc-' + $cfg + '.log'
+                & msbuild 'out\Darklight.vcxproj' '/t:ResourceCompile' ('/p:Configuration=' + $cfg) '/p:Platform=Win32' '/v:d' '/nologo' > $log 2>&1
+                if ((Select-String -Path $log -Pattern 'MSB4057' -Quiet -ErrorAction SilentlyContinue)) {
+                  # no standalone resource target: fall back to a project
+                  # build with references off
+                  & msbuild 'out\Darklight.vcxproj' '/t:Build' '/p:BuildProjectReferences=false' ('/p:Configuration=' + $cfg) '/p:Platform=Win32' '/v:d' '/nologo' > $log 2>&1
+                }
+                if (Test-Path $log) {
+                  [void]$diag.AppendLine('=== msbuild resource rerun ' + $cfg + ' ===')
+                  [void]$diag.AppendLine((Get-Content $log -Raw))
+                  $cmd = (Select-String -Path $log -Pattern 'rc\.exe' | Select-Object -First 1).Line
+                  if ($cmd) { Emit ('diag rc cmdline ' + $cfg) $cmd.Trim() }
+                  $errs = (Select-String -Path $log -Pattern 'RC1107|error RC|MSB\d{4}' | Select-Object -First 2 | ForEach-Object { $_.Line }) -join ' | '
+                  if ($errs) { Emit ('diag rc rerun ' + $cfg) $errs }
+                }
+              }
+            }
+
+            Set-Content -Path ('log-' + $leg + '-diag.log') -Value $diag.ToString()
+          } else {
+            # no resource compiler failure: report distinct error lines
+            # and the log tail as annotations
+            $clean = { param($s) (($s -replace '%', '%25') -replace "\r|\n", ' ') }
+            $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+            $count = 0
+            foreach ($l in $lines) {
+              if ($count -ge 8) { break }
+              $t = $l.Trim()
+              if ($t.Length -lt 8) { continue }
+              if ($t -notmatch 'cmake error|fatal error|error [A-Z]+[0-9]|command line error|build failed|FAILED') { continue }
+              if (-not $seen.Add($t)) { continue }
+              $msg = & $clean $t
+              if ($msg.Length -gt 400) { $msg = $msg.Substring(0, 400) }
+              Write-Host "::error title=error $($count + 1) ($leg)::$msg"
+              $count++
+            }
+            $tail = [array]($lines | Where-Object { $_.Trim().Length -gt 0 } | Select-Object -Last 24)
+            if ($tail.Count -gt 0) {
+              $chunks = [Math]::Ceiling($tail.Count / 12)
+              for ($c = 0; $c -lt $chunks; $c++) {
+                $part = @()
+                for ($k = $c * 12; $k -lt [Math]::Min($c * 12 + 12, $tail.Count); $k++) {
+                  $l = $tail[$k].Trim()
+                  if ($l.Length -gt 110) { $l = $l.Substring(0, 110) }
+                  $part += $l
+                }
+                $msg = & $clean ($part -join ' | ')
+                if ($msg.Length -gt 900) { $msg = $msg.Substring(0, 900) }
+                Write-Host "::error title=log tail $($c + 1) ($leg)::$msg"
+              }
             }
           }
 
@@ -102,6 +180,7 @@ jobs:
             status-*
             digest-fragment-*
             log-*.log
+            diag-rc-*.log
           if-no-files-found: error
 
       - name: upload binaries
@@ -111,3 +190,80 @@ jobs:
           name: bin-windows-x86-${{ matrix.configuration }}
           path: out/bin/*.exe
           if-no-files-found: warn
+
+  publish:
+    name: publish-logs
+    needs: build
+    # publish even when the build failed: the logs are the point.
+    # cancelled runs are superseded and must not commit partial logs.
+    # this job lives in the build workflow so the branch copy runs on
+    # every push: a workflow_run publisher only ever runs the copy on
+    # the default branch, which makes iterating on feature branches
+    # blind
+    if: always() && !cancelled() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          merge-multiple: true
+          path: logs
+
+      - name: assemble
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if ls logs/status-* >/dev/null 2>&1; then
+            python3 .github/scripts/assemble.py
+          else
+            # every completed build uploads status files: losing them is
+            # a pipeline bug, fail loudly instead of silently committing
+            # nothing
+            echo "no build logs to publish"
+            exit 1
+          fi
+
+      - name: publish
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          touch build-windows.log build-linux.log build-macos.log build-digest.md
+          if [ "$HEAD_BRANCH" = "$DEFAULT_BRANCH" ]; then
+            # default branch: the digest is committed next to the code
+            git add build-windows.log build-linux.log build-macos.log build-digest.md
+            git rm -q --ignore-unmatch build.log
+            git diff --cached --quiet && exit 0
+            git commit -m "CI: publish build logs and digest [skip ci]"
+            if ! out=$(git push 2>&1); then
+              # newest output wins on a push race
+              git pull --rebase -X theirs origin "$HEAD_BRANCH"
+              git push
+            fi
+          else
+            # feature branch: push an orphan snapshot to a disposable
+            # ci-logs/<branch> ref. the branch history itself cannot go
+            # through this push: the GITHUB_TOKEN app is not allowed to
+            # create refs whose commits touch .github/workflows, so the
+            # snapshot has no parent and carries only the digest files
+            export GIT_INDEX_FILE="$PWD/.git/ci-logs-index"
+            rm -f "$GIT_INDEX_FILE"
+            git read-tree --empty
+            git add build-windows.log build-linux.log build-macos.log build-digest.md
+            tree=$(git write-tree)
+            unset GIT_INDEX_FILE
+            commit=$(git commit-tree "$tree" -m "CI: publish build logs and digest [skip ci]")
+            if ! out=$(git push --force origin "$commit:refs/heads/ci-logs/$HEAD_BRANCH" 2>&1); then
+              msg=$(printf '%s' "$out" | tr '\n' ' ' | head -c 900 | sed 's/%/%25/g; s/\r/%0D/g')
+              echo "::error title=ci-logs push failed::$msg"
+              exit 1
+            fi
+          fi
