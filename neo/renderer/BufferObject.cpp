@@ -33,7 +33,7 @@ idCVar r_showBuffers( "r_showBuffers", "0", CVAR_INTEGER, "" );
 
 
 //static const GLenum bufferUsage = BUFFER_USAGE_STATIC_DRAW;
-static const GLenum bufferUsage = BUFFER_USAGE_DYNAMIC_DRAW;
+static const wrapperBufferUsage_t bufferUsage = BUFFER_USAGE_DYNAMIC_DRAW;
 
 /*
 ==================
@@ -888,7 +888,7 @@ idPixelPackBuffer::~idPixelPackBuffer() { FreeBufferObject(); }
 
 bool idPixelPackBuffer::AllocBufferObject( const void * data, int allocSize ) {
 	assert( apiObject == NULL );
-	if ( !AllocPixelBuffer( GL_PIXEL_PACK_BUFFER, GL_STREAM_READ_ARB, apiObject, allocSize ) ) {
+	if ( !AllocPixelBuffer( BUFFER_TARGET_PIXEL_PACK, BUFFER_USAGE_STREAM_READ, apiObject, allocSize ) ) {
 		return false;
 	}
 	size = allocSize;

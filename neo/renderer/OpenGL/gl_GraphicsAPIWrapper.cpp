@@ -508,7 +508,7 @@ GL_BufferData
 ========================
 */
 void GL_BufferData( wrapperBufferTarget_t target, intptr_t size, const void * data, wrapperBufferUsage_t usage ) {
-	static const GLenum usages[] = { GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STREAM_DRAW };
+	static const GLenum usages[] = { GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STREAM_DRAW, GL_STREAM_READ };
 	glBufferData( BufferTargetGL( target ), size, data, usages[usage] );
 }
 

@@ -176,7 +176,8 @@ enum wrapperBufferTarget_t {
 enum wrapperBufferUsage_t {
 	BUFFER_USAGE_STATIC_DRAW,
 	BUFFER_USAGE_DYNAMIC_DRAW,
-	BUFFER_USAGE_STREAM_DRAW
+	BUFFER_USAGE_STREAM_DRAW,
+	BUFFER_USAGE_STREAM_READ
 };
 
 enum wrapperBufferMapFlags_t {
