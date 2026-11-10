@@ -443,7 +443,6 @@ if(DARKLIGHT_BUILD_EXECUTABLE)
 
 		target_link_libraries(Darklight PRIVATE
 			dbghelp
-			glu32
 			iphlpapi
 			comctl32
 			comdlg32
