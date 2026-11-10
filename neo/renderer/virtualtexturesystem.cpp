@@ -939,8 +939,8 @@ void idVirtualTextureSystem::UpdateRuntime() {
 	// previous DSA/fallback bind happened to leave active (often a glass stage).
 	// The renderer's logical currenttmu is deliberately not changed here.
 	GLint previousActiveTexture = GL_TEXTURE0_ARB;
-	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
-	glActiveTextureARB( GL_TEXTURE0_ARB + 9 );
+	GL_GetIntegerv( GET_ACTIVE_TEXTURE, &previousActiveTexture );
+	GL_ActiveTexture( 9 );
 
 	const int uploadBudget = r_virtualTextureUploadBudget.GetInteger();
 	bool pageTableChanged = false;
@@ -1030,7 +1030,7 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		delete job;
 	}
 	if ( pageTableChanged ) { UploadPageTable(); }
-	glActiveTextureARB( previousActiveTexture );
+	GL_ActiveTexture( previousActiveTexture );
 }
 
 bool idVirtualTextureSystem::BindVirtualMaterial( const idMaterial * material ) {
@@ -1071,17 +1071,17 @@ bool idVirtualTextureSystem::BeginFeedbackPass() {
 		return false;
 	}
 	++runtimeFrame;
-	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &feedbackPreviousFBO );
-	glGetIntegerv( GL_VIEWPORT, feedbackPreviousViewport );
-	glGetIntegerv( GL_SCISSOR_BOX, feedbackPreviousScissor );
-	feedbackPreviousScissorEnabled = glIsEnabled( GL_SCISSOR_TEST ) != 0;
+	GL_GetIntegerv( GET_FRAMEBUFFER_BINDING, &feedbackPreviousFBO );
+	GL_GetIntegerv( GET_VIEWPORT, feedbackPreviousViewport );
+	GL_GetIntegerv( GET_SCISSOR_BOX, feedbackPreviousScissor );
+	feedbackPreviousScissorEnabled = GL_IsEnabled( CAP_SCISSOR_TEST ) != 0;
 	feedbackUsesSceneDepth = false;
-	glBindFramebuffer( GL_FRAMEBUFFER, feedbackDestination->FBOhandle );
-	glDrawBuffer( GL_COLOR_ATTACHMENT0 );
-	glReadBuffer( GL_COLOR_ATTACHMENT0 );
+	GL_BindFramebuffer( feedbackDestination->FBOhandle );
+	GL_DrawBuffer( BUFFER_SELECT_COLOR_ATTACHMENT0 );
+	GL_ReadBuffer( BUFFER_SELECT_COLOR_ATTACHMENT0 );
 	GL_Viewport( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
 	GL_Scissor( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT );
-	glEnable( GL_SCISSOR_TEST );
+	GL_Enable( CAP_SCISSOR_TEST );
 	// Rasterize visibility at feedback resolution.  Blitting the full-resolution
 	// scene depth and then testing newly rasterized low-resolution fragments
 	// against those nearest-sampled values rejects the entire pass on common
@@ -1090,8 +1090,8 @@ bool idVirtualTextureSystem::BeginFeedbackPass() {
 	// glClear obeys both write masks; post-process passes commonly leave depth
 	// writes disabled, so make the auxiliary target writable before clearing.
 	// RB_DrawVirtualTextureFeedback force-restores the cached scene state.
-	glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
-	glDepthMask( GL_TRUE );
+	GL_ColorMask( true, true, true, true );
+	GL_DepthMask( true );
 	GL_Clear( true, true, false, 0, 0.0f, 0.0f, 0.0f, 0.0f );
 	return true;
 }
@@ -1165,10 +1165,9 @@ void idVirtualTextureSystem::EndFeedbackPass() {
 	if ( !runtimeReady || feedbackDestination == NULL ) { return; }
 	const int current = feedbackWriteIndex;
 	const int previous = current ^ 1;
-	glBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB,
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK,
 		reinterpret_cast< GLuint >( feedbackPBO[current].GetAPIObject() ) );
-	glReadPixels( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT,
-		GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+	GL_ReadPixels( 0, 0, VT_FEEDBACK_WIDTH, VT_FEEDBACK_HEIGHT, PIXELFORMAT_RGBA, NULL );
 	feedbackPBOIssued[current] = true;
 	if ( feedbackPBOIssued[previous] ) {
 		const byte * pixels = static_cast< const byte * >( feedbackPBO[previous].TryMapBuffer( BM_READ ) );
@@ -1177,15 +1176,15 @@ void idVirtualTextureSystem::EndFeedbackPass() {
 			feedbackPBO[previous].UnmapBuffer();
 		}
 	}
-	glBindBufferARB( GL_PIXEL_PACK_BUFFER_ARB, 0 );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
 	feedbackWriteIndex ^= 1;
-	glBindFramebuffer( GL_FRAMEBUFFER, feedbackPreviousFBO );
+	GL_BindFramebuffer( feedbackPreviousFBO );
 	GL_Viewport( feedbackPreviousViewport[0], feedbackPreviousViewport[1],
 		feedbackPreviousViewport[2], feedbackPreviousViewport[3] );
 	GL_Scissor( feedbackPreviousScissor[0], feedbackPreviousScissor[1],
 		feedbackPreviousScissor[2], feedbackPreviousScissor[3] );
-	if ( feedbackPreviousScissorEnabled ) { glEnable( GL_SCISSOR_TEST ); }
-	else { glDisable( GL_SCISSOR_TEST ); }
+	if ( feedbackPreviousScissorEnabled ) { GL_Enable( CAP_SCISSOR_TEST ); }
+	else { GL_Disable( CAP_SCISSOR_TEST ); }
 	backEnd.currentSpace = NULL;
 }
 

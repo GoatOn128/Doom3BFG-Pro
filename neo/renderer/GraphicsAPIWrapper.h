@@ -199,4 +199,128 @@ bool			GL_UnmapBuffer( wrapperBufferTarget_t target );
 unsigned int	GL_GetError();
 void			GL_DeleteProgram( unsigned int program );
 
+
+// Capability toggles for the fixed pipeline states the renderer uses.
+enum wrapperCap_t {
+	CAP_TEXTURE_CUBE_MAP_SEAMLESS,
+	CAP_FRAMEBUFFER_SRGB,
+	CAP_MULTISAMPLE,
+	CAP_DEBUG_OUTPUT_SYNCHRONOUS,
+	CAP_SCISSOR_TEST
+};
+void			GL_Enable( wrapperCap_t cap );
+void			GL_Disable( wrapperCap_t cap );
+bool			GL_IsEnabled( wrapperCap_t cap );
+
+// Timer queries.
+enum wrapperQueryTarget_t {
+	QUERY_TARGET_TIME_ELAPSED
+};
+void			GL_GenQueries( int count, unsigned int * ids );
+void			GL_BeginQuery( wrapperQueryTarget_t target, unsigned int id );
+void			GL_EndQuery( wrapperQueryTarget_t target );
+void			GL_GetQueryObjectui64v( unsigned int id, unsigned long long * params );
+
+// Texture binding. Units are zero based; GL_GetIntegerv( GET_ACTIVE_TEXTURE )
+// returns the zero based unit so it can be restored with GL_ActiveTexture.
+enum wrapperTexTarget_t {
+	TEX_TARGET_2D,
+	TEX_TARGET_CUBE
+};
+void			GL_ActiveTexture( int unit );
+void			GL_BindMultiTexture( int unit, wrapperTexTarget_t target, unsigned int texture );
+void			GL_BindTexture( wrapperTexTarget_t target, unsigned int texture );
+enum wrapperTexParam_t {
+	TEXPARAM_COMPARE_MODE,
+	TEXPARAM_COMPARE_FUNC
+};
+// Raw GL compare values, from the GL specification.
+const int		TEX_COMPARE_REF_TO_TEXTURE = 0x884C;
+const int		TEX_COMPARE_LEQUAL = 0x0203;
+void			GL_TexParameteri( wrapperTexTarget_t target, wrapperTexParam_t pname, int value );
+
+// Framebuffer objects.
+enum wrapperAttachment_t {
+	ATTACHMENT_COLOR0,
+	ATTACHMENT_COLOR1,
+	ATTACHMENT_COLOR2,
+	ATTACHMENT_COLOR3,
+	ATTACHMENT_DEPTH,
+	ATTACHMENT_STENCIL
+};
+void			GL_GenFramebuffers( int count, unsigned int * ids );
+void			GL_DeleteFramebuffers( int count, const unsigned int * ids );
+void			GL_BindFramebuffer( unsigned int fbo );
+void			GL_FramebufferTexture2D( wrapperAttachment_t attachment, wrapperTexTarget_t texTarget, unsigned int texture, int level );
+bool			GL_CheckFramebufferStatus();
+
+// Draw and read buffer selection. Values are opaque handles as returned by
+// GL_GetIntegerv( GET_DRAW_BUFFER / GET_READ_BUFFER ).
+const int		BUFFER_SELECT_NONE = 0;
+const int		BUFFER_SELECT_FRONT = 0x0404;	// GL_FRONT
+const int		BUFFER_SELECT_BACK = 0x0405;	// GL_BACK
+const int		BUFFER_SELECT_COLOR_ATTACHMENT0 = 0x8CE0;	// GL_COLOR_ATTACHMENT0
+void			GL_DrawBuffer( int mode );
+void			GL_ReadBuffer( int mode );
+
+// State queries.
+enum wrapperGetPname_t {
+	GET_ACTIVE_TEXTURE,
+	GET_FRAMEBUFFER_BINDING,
+	GET_DRAW_BUFFER,
+	GET_READ_BUFFER,
+	GET_VIEWPORT,
+	GET_SCISSOR_BOX,
+	GET_MAX_TEXTURE_SIZE,
+	GET_MAX_TEXTURE_IMAGE_UNITS,
+	GET_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+	GET_NUM_EXTENSIONS,
+	GET_MAX_TEXTURE_MAX_ANISOTROPY
+};
+void			GL_GetIntegerv( wrapperGetPname_t pname, int * params );
+void			GL_GetFloatv( wrapperGetPname_t pname, float * params );
+enum wrapperGetStringName_t {
+	STRING_VENDOR,
+	STRING_RENDERER,
+	STRING_VERSION,
+	STRING_SHADING_LANGUAGE_VERSION,
+	STRING_EXTENSIONS
+};
+const char *	GL_GetString( wrapperGetStringName_t name );
+const char *	GL_GetStringi( int index );
+
+// Pixel readback.
+enum wrapperPixelFormat_t {
+	PIXELFORMAT_RGB,
+	PIXELFORMAT_RGBA,
+	PIXELFORMAT_DEPTH_FLOAT,
+	PIXELFORMAT_STENCIL_INDEX
+};
+void			GL_ReadPixels( int x, int y, int width, int height, wrapperPixelFormat_t format, void * data );
+
+// Vertex layout and draws for the global VAO path.
+enum wrapperVertexAttribType_t {
+	VERTEX_ATTRIB_FLOAT,
+	VERTEX_ATTRIB_UBYTE,
+	VERTEX_ATTRIB_HALF_FLOAT
+};
+void			GL_EnableVertexAttribArray( unsigned int index );
+void			GL_VertexAttribPointer( unsigned int index, int size, wrapperVertexAttribType_t type, bool normalized, int stride, intptr_t offset );
+void			GL_DrawElementsBaseVertex( int count, const void * indices, int baseVertex );
+
+// Misc state.
+void			GL_BindBufferRange( wrapperBufferTarget_t target, unsigned int index, unsigned int buffer, intptr_t offset, intptr_t size );
+void			GL_BindVertexArray( unsigned int vao );
+void			GL_GenVertexArrays( int count, unsigned int * ids );
+void			GL_UseProgram( unsigned int program );
+void			GL_ColorMask( bool r, bool g, bool b, bool a );
+void			GL_DepthMask( bool enable );
+void			GL_ClearColor( float r, float g, float b, float a );
+void			GL_ClearDepth( double depth );
+
+// Debug output control: dont-care source and type, low severity messages.
+typedef void ( *GLDebugMessageProc_t )( unsigned int source, unsigned int type, unsigned int id, unsigned int severity, int length, const char * message, const void * userParam );
+void			GL_DebugMessageCallback( GLDebugMessageProc_t callback, const void * userParam );
+void			GL_DebugMessageControl( bool enabled );
+
 #endif // !__GRAPHICSAPIWRAPPER_H__

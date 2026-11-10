@@ -561,3 +561,112 @@ GL_DeleteProgram
 void GL_DeleteProgram( unsigned int program ) {
 	glDeleteProgram( program );
 }
+
+/*
+========================
+Capability, query, texture, framebuffer, readback and draw entry points
+========================
+*/
+static GLenum BufferTargetGL( wrapperBufferTarget_t target ) {
+	static const GLenum targets[] = { GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_UNIFORM_BUFFER, GL_PIXEL_PACK_BUFFER, GL_PIXEL_UNPACK_BUFFER };
+	return targets[target];
+}
+
+static GLenum CapGL( wrapperCap_t cap ) {
+	static const GLenum caps[] = { GL_TEXTURE_CUBE_MAP_SEAMLESS, GL_FRAMEBUFFER_SRGB, GL_MULTISAMPLE_ARB, GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB, GL_SCISSOR_TEST };
+	return caps[cap];
+}
+
+static GLenum TexTargetGL( wrapperTexTarget_t target ) {
+	static const GLenum targets[] = { GL_TEXTURE_2D, GL_TEXTURE_CUBE_MAP_EXT };
+	return targets[target];
+}
+
+static GLenum AttachmentGL( wrapperAttachment_t attachment ) {
+	static const GLenum attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+	return attachments[attachment];
+}
+
+static GLenum GetPnameGL( wrapperGetPname_t pname ) {
+	static const GLenum pnames[] = { GL_ACTIVE_TEXTURE, GL_FRAMEBUFFER_BINDING, GL_DRAW_BUFFER, GL_READ_BUFFER, GL_VIEWPORT, GL_SCISSOR_BOX, GL_MAX_TEXTURE_SIZE, GL_MAX_TEXTURE_IMAGE_UNITS, GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, GL_NUM_EXTENSIONS, GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT };
+	return pnames[pname];
+}
+
+void GL_Enable( wrapperCap_t cap ) { glEnable( CapGL( cap ) ); }
+void GL_Disable( wrapperCap_t cap ) { glDisable( CapGL( cap ) ); }
+bool GL_IsEnabled( wrapperCap_t cap ) { return glIsEnabled( CapGL( cap ) ) != 0; }
+
+void GL_GenQueries( int count, unsigned int * ids ) { glGenQueries( count, ids ); }
+void GL_BeginQuery( wrapperQueryTarget_t target, unsigned int id ) { glBeginQuery( GL_TIME_ELAPSED_EXT, id ); }
+void GL_EndQuery( wrapperQueryTarget_t target ) { glEndQuery( GL_TIME_ELAPSED_EXT ); }
+void GL_GetQueryObjectui64v( unsigned int id, unsigned long long * params ) { glGetQueryObjectui64v( id, GL_QUERY_RESULT, params ); }
+
+void GL_ActiveTexture( int unit ) { glActiveTexture( GL_TEXTURE0 + unit ); }
+void GL_BindMultiTexture( int unit, wrapperTexTarget_t target, unsigned int texture ) { glBindMultiTextureEXT( GL_TEXTURE0 + unit, TexTargetGL( target ), texture ); }
+void GL_BindTexture( wrapperTexTarget_t target, unsigned int texture ) { glBindTexture( TexTargetGL( target ), texture ); }
+void GL_TexParameteri( wrapperTexTarget_t target, wrapperTexParam_t pname, int value ) {
+	glTexParameteri( TexTargetGL( target ), pname == TEXPARAM_COMPARE_MODE ? GL_TEXTURE_COMPARE_MODE : GL_TEXTURE_COMPARE_FUNC, value );
+}
+
+void GL_GenFramebuffers( int count, unsigned int * ids ) { glGenFramebuffers( count, ids ); }
+void GL_DeleteFramebuffers( int count, const unsigned int * ids ) { glDeleteFramebuffers( count, ids ); }
+void GL_BindFramebuffer( unsigned int fbo ) { glBindFramebuffer( GL_FRAMEBUFFER, fbo ); }
+void GL_FramebufferTexture2D( wrapperAttachment_t attachment, wrapperTexTarget_t texTarget, unsigned int texture, int level ) {
+	glFramebufferTexture2D( GL_FRAMEBUFFER, AttachmentGL( attachment ), TexTargetGL( texTarget ), texture, level );
+}
+bool GL_CheckFramebufferStatus() { return glCheckFramebufferStatus( GL_FRAMEBUFFER ) == GL_FRAMEBUFFER_COMPLETE; }
+
+void GL_DrawBuffer( int mode ) { glDrawBuffer( mode ); }
+void GL_ReadBuffer( int mode ) { glReadBuffer( mode ); }
+
+void GL_GetIntegerv( wrapperGetPname_t pname, int * params ) {
+	if ( pname == GET_ACTIVE_TEXTURE ) {
+		int value = 0;
+		glGetIntegerv( GL_ACTIVE_TEXTURE, &value );
+		*params = value - GL_TEXTURE0;
+		return;
+	}
+	glGetIntegerv( GetPnameGL( pname ), params );
+}
+void GL_GetFloatv( wrapperGetPname_t pname, float * params ) { glGetFloatv( GetPnameGL( pname ), params ); }
+const char * GL_GetString( wrapperGetStringName_t name ) {
+	static const GLenum names[] = { GL_VENDOR, GL_RENDERER, GL_VERSION, GL_SHADING_LANGUAGE_VERSION, GL_EXTENSIONS };
+	return (const char *)glGetString( names[name] );
+}
+const char * GL_GetStringi( int index ) { return (const char *)glGetStringi( GL_EXTENSIONS, index ); }
+
+void GL_ReadPixels( int x, int y, int width, int height, wrapperPixelFormat_t format, void * data ) {
+	GLenum glFormat = GL_RGB;
+	GLenum glType = GL_UNSIGNED_BYTE;
+	if ( format == PIXELFORMAT_RGBA ) { glFormat = GL_RGBA; }
+	else if ( format == PIXELFORMAT_DEPTH_FLOAT ) { glFormat = GL_DEPTH_COMPONENT; glType = GL_FLOAT; }
+	else if ( format == PIXELFORMAT_STENCIL_INDEX ) { glFormat = GL_STENCIL_INDEX; }
+	glReadPixels( x, y, width, height, glFormat, glType, data );
+}
+
+void GL_EnableVertexAttribArray( unsigned int index ) { glEnableVertexAttribArray( index ); }
+void GL_VertexAttribPointer( unsigned int index, int size, wrapperVertexAttribType_t type, bool normalized, int stride, intptr_t offset ) {
+	static const GLenum types[] = { GL_FLOAT, GL_UNSIGNED_BYTE, GL_HALF_FLOAT };
+	glVertexAttribPointer( index, size, types[type], normalized ? GL_TRUE : GL_FALSE, stride, (const void *)offset );
+}
+void GL_DrawElementsBaseVertex( int count, const void * indices, int baseVertex ) {
+	glDrawElementsBaseVertex( GL_TRIANGLES, count, sizeof( triIndex_t ) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, indices, baseVertex );
+}
+
+void GL_BindBufferRange( wrapperBufferTarget_t target, unsigned int index, unsigned int buffer, intptr_t offset, intptr_t size ) {
+	glBindBufferRange( BufferTargetGL( target ), index, buffer, offset, size );
+}
+void GL_BindVertexArray( unsigned int vao ) { glBindVertexArray( vao ); }
+void GL_GenVertexArrays( int count, unsigned int * ids ) { glGenVertexArrays( count, ids ); }
+void GL_UseProgram( unsigned int program ) { glUseProgram( program ); }
+void GL_ColorMask( bool r, bool g, bool b, bool a ) { glColorMask( r ? GL_TRUE : GL_FALSE, g ? GL_TRUE : GL_FALSE, b ? GL_TRUE : GL_FALSE, a ? GL_TRUE : GL_FALSE ); }
+void GL_DepthMask( bool enable ) { glDepthMask( enable ? GL_TRUE : GL_FALSE ); }
+void GL_ClearColor( float r, float g, float b, float a ) { glClearColor( r, g, b, a ); }
+void GL_ClearDepth( double depth ) { glClearDepth( depth ); }
+
+void GL_DebugMessageCallback( GLDebugMessageProc_t callback, const void * userParam ) {
+	glDebugMessageCallbackARB( (GLDEBUGPROC)callback, userParam );
+}
+void GL_DebugMessageControl( bool enabled ) {
+	glDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, enabled ? true : false );
+}

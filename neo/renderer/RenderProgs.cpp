@@ -283,7 +283,7 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 	currentUsesJoints = false;
 	currentOptionalSkinning = false;
 	if ( decl == nullptr ) {
-		glUseProgram( 0 );
+		GL_UseProgram( 0 );
 		return;
 	}
 	// a purged decl has its data stripped; reparse the real source so the
@@ -297,7 +297,7 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 		decl->RecoverFromDefaulted();
 	}
 	if ( decl->GetState() == DS_DEFAULTED ) {
-		glUseProgram( 0 );
+		GL_UseProgram( 0 );
 		currentDecl = nullptr;
 		return;
 	}
@@ -306,12 +306,12 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 		// the decl has no generated code to upload; keep no program bound so
 		// the draw is skipped instead of drawing with the wrong program
 		common->Warning( "renderprog %s has no GL program", decl->GetName() );
-		glUseProgram( 0 );
+		GL_UseProgram( 0 );
 		currentDecl = nullptr;
 		return;
 	}
 	RENDERLOG_PRINTF( "Binding GLSL Program %s\n", decl->GetName() );
-	glUseProgram( decl->GetProgram() );
+	GL_UseProgram( decl->GetProgram() );
 	currentUsesJoints = decl->UsesJoints();
 	// optional skinning means the vertex program branches on the
 	// rpEnableSkinning parm; only the heat haze shaders do
@@ -402,7 +402,7 @@ void idRenderProgManager::Unbind() {
 	currentUsesJoints = false;
 	currentOptionalSkinning = false;
 
-	glUseProgram( 0 );
+	GL_UseProgram( 0 );
 }
 
 /*
