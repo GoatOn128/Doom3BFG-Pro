@@ -588,17 +588,29 @@ BOOL CALLBACK AboutDlgProc( HWND hwndDlg,
 			idStr::snPrintf(buffer, 1024, "DOOM Radiant Build %d\nCopyright ©1999-2004 Id Software, Inc.\n", BUILD_NUMBER);
 //			SetDlgItemText( hwndDlg, IDC_ABOUT_INFO, buffer);
 
-			idStr::snPrintf( buffer, 1024, "Renderer:\t%s", qglGetString( GL_RENDERER ) );
+			idStr::snPrintf( buffer, 1024, "Renderer:\t%s", glGetString( GL_RENDERER ) );
 			SetDlgItemText( hwndDlg, IDC_ABOUT_GLRENDERER, buffer );
 
-			idStr::snPrintf( buffer, 1024, "Version:\t\t%s", qglGetString( GL_VERSION ) );
+			idStr::snPrintf( buffer, 1024, "Version:\t\t%s", glGetString( GL_VERSION ) );
 			SetDlgItemText( hwndDlg, IDC_ABOUT_GLVERSION, buffer );
 
-			idStr::snPrintf( buffer, 1024, "Vendor:\t\t%s", qglGetString( GL_VENDOR ) );
+			idStr::snPrintf( buffer, 1024, "Vendor:\t\t%s", glGetString( GL_VENDOR ) );
 			SetDlgItemText( hwndDlg, IDC_ABOUT_GLVENDOR, buffer);
 
 			char extensions[4096];
-			idStr::snPrintf( extensions, 4096, "%s", qglGetString( GL_EXTENSIONS ) );
+			{
+				// core profile has no single GL_EXTENSIONS string; enumerate with glGetStringi
+				idStr extList;
+				GLint numExtensions = 0;
+				glGetIntegerv( GL_NUM_EXTENSIONS, &numExtensions );
+				for ( int i = 0; i < numExtensions; i++ ) {
+					if ( i > 0 ) {
+						extList += ' ';
+					}
+					extList += (const char *)glGetStringi( GL_EXTENSIONS, i );
+				}
+				idStr::snPrintf( extensions, 4096, "%s", extList.c_str() );
+			}
 			HWND hWndExtensions = GetDlgItem( hwndDlg, IDC_ABOUT_GLEXTENSIONS );
 
 			char *start = extensions;
