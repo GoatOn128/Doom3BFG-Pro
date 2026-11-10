@@ -313,13 +313,11 @@ void * idVertexBuffer::MapBuffer( bufferMapType_t mapType ) const {
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
 	GL_BindBuffer( BUFFER_TARGET_ARRAY, bufferObject );
 	if ( mapType == BM_READ ) {
-		//buffer = glMapBuffer( GL_ARRAY_BUFFER, GL_READ_ONLY_ARB );
 		buffer = GL_MapBufferRange( BUFFER_TARGET_ARRAY, 0, GetAllocedSize(), BUFFER_MAP_READ | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
 	} else if ( mapType == BM_WRITE ) {
-		//buffer = glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY_ARB );
 		buffer = GL_MapBufferRange( BUFFER_TARGET_ARRAY, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
@@ -560,13 +558,11 @@ void * idIndexBuffer::MapBuffer( bufferMapType_t mapType ) const {
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
 	GL_BindBuffer( BUFFER_TARGET_ELEMENT, bufferObject );
 	if ( mapType == BM_READ ) {
-		//buffer = glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY_ARB );
 		buffer = GL_MapBufferRange( BUFFER_TARGET_ELEMENT, 0, GetAllocedSize(), BUFFER_MAP_READ | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
 	} else if ( mapType == BM_WRITE ) {
-		//buffer = glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY_ARB );
 		buffer = GL_MapBufferRange( BUFFER_TARGET_ELEMENT, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
@@ -788,7 +784,6 @@ float * idJointBuffer::MapBuffer( bufferMapType_t mapType ) const {
 	GL_BindBuffer( BUFFER_TARGET_UNIFORM, reinterpret_cast< GLuint >( apiObject ) );
 	numBytes = numBytes;
 	assert( GetOffset() == 0 );
-	//buffer = glMapBuffer( GL_UNIFORM_BUFFER, GL_WRITE_ONLY_ARB );
 	buffer = GL_MapBufferRange( BUFFER_TARGET_UNIFORM, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 	if ( buffer != NULL ) {
 		buffer = (byte *)buffer + GetOffset();
