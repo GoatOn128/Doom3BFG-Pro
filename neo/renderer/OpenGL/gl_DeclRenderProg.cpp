@@ -42,21 +42,21 @@ CompileGLSL
 =================
 */
 static unsigned int CompileGLSL( const idStr & programGLSL, bool isVertexProgram, const char * name, const char * fileName ) {
-	const GLuint shader = qglCreateShader( isVertexProgram ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER );
+	const GLuint shader = glCreateShader( isVertexProgram ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER );
 	if ( shader == 0 ) {
 		return 0;
 	}
 
 	const char * source = programGLSL.c_str();
-	qglShaderSource( shader, 1, &source, NULL );
-	qglCompileShader( shader );
+	glShaderSource( shader, 1, &source, NULL );
+	glCompileShader( shader );
 
 	int infoLogLength = 0;
-	qglGetShaderiv( shader, GL_INFO_LOG_LENGTH, &infoLogLength );
+	glGetShaderiv( shader, GL_INFO_LOG_LENGTH, &infoLogLength );
 	if ( infoLogLength > 1 ) {
 		idTempArray<char> infoLog( infoLogLength );
 		int charsWritten = 0;
-		qglGetShaderInfoLog( shader, infoLogLength, &charsWritten, infoLog.Ptr() );
+		glGetShaderInfoLog( shader, infoLogLength, &charsWritten, infoLog.Ptr() );
 
 		// catch the strings the ATI and Intel drivers output on success
 		if ( strstr( infoLog.Ptr(), "successfully compiled to run on hardware" ) == NULL &&
@@ -83,9 +83,9 @@ static unsigned int CompileGLSL( const idStr & programGLSL, bool isVertexProgram
 	}
 
 	int compiled = GL_FALSE;
-	qglGetShaderiv( shader, GL_COMPILE_STATUS, &compiled );
+	glGetShaderiv( shader, GL_COMPILE_STATUS, &compiled );
 	if ( compiled == GL_FALSE ) {
-		qglDeleteShader( shader );
+		glDeleteShader( shader );
 		return 0;
 	}
 	return shader;
@@ -118,23 +118,23 @@ void idDeclRenderProg::UploadTargetCode() {
 	const unsigned int fragmentShader = CompileGLSL( data.fragmentCode, false, GetName(), GetFileName() );
 	if ( vertexShader == 0 || fragmentShader == 0 ) {
 		if ( vertexShader != 0 ) {
-			qglDeleteShader( vertexShader );
+			glDeleteShader( vertexShader );
 		}
 		if ( fragmentShader != 0 ) {
-			qglDeleteShader( fragmentShader );
+			glDeleteShader( fragmentShader );
 		}
 		idLib::Error( "Failed to compile render prog %s from %s", GetName(), GetFileName() );
 		return;
 	}
 
-	const GLuint glProgram = qglCreateProgram();
-	qglAttachShader( glProgram, vertexShader );
-	qglAttachShader( glProgram, fragmentShader );
+	const GLuint glProgram = glCreateProgram();
+	glAttachShader( glProgram, vertexShader );
+	glAttachShader( glProgram, fragmentShader );
 
 	// bind the vertex attribute locations to the PC attribute indices
 	for ( int index = 0; attribsPC[index].glsl != NULL; ++index ) {
 		if ( ( attribsPC[index].flags & AT_VS_IN ) != 0 ) {
-			qglBindAttribLocation( glProgram, attribsPC[index].bind, attribsPC[index].glsl );
+			glBindAttribLocation( glProgram, attribsPC[index].bind, attribsPC[index].glsl );
 		}
 	}
 
@@ -143,22 +143,22 @@ void idDeclRenderProg::UploadTargetCode() {
 	for ( int index = 0; attribsPC[index].glsl != NULL; ++index ) {
 		if ( ( attribsPC[index].flags & AT_PS_OUT ) != 0 &&
 			 idStr::Cmpn( attribsPC[index].glsl, "gl_", 3 ) != 0 ) {
-			qglBindFragDataLocation( glProgram, attribsPC[index].bind, attribsPC[index].glsl );
+			glBindFragDataLocation( glProgram, attribsPC[index].bind, attribsPC[index].glsl );
 		}
 	}
 
-	qglLinkProgram( glProgram );
+	glLinkProgram( glProgram );
 
 	// the shaders are part of the program now; the names can be released
-	qglDeleteShader( vertexShader );
-	qglDeleteShader( fragmentShader );
+	glDeleteShader( vertexShader );
+	glDeleteShader( fragmentShader );
 
 	int infoLogLength = 0;
-	qglGetProgramiv( glProgram, GL_INFO_LOG_LENGTH, &infoLogLength );
+	glGetProgramiv( glProgram, GL_INFO_LOG_LENGTH, &infoLogLength );
 	if ( infoLogLength > 1 ) {
 		idTempArray<char> infoLog( infoLogLength );
 		int charsWritten = 0;
-		qglGetProgramInfoLog( glProgram, infoLogLength, &charsWritten, infoLog.Ptr() );
+		glGetProgramInfoLog( glProgram, infoLogLength, &charsWritten, infoLog.Ptr() );
 
 		// catch the strings the ATI and Intel drivers output on success
 		if ( strstr( infoLog.Ptr(), "Vertex shader(s) linked, fragment shader(s) linked." ) == NULL &&
@@ -168,9 +168,9 @@ void idDeclRenderProg::UploadTargetCode() {
 	}
 
 	int linked = GL_FALSE;
-	qglGetProgramiv( glProgram, GL_LINK_STATUS, &linked );
+	glGetProgramiv( glProgram, GL_LINK_STATUS, &linked );
 	if ( linked == GL_FALSE ) {
-		qglDeleteProgram( glProgram );
+		glDeleteProgram( glProgram );
 		idLib::Error( "Failed to link render prog %s from %s", GetName(), GetFileName() );
 		return;
 	}
@@ -182,35 +182,35 @@ void idDeclRenderProg::UploadTargetCode() {
 	vertexUniformLocations.SetNum( data.vertexParms.Num() );
 	for ( int index = 0; index < data.vertexParms.Num(); ++index ) {
 		const char * parmName = renderProgParms.GetParmNameForIndex( data.vertexParms[index] );
-		const int location = ( parmName != NULL ) ? qglGetUniformLocation( glProgram, parmName ) : -1;
+		const int location = ( parmName != NULL ) ? glGetUniformLocation( glProgram, parmName ) : -1;
 		vertexUniformLocations[index] = location + 1;
 	}
 	fragmentUniformLocations.SetNum( data.fragmentParms.Num() );
 	for ( int index = 0; index < data.fragmentParms.Num(); ++index ) {
 		const char * parmName = renderProgParms.GetParmNameForIndex( data.fragmentParms[index] );
-		const int location = ( parmName != NULL ) ? qglGetUniformLocation( glProgram, parmName ) : -1;
+		const int location = ( parmName != NULL ) ? glGetUniformLocation( glProgram, parmName ) : -1;
 		fragmentUniformLocations[index] = location + 1;
 	}
 
 	// the joints uniform block of skinned programs binds to binding point 0
-	GLint blockIndex = qglGetUniformBlockIndex( glProgram, "matrices_ubo" );
+	GLint blockIndex = glGetUniformBlockIndex( glProgram, "matrices_ubo" );
 	if ( blockIndex != -1 ) {
-		qglUniformBlockBinding( glProgram, blockIndex, 0 );
+		glUniformBlockBinding( glProgram, blockIndex, 0 );
 	}
 
 	// assign the texture units once; a sampler the driver stripped keeps
 	// location 0 and is skipped when committing textures
 	samplerLocations.SetNum( data.textureParms.Num() );
-	qglUseProgram( glProgram );
+	glUseProgram( glProgram );
 	for ( int index = 0; index < data.textureParms.Num(); ++index ) {
 		idStr samplerName( "samp_" );
 		const char * parmName = renderProgParms.GetParmNameForIndex( data.textureParms[index] );
 		if ( parmName != NULL ) {
 			samplerName += parmName;
-			const int location = qglGetUniformLocation( glProgram, samplerName.c_str() );
+			const int location = glGetUniformLocation( glProgram, samplerName.c_str() );
 			samplerLocations[index] = location + 1;
 			if ( location != -1 ) {
-				qglUniform1i( location, index );
+				glUniform1i( location, index );
 			}
 		} else {
 			samplerLocations[index] = 0;
@@ -223,9 +223,9 @@ void idDeclRenderProg::UploadTargetCode() {
 	const int maxLegacySamplers = 16;
 	for ( int unit = 0; unit < maxLegacySamplers; ++unit ) {
 		const char * samplerName = va( "samp%i", unit );
-		const int location = qglGetUniformLocation( glProgram, samplerName );
+		const int location = glGetUniformLocation( glProgram, samplerName );
 		if ( location != -1 ) {
-			qglUniform1i( location, unit );
+			glUniform1i( location, unit );
 		}
 	}
 }
@@ -237,7 +237,7 @@ idDeclRenderProg::FreeProgram
 */
 void idDeclRenderProg::FreeProgram() {
 	if ( program != 0 ) {
-		qglDeleteProgram( program );
+		glDeleteProgram( program );
 		program = 0;
 	}
 	// the locations belong to the deleted program; the next upload
@@ -246,4 +246,5 @@ void idDeclRenderProg::FreeProgram() {
 	fragmentUniformLocations.Clear();
 	samplerLocations.Clear();
 }
+
 
