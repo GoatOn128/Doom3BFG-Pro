@@ -26,7 +26,7 @@ idRenderDestination::idRenderDestination( const char * name, int width,
 
 idRenderDestination::~idRenderDestination() {
 	if ( FBOhandle != 0 ) {
-		qglDeleteFramebuffers( 1, &FBOhandle );
+		glDeleteFramebuffers( 1, &FBOhandle );
 		FBOhandle = 0;
 	}
 }
@@ -56,29 +56,29 @@ void idRenderDestination::CreateFromImages( idImage * color, idImage * depth,
 	boundSide = boundLevel = 0;
 
 	if ( FBOhandle != 0 ) {
-		qglDeleteFramebuffers( 1, &FBOhandle );
+		glDeleteFramebuffers( 1, &FBOhandle );
 	}
 	GLint previousFBO = 0;
-	qglGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFBO );
-	qglGenFramebuffers( 1, &FBOhandle );
-	qglBindFramebuffer( GL_FRAMEBUFFER, FBOhandle );
+	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFBO );
+	glGenFramebuffers( 1, &FBOhandle );
+	glBindFramebuffer( GL_FRAMEBUFFER, FBOhandle );
 	if ( color != NULL ) {
-		qglFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
 			GL_TEXTURE_2D, color->GetAPIObject(), 0 );
 	} else {
-		qglDrawBuffer( GL_NONE );
-		qglReadBuffer( GL_NONE );
+		glDrawBuffer( GL_NONE );
+		glReadBuffer( GL_NONE );
 	}
 	if ( depth != NULL ) {
-		qglFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
 			GL_TEXTURE_2D, depth->GetAPIObject(), 0 );
 	}
 	if ( stencil != NULL ) {
-		qglFramebufferTexture2D( GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
 			GL_TEXTURE_2D, stencil->GetAPIObject(), 0 );
 	}
-	const GLenum status = qglCheckFramebufferStatus( GL_FRAMEBUFFER );
-	qglBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
+	const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
+	glBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
 	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
 		idLib::Warning( "render destination framebuffer incomplete: 0x%x", status );
 	}
@@ -90,14 +90,14 @@ void idRenderDestination::AddTarget( idImage * target ) {
 	if ( index >= 4 || target == NULL || FBOhandle == 0 ) { return; }
 	targetImage[index] = target;
 	GLint previousFBO = 0;
-	qglGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFBO );
-	qglBindFramebuffer( GL_FRAMEBUFFER, FBOhandle );
-	qglFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index,
+	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFBO );
+	glBindFramebuffer( GL_FRAMEBUFFER, FBOhandle );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + index,
 		GL_TEXTURE_2D, target->GetAPIObject(), 0 );
 	GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
 		GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	qglDrawBuffers( index + 1, buffers );
-	qglBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
+	glDrawBuffers( index + 1, buffers );
+	glBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
 }
 
 void idRenderDestination::Create( const char * name, int width, int height,

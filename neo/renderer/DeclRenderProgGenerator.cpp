@@ -117,7 +117,7 @@ const builtinConversion_t builtinConversion[] = {
 };
 
 const char * const vertexInsert =
-	"#version 150\n\n"
+	"#version 330 core\n\n"
 	"float saturate( float v ) { return clamp( v, 0.0, 1.0 ); }\n"
 	"vec2 saturate( vec2 v ) { return clamp( v, vec2( 0.0 ), vec2( 1.0 ) ); }\n"
 	"vec3 saturate( vec3 v ) { return clamp( v, vec3( 0.0 ), vec3( 1.0 ) ); }\n"
@@ -128,7 +128,7 @@ const char * const vertexInsert =
 	"vec4 tex3Dproj( sampler3D sampler, vec4 texcoord ) { return textureProj( sampler, texcoord ); }\n\n";
 
 const char * const fragmentInsert =
-	"#version 150\n\n"
+	"#version 330 core\n\n"
 	"void clip( float v ) { if ( v < 0.0 ) { discard; } }\n"
 	"void clip( vec2 v ) { if ( any( lessThan( v, vec2( 0.0 ) ) ) ) { discard; } }\n"
 	"void clip( vec3 v ) { if ( any( lessThan( v, vec3( 0.0 ) ) ) ) { discard; } }\n"

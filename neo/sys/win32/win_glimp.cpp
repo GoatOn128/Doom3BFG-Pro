@@ -61,14 +61,9 @@ PFNWGLCHOOSEPIXELFORMATARBPROC			wglChoosePixelFormatARB;
 // WGL_ARB_create_context
 PFNWGLCREATECONTEXTATTRIBSARBPROC		wglCreateContextAttribsARB;
 
-
-idCVar r_useOpenGL32( "r_useOpenGL32", "1", CVAR_INTEGER, "0 = OpenGL 2.0, 1 = OpenGL 3.2 compatibility profile, 2 = OpenGL 3.2 core profile", 0, 2 );
-
-//
-// function declaration
-//
-bool QGL_Init( const char *dllname );
-void QGL_Shutdown();
+// GLcore_Load fills the glad context after the render context is current.
+bool GLcore_Load();
+void GLcore_Unload();
 
 
 /*
@@ -80,7 +75,7 @@ void GLimp_TestSwapBuffers( const idCmdArgs &args ) {
 	idLib::Printf( "GLimp_TimeSwapBuffers\n" );
 	static const int MAX_FRAMES = 5;
 	uint64	timestamps[MAX_FRAMES];
-	qglDisable( GL_SCISSOR_TEST );
+	glDisable( GL_SCISSOR_TEST );
 
 	int frameMilliseconds = 16;
 	for ( int swapInterval = 2 ; swapInterval >= -1 ; swapInterval-- ) {
@@ -90,13 +85,13 @@ void GLimp_TestSwapBuffers( const idCmdArgs &args ) {
 				Sys_Sleep( frameMilliseconds );
 			}
 			if ( i & 1 ) {
-				qglClearColor( 0, 1, 0, 1 );
+				glClearColor( 0, 1, 0, 1 );
 			} else {
-				qglClearColor( 1, 0, 0, 1 );
+				glClearColor( 1, 0, 0, 1 );
 			}
-			qglClear( GL_COLOR_BUFFER_BIT );
-			qwglSwapBuffers( win32.hDC );
-			qglFinish();
+			glClear( GL_COLOR_BUFFER_BIT );
+			SwapBuffers( win32.hDC );
+			glFinish();
 			timestamps[i] = Sys_Microseconds();
 		}
 
@@ -244,8 +239,8 @@ LONG WINAPI FakeWndProc (
     // Set up OpenGL
     pixelFormat = ChoosePixelFormat(hDC, &pfd);
     SetPixelFormat(hDC, pixelFormat, &pfd);
-    hGLRC = qwglCreateContext(hDC);
-    qwglMakeCurrent(hDC, hGLRC);
+    hGLRC = wglCreateContext(hDC);
+    wglMakeCurrent(hDC, hGLRC);
 
 	// free things
     wglMakeCurrent(NULL, NULL);
@@ -263,7 +258,7 @@ GLW_GetWGLExtensionsWithFakeWindow
 */
 void GLW_CheckWGLExtensions( HDC hDC ) {
 	wglGetExtensionsStringARB = (PFNWGLGETEXTENSIONSSTRINGARBPROC)
-							  GLimp_ExtensionPointer("wglGetExtensionsStringARB");
+							  wglGetProcAddress("wglGetExtensionsStringARB");
 	if ( wglGetExtensionsStringARB ) {
 		glConfig.wgl_extensions_string = (const char *) wglGetExtensionsStringARB(hDC);
 	} else {
@@ -271,16 +266,16 @@ void GLW_CheckWGLExtensions( HDC hDC ) {
 	}
 
 	// WGL_EXT_swap_control
-	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC) GLimp_ExtensionPointer( "wglSwapIntervalEXT" );
+	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC) wglGetProcAddress( "wglSwapIntervalEXT" );
 	r_swapInterval.SetModified();	// force a set next frame
 
 	// WGL_EXT_swap_control_tear
 	glConfig.swapControlTearAvailable = R_CheckWinExtension( "WGL_EXT_swap_control_tear" );
 
 	// WGL_ARB_pixel_format
-	wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC)GLimp_ExtensionPointer("wglGetPixelFormatAttribivARB");
-	wglGetPixelFormatAttribfvARB = (PFNWGLGETPIXELFORMATATTRIBFVARBPROC)GLimp_ExtensionPointer("wglGetPixelFormatAttribfvARB");
-	wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)GLimp_ExtensionPointer("wglChoosePixelFormatARB");
+	wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC)wglGetProcAddress("wglGetPixelFormatAttribivARB");
+	wglGetPixelFormatAttribfvARB = (PFNWGLGETPIXELFORMATATTRIBFVARBPROC)wglGetProcAddress("wglGetPixelFormatAttribfvARB");
+	wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
 
 	// wglCreateContextAttribsARB
 	wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress( "wglCreateContextAttribsARB" );
@@ -337,36 +332,25 @@ CreateOpenGLContextOnDC
 ========================
 */
 static HGLRC CreateOpenGLContextOnDC( const HDC hdc, const bool debugContext ) {
-	int useOpenGL32 = r_useOpenGL32.GetInteger();
-	HGLRC m_hrc = NULL;
+	// the renderer requires OpenGL 3.3 core, no fallback
+	const int glMajorVersion = 3;
+	const int glMinorVersion = 3;
+	const int glDebugFlag = debugContext ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+	const int attribs[] =
+	{
+		WGL_CONTEXT_MAJOR_VERSION_ARB,	glMajorVersion,
+		WGL_CONTEXT_MINOR_VERSION_ARB,	glMinorVersion,
+		WGL_CONTEXT_FLAGS_ARB,			glDebugFlag,
+		WGL_CONTEXT_PROFILE_MASK_ARB,	WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+		0
+	};
 
-	for ( int i = 0; i < 2; i++ ) {
-		const int glMajorVersion = ( useOpenGL32 != 0 ) ? 3 : 2;
-		const int glMinorVersion = ( useOpenGL32 != 0 ) ? 2 : 0;
-		const int glDebugFlag = debugContext ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
-		const int glProfileMask = ( useOpenGL32 != 0 ) ? WGL_CONTEXT_PROFILE_MASK_ARB : 0;
-		const int glProfile = ( useOpenGL32 == 1 ) ? WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB : ( ( useOpenGL32 == 2 ) ? WGL_CONTEXT_CORE_PROFILE_BIT_ARB : 0 );
-		const int attribs[] =
-		{
-			WGL_CONTEXT_MAJOR_VERSION_ARB,	glMajorVersion,
-			WGL_CONTEXT_MINOR_VERSION_ARB,	glMinorVersion,
-			WGL_CONTEXT_FLAGS_ARB,			glDebugFlag,
-			glProfileMask,					glProfile,
-			0
-		};
-
-		m_hrc = wglCreateContextAttribsARB( hdc, 0, attribs );
-		if ( m_hrc != NULL ) {
-			idLib::Printf( "created OpenGL %d.%d context\n", glMajorVersion, glMinorVersion );
-			break;
-		}
-
-		idLib::Printf( "failed to create OpenGL %d.%d context\n", glMajorVersion, glMinorVersion );
-		useOpenGL32 = 0;	// fall back to OpenGL 2.0
-	}
-
-	if ( m_hrc == NULL ) {
-		int	err = GetLastError();
+	HGLRC m_hrc = wglCreateContextAttribsARB( hdc, 0, attribs );
+	if ( m_hrc != NULL ) {
+		idLib::Printf( "created OpenGL %d.%d core context\n", glMajorVersion, glMinorVersion );
+	} else {
+		idLib::Printf( "failed to create OpenGL %d.%d core context\n", glMajorVersion, glMinorVersion );
+		int err = GetLastError();
 		switch( err ) {
 			case ERROR_INVALID_VERSION_ARB: idLib::Printf( "ERROR_INVALID_VERSION_ARB\n" ); break;
 			case ERROR_INVALID_PROFILE_ARB: idLib::Printf( "ERROR_INVALID_PROFILE_ARB\n" ); break;
@@ -510,13 +494,19 @@ static bool GLW_InitDriver( glimpParms_t parms ) {
 	common->Printf( "succeeded\n" );
 
 	common->Printf( "...making context current: " );
-	if ( !qwglMakeCurrent( win32.hDC, win32.hGLRC ) ) {
-		qwglDeleteContext( win32.hGLRC );
+	if ( !wglMakeCurrent( win32.hDC, win32.hGLRC ) ) {
+		wglDeleteContext( win32.hGLRC );
 		win32.hGLRC = NULL;
 		common->Printf( "^3failed^0\n" );
 		return false;
 	}
 	common->Printf( "succeeded\n" );
+
+	// load all GL entry points for the new context
+	if ( !GLcore_Load() ) {
+		common->Printf( "^3GLcore_Load failed^0\n" );
+		return false;
+	}
 
 	return true;
 }
@@ -1137,7 +1127,6 @@ parameters and try again.
 ===================
 */
 bool GLimp_Init( glimpParms_t parms ) {
-	const char	*driverName;
 	HDC		hDC;
 
 	cmdSystem->AddCommand( "testSwapBuffers", GLimp_TestSwapBuffers, CMD_FL_SYSTEM, "Times swapbuffer options" );
@@ -1164,18 +1153,6 @@ bool GLimp_Init( glimpParms_t parms ) {
 
 	// create our window classes if we haven't already
 	GLW_CreateWindowClasses();
-
-	// this will load the dll and set all our qgl* function pointers,
-	// but doesn't create a window
-
-	// r_glDriver is only intended for using instrumented OpenGL
-	// dlls.  Normal users should never have to use it, and it is
-	// not archived.
-	driverName = r_glDriver.GetString()[0] ? r_glDriver.GetString() : "opengl32";
-	if ( !QGL_Init( driverName ) ) {
-		common->Printf( "^3GLimp_Init() could not load r_glDriver \"%s\"^0\n", driverName );
-		return false;
-	}
 
 	// getting the wgl extensions involves creating a fake window to get a context,
 	// which is pretty disgusting, and seems to mess with the AGP VAR allocation
@@ -1224,8 +1201,6 @@ bool GLimp_Init( glimpParms_t parms ) {
 	// wglSwapinterval, etc
 	GLW_CheckWGLExtensions( win32.hDC );
 
-	// check logging
-	GLimp_EnableLogging( ( r_logFile.GetInteger() != 0 ) );
 
 	return true;
 }
@@ -1288,14 +1263,14 @@ void GLimp_Shutdown() {
 	common->Printf( "Shutting down OpenGL subsystem\n" );
 
 	// set current context to NULL
-	if ( qwglMakeCurrent ) {
-		retVal = qwglMakeCurrent( NULL, NULL ) != 0;
+	{
+		retVal = wglMakeCurrent( NULL, NULL ) != 0;
 		common->Printf( "...wglMakeCurrent( NULL, NULL ): %s\n", success[retVal] );
 	}
 
 	// delete HGLRC
 	if ( win32.hGLRC ) {
-		retVal = qwglDeleteContext( win32.hGLRC ) != 0;
+		retVal = wglDeleteContext( win32.hGLRC ) != 0;
 		common->Printf( "...deleting GL context: %s\n", success[retVal] );
 		win32.hGLRC = NULL;
 	}
@@ -1332,8 +1307,8 @@ void GLimp_Shutdown() {
 	// restore gamma
 	GLimp_RestoreGamma();
 
-	// shutdown QGL subsystem
-	QGL_Shutdown();
+	// shutdown the GL loader
+	GLcore_Unload();
 }
 
 /*
@@ -1357,7 +1332,7 @@ void GLimp_SwapBuffers() {
 		}
 	}
 
-	qwglSwapBuffers( win32.hDC );
+	SwapBuffers( win32.hDC );
 }
 
 /*
@@ -1374,7 +1349,7 @@ GLimp_ActivateContext
 ===================
 */
 void GLimp_ActivateContext() {
-	if ( !qwglMakeCurrent( win32.hDC, win32.hGLRC ) ) {
+	if ( !wglMakeCurrent( win32.hDC, win32.hGLRC ) ) {
 		win32.wglErrors++;
 	}
 }
@@ -1385,8 +1360,8 @@ GLimp_DeactivateContext
 ===================
 */
 void GLimp_DeactivateContext() {
-	qglFinish();
-	if ( !qwglMakeCurrent( win32.hDC, NULL ) ) {
+	glFinish();
+	if ( !wglMakeCurrent( win32.hDC, NULL ) ) {
 		win32.wglErrors++;
 	}
 }
@@ -1400,7 +1375,7 @@ static void GLimp_RenderThreadWrapper() {
 	win32.glimpRenderThread();
 
 	// unbind the context before we die
-	qwglMakeCurrent( win32.hDC, NULL );
+	wglMakeCurrent( win32.hDC, NULL );
 }
 
 /*
@@ -1542,21 +1517,3 @@ OutputDebugString( "<--GLimp_WakeBackEnd\n" );
 #endif
 }
 
-/*
-===================
-GLimp_ExtensionPointer
-
-Returns a function pointer for an OpenGL extension entry point
-===================
-*/
-GLExtension_t GLimp_ExtensionPointer( const char *name ) {
-	void	(*proc)();
-
-	proc = (GLExtension_t)qwglGetProcAddress( name );
-
-	if ( !proc ) {
-		common->Printf( "Couldn't find proc address for: %s\n", name );
-	}
-
-	return proc;
-}

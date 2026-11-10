@@ -30,8 +30,40 @@ If you have questions concerning this license or the applicable additional terms
 #define __WIN_LOCAL_H__
 
 #include <windows.h>
-#include "../../renderer/OpenGL/wglext.h"		// windows OpenGL extensions
 #include "win_input.h"
+
+// Hand rolled WGL extension types and constants. The old wglext.h header is
+// gone; only the entry points the engine actually uses are declared here.
+DECLARE_HANDLE( HPBUFFERARB );
+
+typedef const char * ( WINAPI * PFNWGLGETEXTENSIONSSTRINGARBPROC )( HDC hdc );
+typedef BOOL ( WINAPI * PFNWGLSWAPINTERVALEXTPROC )( int interval );
+typedef BOOL ( WINAPI * PFNWGLGETPIXELFORMATATTRIBIVARBPROC )( HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, const int *piAttributes, int *piValues );
+typedef BOOL ( WINAPI * PFNWGLGETPIXELFORMATATTRIBFVARBPROC )( HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, const int *piAttributes, FLOAT *pfValues );
+typedef BOOL ( WINAPI * PFNWGLCHOOSEPIXELFORMATARBPROC )( HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats );
+typedef HGLRC ( WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC )( HDC hDC, HGLRC hShareContext, const int *attribList );
+
+#define WGL_SAMPLE_BUFFERS_ARB				0x2041
+#define WGL_SAMPLES_ARB						0x2042
+#define WGL_DOUBLE_BUFFER_ARB				0x2011
+#define WGL_STENCIL_BITS_ARB				0x2023
+#define WGL_DEPTH_BITS_ARB					0x2020
+#define WGL_RED_BITS_ARB					0x2015
+#define WGL_BLUE_BITS_ARB					0x2019
+#define WGL_GREEN_BITS_ARB					0x2017
+#define WGL_ALPHA_BITS_ARB					0x201B
+#define WGL_STEREO_ARB						0x2012
+
+#define WGL_CONTEXT_MAJOR_VERSION_ARB		0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB		0x2092
+#define WGL_CONTEXT_FLAGS_ARB				0x2094
+#define WGL_CONTEXT_DEBUG_BIT_ARB			0x0001
+#define WGL_CONTEXT_PROFILE_MASK_ARB		0x9126
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB	0x0001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x0002
+
+#define ERROR_INVALID_VERSION_ARB			0x2095
+#define ERROR_INVALID_PROFILE_ARB			0x2096
 
 // WGL_ARB_extensions_string
 extern	PFNWGLGETEXTENSIONSSTRINGARBPROC wglGetExtensionsStringARB;
@@ -44,17 +76,8 @@ extern	PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
 extern	PFNWGLGETPIXELFORMATATTRIBFVARBPROC wglGetPixelFormatAttribfvARB;
 extern	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB;
 
-// WGL_ARB_pbuffer
-extern	PFNWGLCREATEPBUFFERARBPROC	wglCreatePbufferARB;
-extern	PFNWGLGETPBUFFERDCARBPROC	wglGetPbufferDCARB;
-extern	PFNWGLRELEASEPBUFFERDCARBPROC	wglReleasePbufferDCARB;
-extern	PFNWGLDESTROYPBUFFERARBPROC	wglDestroyPbufferARB;
-extern	PFNWGLQUERYPBUFFERARBPROC	wglQueryPbufferARB;
-
-// WGL_ARB_render_texture 
-extern	PFNWGLBINDTEXIMAGEARBPROC		wglBindTexImageARB;
-extern	PFNWGLRELEASETEXIMAGEARBPROC	wglReleaseTexImageARB;
-extern	PFNWGLSETPBUFFERATTRIBARBPROC	wglSetPbufferAttribARB;
+// WGL_ARB_create_context
+extern	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
 
 #define	WINDOW_STYLE	(WS_OVERLAPPED|WS_BORDER|WS_CAPTION|WS_VISIBLE | WS_THICKFRAME)
 

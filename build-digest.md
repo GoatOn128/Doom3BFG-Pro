@@ -1,6 +1,6 @@
 # Build digest
 
-commit: 023bd17c8bcc
+commit: f512638a2d6b
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
@@ -10,7 +10,7 @@ commit: 023bd17c8bcc
 status: success
 
 errors: 0
-warnings: 503 in 8 kinds
+warnings: 501 in 8 kinds
 
 ### errors
 
@@ -20,7 +20,7 @@ warnings: 503 in 8 kinds
 
 ### warning kinds
 
-- [269x] C4467
+- [268x] C4467
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\game\gamesys\SaveGame.h(128,18): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\idlib\idlib.vcxproj]
@@ -30,8 +30,8 @@ warnings: 503 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\framework\TokenParser.cpp(181,28): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\RenderLog.h(98,16): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\sys_local.h(42,30): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-- [140x] C5208
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(94,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+- [139x] C5208
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(117,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\qertypes.h(231,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [50x] C4005
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\extern\jxrlib\image\sys\ansi.h(45,9): warning C4005: 'FORCE_INLINE': macro redefinition [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\extern\jxrlib_encoder.vcxproj]
@@ -93,7 +93,7 @@ warnings: 503 in 8 kinds
 status: success
 
 errors: 0
-warnings: 503 in 8 kinds
+warnings: 501 in 8 kinds
 
 ### errors
 
@@ -103,7 +103,7 @@ warnings: 503 in 8 kinds
 
 ### warning kinds
 
-- [269x] C4467
+- [268x] C4467
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\game\gamesys\SaveGame.h(128,18): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\idlib\idlib.vcxproj]
@@ -113,8 +113,8 @@ warnings: 503 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\framework\TokenParser.cpp(181,28): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\RenderLog.h(98,16): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\sys_local.h(42,30): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-- [140x] C5208
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(94,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+- [139x] C5208
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(117,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\qertypes.h(231,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [50x] C4005
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\extern\jxrlib\image\sys\ansi.h(45,9): warning C4005: 'FORCE_INLINE': macro redefinition [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\extern\jxrlib_encoder.vcxproj]
@@ -131,22 +131,22 @@ warnings: 503 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [12x] C4595
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\idlib\Heap.h(120,17): warning C4595: 'operator new': non-member operator new or delete functions may not be declared inline [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\idlib\Heap.h(123,16): warning C4595: 'operator delete': non-member operator new or delete functions may not be declared inline [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
