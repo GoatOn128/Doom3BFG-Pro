@@ -154,4 +154,9 @@ private:
 	idStaticList<const idDeclRenderProg *, 3> versions;
 };
 
+// GL upload path of the decl renderprog system; implemented in
+// OpenGL/gl_declrenderprog_ogl_pc.cpp
+unsigned int CompileGLSL( const idStr & programGLSL, bool isVertexProgram,
+						  const char * name, const char * fileName );
+
 #endif

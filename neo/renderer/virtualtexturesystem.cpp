@@ -349,7 +349,7 @@ void idVirtualTextureSystem::Init() {
 	cmdSystem->AddCommand( "listVirtualTextures", ListVirtualTextures_f, CMD_FL_RENDERER,
 		"list loaded virtual texture page containers" );
 	cmdSystem->AddCommand( "vt_buildVmtrCache", BuildVmtrCache_f, CMD_FL_RENDERER,
-		"rebuild virtualtextures/<mapname>_vmtr.pages from referenced materials: vt_buildVmtrCache [material ...]" );
+		"rebuild <modfolder>/generate/virtualtextures/<mapname>_vmtr.pages from referenced materials: vt_buildVmtrCache [material ...]" );
 	cmdSystem->AddCommand( "vt_runtimeStats", RuntimeStats_f, CMD_FL_RENDERER,
 		"print virtual texture feedback and physical-cache statistics" );
 	idLib::Printf( "virtual texture container layer initialized\n" );
@@ -481,7 +481,15 @@ bool idVirtualTextureSystem::BuildLoadedVmtrCache( bool forceRebuild ) {
 
 	idStr cacheBase = currentMapName;
 	cacheBase += "_vmtr";
+	// generated VT archives belong inside the active mod folder, not beside
+	// the executable; fs_game wins when a mod is running
 	idStr outputDirectory = cvarSystem->GetCVarString( "fs_basepath" );
+	const char * modFolder = cvarSystem->GetCVarString( "fs_game" );
+	if ( modFolder == nullptr || modFolder[0] == '\0' ) {
+		modFolder = BASE_GAMEDIR;
+	}
+	outputDirectory.AppendPath( modFolder );
+	outputDirectory.AppendPath( "generate" );
 	outputDirectory.AppendPath( "virtualtextures" );
 	idStr pagesPath = outputDirectory;
 	pagesPath.AppendPath( cacheBase + ".pages" );
