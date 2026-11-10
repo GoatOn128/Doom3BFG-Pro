@@ -29,7 +29,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
 
-#include "glcore.h"
+#include "gl_api.h"
 
 GladGLContext rgl;
 
@@ -47,3 +47,4 @@ void GLcore_Unload() {
 	GLim_Shutdown();
 	gladLoaderUnloadGLContext( &rgl );
 }
+
