@@ -41,7 +41,8 @@ inline void glCompressedTexSubImage2D( GLenum target, GLint level, GLint xoffset
 inline void glGetCompressedTexImage( GLenum target, GLint level, void *img ) { rgl.GetCompressedTexImage( target, level, img ); }
 inline void glPixelStorei( GLenum pname, GLint param ) { rgl.PixelStorei( pname, param ); }
 inline void glGetIntegerv( GLenum pname, GLint *data ) { rgl.GetIntegerv( pname, data ); }
-inline void glGetFloatv( GLenum pname, GLfloat *data ) { rgl.GetFloatv( pname, data ); }
+inline void glGetFloatv( GLenum pname, GLfloat *data ) { GLim_GetFloatv( pname, data ); }
+inline GLboolean glIsEnabled( GLenum cap ) { return rgl.IsEnabled( cap ); }
 // glEnable/glDisable live in gl_immediate.h; they filter out caps that no
 // longer exist in the core profile and track the texture enable state.
 inline void glDepthFunc( GLenum func ) { rgl.DepthFunc( func ); }
@@ -78,7 +79,7 @@ inline void glDrawElements( GLenum mode, GLsizei count, GLenum type, const void 
 
 // DSA style multitexture bind kept as a small helper; implemented in
 // RenderSystem_init.cpp on top of glActiveTexture + glBindTexture.
-void glBindMultiTextureEXT( GLenum texunit, GLenum target, GLuint texture );
+void APIENTRY glBindMultiTextureEXT( GLenum texunit, GLenum target, GLuint texture );
 
 inline void glUseProgram( GLuint program ) { rgl.UseProgram( program ); }
 inline GLuint glCreateShader( GLenum type ) { return rgl.CreateShader( type ); }
@@ -114,6 +115,12 @@ inline void glBlitFramebuffer( GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY
 
 inline void glGenBuffers( GLsizei n, GLuint *buffers ) { rgl.GenBuffers( n, buffers ); }
 inline void glBindBuffer( GLenum target, GLuint buffer ) { rgl.BindBuffer( target, buffer ); }
+// legacy ARB-suffixed names still used by the virtual texture system
+inline void glActiveTextureARB( GLenum texture ) { rgl.ActiveTexture( texture ); }
+inline void glBindBufferARB( GLenum target, GLuint buffer ) { rgl.BindBuffer( target, buffer ); }
+#ifndef GL_PIXEL_PACK_BUFFER_ARB
+#define GL_PIXEL_PACK_BUFFER_ARB 0x88EB
+#endif
 inline void glBindBufferRange( GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size ) { rgl.BindBufferRange( target, index, buffer, offset, size ); }
 inline void glDeleteBuffers( GLsizei n, const GLuint *buffers ) { rgl.DeleteBuffers( n, buffers ); }
 inline void glBufferData( GLenum target, GLsizeiptr size, const void *data, GLenum usage ) { rgl.BufferData( target, size, data, usage ); }
@@ -123,7 +130,7 @@ inline void *glMapBuffer( GLenum target, GLenum access ) { return rgl.MapBuffer(
 inline GLboolean glUnmapBuffer( GLenum target ) { return rgl.UnmapBuffer( target ); }
 inline void glGetBufferParameteriv( GLenum target, GLenum pname, GLint *params ) { rgl.GetBufferParameteriv( target, pname, params ); }
 inline void glGetBufferPointerv( GLenum target, GLenum pname, void **params ) { rgl.GetBufferPointerv( target, pname, params ); }
-inline void *glMapBufferRange( GLenum target, GLintptr offset, GLintptr length, GLbitfield access ) { return rgl.MapBufferRange( target, offset, length, access ); }
+inline void *glMapBufferRange( GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access ) { return rgl.MapBufferRange( target, offset, length, access ); }
 
 inline void glGenVertexArrays( GLsizei n, GLuint *arrays ) { rgl.GenVertexArrays( n, arrays ); }
 inline void glBindVertexArray( GLuint array ) { rgl.BindVertexArray( array ); }

@@ -213,6 +213,7 @@ struct glimList_t {
 };
 static idList<glimList_t> glimLists;	// index = list id - 1
 static GLuint glimRecordingList = 0;
+static bool glimListExecute = false;
 static GLuint glimListBase = 0;
 
 // saved by glPushAttrib / restored by glPopAttrib
@@ -252,6 +253,26 @@ static void glimMatrixMultiply( float *out, const float *a, const float *b ) {
 
 static glimMatrixStack_t * glimCurrentStack() {
 	return ( glimMatrixMode == GL_PROJECTION ) ? &glimProjection : &glimModelView;
+}
+
+void GLim_GetFloatv( GLenum pname, GLfloat *data ) {
+	if ( data == NULL ) {
+		return;
+	}
+	switch ( pname ) {
+		case GL_CURRENT_COLOR:
+			memcpy( data, glimColor, sizeof( glimColor ) );
+			break;
+		case GL_MODELVIEW_MATRIX:
+			memcpy( data, glimModelView.m, sizeof( glimModelView.m ) );
+			break;
+		case GL_PROJECTION_MATRIX:
+			memcpy( data, glimProjection.m, sizeof( glimProjection.m ) );
+			break;
+		default:
+			rgl.GetFloatv( pname, data );
+			break;
+	}
 }
 
 /*
@@ -459,6 +480,19 @@ static void glimFlush() {
 			expanded[out++] = glimVerts[0];
 			expanded[out++] = glimVerts[i];
 			expanded[out++] = glimVerts[i + 1];
+		}
+		verts = expanded;
+		vertCount = out;
+		drawMode = GL_TRIANGLES;
+	} else if ( glimMode == GL_QUAD_STRIP ) {
+		int out = 0;
+		for ( int i = 0; i + 3 < glimNumVerts; i += 2 ) {
+			expanded[out++] = glimVerts[i];
+			expanded[out++] = glimVerts[i + 1];
+			expanded[out++] = glimVerts[i + 3];
+			expanded[out++] = glimVerts[i];
+			expanded[out++] = glimVerts[i + 3];
+			expanded[out++] = glimVerts[i + 2];
 		}
 		verts = expanded;
 		vertCount = out;
@@ -858,7 +892,7 @@ void glPopAttrib() {
 	const glimAttribState_t & state = glimAttribStack[glimAttribStack.Num() - 1];
 	memcpy( glimColor, state.color, sizeof( glimColor ) );
 	glimTextured = state.textured;
-	glimAttribStack.SetNum( glimAttribStack.Num() - 1, false );
+	glimAttribStack.SetNum( glimAttribStack.Num() - 1 );
 }
 
 /*
@@ -988,8 +1022,12 @@ void glDeleteLists( GLuint list, GLsizei range ) {
 	}
 }
 
+static void glimReplay( const idList<glimCmd_t> & cmds );
+
 void glNewList( GLuint list, GLenum mode ) {
 	glimRecordingList = list;
+	// remember whether the list should also run once now
+	glimListExecute = ( mode == GL_COMPILE_AND_EXECUTE );
 	if ( list >= 1 && list <= ( GLuint )glimLists.Num() ) {
 		glimLists[list - 1].valid = false;
 		glimLists[list - 1].cmds.Clear();
@@ -999,7 +1037,12 @@ void glNewList( GLuint list, GLenum mode ) {
 void glEndList() {
 	if ( glimRecordingList != 0 && glimRecordingList <= ( GLuint )glimLists.Num() ) {
 		glimLists[glimRecordingList - 1].valid = true;
+		// GL_COMPILE_AND_EXECUTE: replay the fresh list immediately
+		if ( glimListExecute ) {
+			glimReplay( glimLists[glimRecordingList - 1].cmds );
+		}
 	}
+	glimListExecute = false;
 	glimRecordingList = 0;
 }
 

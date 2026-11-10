@@ -36,12 +36,49 @@ Only what those callers need is provided; anything else is a stub.
 #ifndef GL_DECAL
 #define GL_DECAL 0x2101
 #endif
+// legacy enums still referenced by editor and debug code
+#ifndef GL_MODELVIEW_MATRIX
+#define GL_MODELVIEW_MATRIX 0x0BA6
+#endif
+#ifndef GL_PROJECTION_MATRIX
+#define GL_PROJECTION_MATRIX 0x0BA7
+#endif
+#ifndef GL_CURRENT_COLOR
+#define GL_CURRENT_COLOR 0x0B00
+#endif
+#ifndef GL_LIGHTING
+#define GL_LIGHTING 0x0B50
+#endif
+#ifndef GL_FLAT
+#define GL_FLAT 0x1D00
+#endif
+#ifndef GL_SMOOTH
+#define GL_SMOOTH 0x1D01
+#endif
+#ifndef GL_TEXTURE_FILTER_CONTROL
+#define GL_TEXTURE_FILTER_CONTROL 0x8500
+#endif
+#ifndef GL_COMPILE
+#define GL_COMPILE 0x1300
+#endif
+#ifndef GL_COMPILE_AND_EXECUTE
+#define GL_COMPILE_AND_EXECUTE 0x1301
+#endif
+#ifndef GL_QUAD_STRIP
+#define GL_QUAD_STRIP 0x0008
+#endif
+#ifndef GL_LINE_STIPPLE
+#define GL_LINE_STIPPLE 0x0B24
+#endif
 
 void GLim_Init();
 void GLim_Shutdown();
 // The real glViewport wrapper reports the window size here so raster
 // position and glDrawPixels emulation can work in window coordinates.
 void GLim_SetViewport( GLint x, GLint y, GLsizei width, GLsizei height );
+// glGetFloatv shim: serves the legacy pnames the core driver cannot
+// (current color, modelview/projection matrices), forwards the rest.
+void GLim_GetFloatv( GLenum pname, GLfloat *data );
 
 // Fixed function emulation. These mirror the legacy entry points the debug
 // and editor code was written against.
@@ -109,6 +146,8 @@ bool GLim_BuildFontList( GLuint base );
 // glu replacements (glu32 is gone). gluPerspective is pure math, the
 // quadric functions draw wireframe spheres through the immediate path.
 struct GLUquadric;
+// legacy glu typedef still used by the editor
+typedef GLUquadric GLUquadricObj;
 GLUquadric * gluNewQuadric();
 void gluDeleteQuadric( GLUquadric * quad );
 void gluSphere( GLUquadric * quad, GLfloat radius, GLint slices, GLint stacks );

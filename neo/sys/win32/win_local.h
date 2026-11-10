@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #define __WIN_LOCAL_H__
 
 #include <windows.h>
+#include "win_input.h"
 
 // Hand rolled WGL extension types and constants. The old wglext.h header is
 // gone; only the entry points the engine actually uses are declared here.
@@ -164,7 +165,7 @@ typedef struct {
 
 	CRITICAL_SECTION criticalSections[MAX_CRITICAL_SECTIONS];
 
-	HINSTANCE		hInstDI;		// direct input
+	HINSTANCE		hInstDI;			// direct input
 
 	LPDIRECTINPUT8			g_pdi;
 	LPDIRECTINPUTDEVICE8	g_pMouse;

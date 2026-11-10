@@ -578,7 +578,7 @@ static const char * GetDisplayName( const int deviceNum ) {
 			deviceNum,
 			&device,
 			0 /* dwFlags */ ) ) {
-	return NULL;
+		return NULL;
 	}
 	return device.DeviceName;
 }
@@ -1263,7 +1263,7 @@ void GLimp_Shutdown() {
 	common->Printf( "Shutting down OpenGL subsystem\n" );
 
 	// set current context to NULL
-	if ( wglMakeCurrent ) {
+	{
 		retVal = wglMakeCurrent( NULL, NULL ) != 0;
 		common->Printf( "...wglMakeCurrent( NULL, NULL ): %s\n", success[retVal] );
 	}
