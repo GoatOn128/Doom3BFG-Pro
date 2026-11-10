@@ -178,7 +178,7 @@ void RadiantInit( void ) {
 			return;
 		}
 
-		qglFinish();
+		glFinish();
 		// The engine context is already current on this thread. Rebinding it here
 		// can wait inside WGL while the newly queued editor windows activate.
 		g_editorShowPending = true;
@@ -229,17 +229,17 @@ void RadiantRun( void ) {
 				g_pParentWnd->AttachEngineWindow( win32.hWnd );
 				nextDockValidation = now + 250;
 			}
-			//qglPushAttrib(GL_ALL_ATTRIB_BITS);
-			qglDepthMask(true);
+			//glPushAttrib(GL_ALL_ATTRIB_BITS);
+			glDepthMask(true);
 			theApp.Run();
-			//qglPopAttrib();
-			//qwglMakeCurrent(0, 0);
+			//glPopAttrib();
+			//wglMakeCurrent(0, 0);
 			// The Engine tab is the engine's real render HWND.  Its visibility
 			// must not control whether idStudio pumps messages: selecting that tab
 			// used to make this branch false and froze every editor window.  Editor
 			// view paints also borrow the shared context, so always return it to the
 			// engine DC before the game frame continues.
-			qwglMakeCurrent(win32.hDC, win32.hGLRC);
+			wglMakeCurrent(win32.hDC, win32.hGLRC);
 			RadiantFlushPrints();
 		}
 	}
@@ -374,7 +374,7 @@ BOOL idStudioApp::InitInstance()
 
 	g_PrefsDlg.LoadPrefs();
 
-	qglEnableClientState( GL_VERTEX_ARRAY );
+	glEnableClientState( GL_VERTEX_ARRAY );
 
 	CString strTemp = m_lpCmdLine;
 	strTemp.MakeLower();
@@ -550,3 +550,4 @@ void Sys_Status(const char *psz, int part )
 	}
 	g_pParentWnd->SetStatusText(part, psz);
 }
+

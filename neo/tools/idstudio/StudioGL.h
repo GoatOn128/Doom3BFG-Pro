@@ -6,26 +6,22 @@
 // resumes.
 class idStudioGLPaintScope {
 public:
-	explicit idStudioGLPaintScope( HDC targetDC ) : active( false ), dc( targetDC ),
-		program( 0 ), stateBits( 0 ) {
-		if ( dc == NULL || !qwglMakeCurrent( dc, win32.hGLRC ) ) return;
+	explicit idStudioGLPaintScope( HDC targetDC ) : active( false ), dc( targetDC ), stateBits( 0 ) {
+		if ( dc == NULL || !wglMakeCurrent( dc, win32.hGLRC ) ) return;
 		active = true;
 		stateBits = GL_GetCurrentState();
-		qglGetIntegerv( GL_CURRENT_PROGRAM, &program );
 
-		// The editor drawing code is fixed-function.  A program left bound by a
-		// rendered game frame turns its colors/textures into undefined output.
-		qglUseProgram( 0 );
+		// The editor drawing code runs through the immediate-mode shim, which
+		// binds its own program; unbind whatever the game renderer left behind.
+		glUseProgram( 0 );
 		GL_State( GLS_DEFAULT, true );
 	}
 
 	~idStudioGLPaintScope() {
 		if ( !active ) return;
-		// Keep the driver's common state synchronized with the renderer cache,
-		// then restore the program binding not represented by GL_State.
+		// Keep the driver's common state synchronized with the renderer cache.
 		GL_State( stateBits, true );
-		qglUseProgram( program );
-		qwglMakeCurrent( win32.hDC, win32.hGLRC );
+		wglMakeCurrent( win32.hDC, win32.hGLRC );
 	}
 
 	bool IsActive() const { return active; }
@@ -33,6 +29,5 @@ public:
 private:
 	bool active;
 	HDC dc;
-	GLint program;
 	uint64 stateBits;
 };
