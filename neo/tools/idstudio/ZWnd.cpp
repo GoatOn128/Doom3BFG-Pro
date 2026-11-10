@@ -153,8 +153,8 @@ void CZWnd::OnPaint()
 	  QE_CheckOpenGLForErrors();
 
     Z_Draw ();
-	  //qwglSwapBuffers(m_dcZ);
-	  qwglSwapBuffers(dc.m_hDC);
+	  //SwapBuffers(m_dcZ);
+	  SwapBuffers(dc.m_hDC);
     TRACE("Z Paint\n");
   }
 }

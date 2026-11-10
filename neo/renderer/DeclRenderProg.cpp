@@ -178,7 +178,7 @@ idDeclRenderProg::FreeData
 */
 void idDeclRenderProg::FreeData() {
 	if ( program != 0 ) {
-		qglDeleteProgram( program );
+		glDeleteProgram( program );
 		program = 0;
 	}
 	Clear();

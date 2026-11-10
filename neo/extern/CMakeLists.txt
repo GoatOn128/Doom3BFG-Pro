@@ -1,3 +1,13 @@
+file(GLOB GLAD_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/glad/src/*.c")
+source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${GLAD_SOURCES})
+
+if(GLAD_SOURCES)
+	add_library(darklight_glad STATIC ${GLAD_SOURCES})
+	darklight_configure_target(darklight_glad true)
+	darklight_set_folder(darklight_glad "third-party")
+	target_include_directories(darklight_glad PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/glad/include")
+endif()
+
 file(GLOB ZLIB_SOURCES CONFIGURE_DEPENDS
 	"${CMAKE_CURRENT_SOURCE_DIR}/zlib/*.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/zlib/*.h")
@@ -84,4 +94,7 @@ if(TARGET darklight_zlib)
 endif()
 if(TARGET darklight_jpeg)
 	target_link_libraries(external INTERFACE darklight_jpeg)
+endif()
+if(TARGET darklight_glad)
+	target_link_libraries(external INTERFACE darklight_glad)
 endif()
