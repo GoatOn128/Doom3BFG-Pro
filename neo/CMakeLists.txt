@@ -155,7 +155,7 @@ function(darklight_set_output_directories target)
 endfunction()
 
 function(darklight_configure_target target)
-	target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/idlib")
+	target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/idlib" "${CMAKE_SOURCE_DIR}/extern/glad/include")
 
 	if(WIN32)
 		target_compile_definitions(${target} PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
