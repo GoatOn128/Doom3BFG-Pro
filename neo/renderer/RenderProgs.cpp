@@ -283,7 +283,7 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 	currentUsesJoints = false;
 	currentOptionalSkinning = false;
 	if ( decl == nullptr ) {
-		qglUseProgram( 0 );
+		glUseProgram( 0 );
 		return;
 	}
 	// a purged decl has its data stripped; reparse the real source so the
@@ -297,7 +297,7 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 		decl->RecoverFromDefaulted();
 	}
 	if ( decl->GetState() == DS_DEFAULTED ) {
-		qglUseProgram( 0 );
+		glUseProgram( 0 );
 		currentDecl = nullptr;
 		return;
 	}
@@ -306,12 +306,12 @@ void idRenderProgManager::BindDecl( idDeclRenderProg * decl ) {
 		// the decl has no generated code to upload; keep no program bound so
 		// the draw is skipped instead of drawing with the wrong program
 		common->Warning( "renderprog %s has no GL program", decl->GetName() );
-		qglUseProgram( 0 );
+		glUseProgram( 0 );
 		currentDecl = nullptr;
 		return;
 	}
 	RENDERLOG_PRINTF( "Binding GLSL Program %s\n", decl->GetName() );
-	qglUseProgram( decl->GetProgram() );
+	glUseProgram( decl->GetProgram() );
 	currentUsesJoints = decl->UsesJoints();
 	// optional skinning means the vertex program branches on the
 	// rpEnableSkinning parm; only the heat haze shaders do
@@ -402,7 +402,7 @@ void idRenderProgManager::Unbind() {
 	currentUsesJoints = false;
 	currentOptionalSkinning = false;
 
-	qglUseProgram( 0 );
+	glUseProgram( 0 );
 }
 
 /*
@@ -496,13 +496,13 @@ void idRenderProgManager::CommitUniforms() {
 	for ( int index = 0; index < data.vertexParms.Num(); index++ ) {
 		const int location = decl->GetVertexUniformLocation( index );
 		if ( location != 0 ) {
-			qglUniform4fv( location - 1, 1, glslUniforms[data.vertexParms[index]].ToFloatPtr() );
+			glUniform4fv( location - 1, 1, glslUniforms[data.vertexParms[index]].ToFloatPtr() );
 		}
 	}
 	for ( int index = 0; index < data.fragmentParms.Num(); index++ ) {
 		const int location = decl->GetFragmentUniformLocation( index );
 		if ( location != 0 ) {
-			qglUniform4fv( location - 1, 1, glslUniforms[data.fragmentParms[index]].ToFloatPtr() );
+			glUniform4fv( location - 1, 1, glslUniforms[data.fragmentParms[index]].ToFloatPtr() );
 		}
 	}
 }
@@ -515,4 +515,5 @@ idRenderProgManager::ZeroUniforms
 void idRenderProgManager::ZeroUniforms() {
 	memset( glslUniforms.Ptr(), 0, glslUniforms.Allocated() );
 }
+
 
