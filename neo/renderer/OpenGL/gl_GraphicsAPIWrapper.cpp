@@ -468,3 +468,96 @@ GL_GetCurrentStateMinusStencil
 uint64 GL_GetCurrentStateMinusStencil() {
 	return GL_GetCurrentState() & ~(GLS_STENCIL_OP_BITS|GLS_STENCIL_FUNC_BITS|GLS_STENCIL_FUNC_REF_BITS|GLS_STENCIL_FUNC_MASK_BITS);
 }
+
+static GLenum BufferTargetGL( wrapperBufferTarget_t target ) {
+	static const GLenum targets[] = { GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_UNIFORM_BUFFER, GL_PIXEL_PACK_BUFFER, GL_PIXEL_UNPACK_BUFFER };
+	return targets[target];
+}
+
+/*
+========================
+GL_BindBuffer
+========================
+*/
+void GL_BindBuffer( wrapperBufferTarget_t target, unsigned int buffer ) {
+	static const GLenum targets[] = { GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_UNIFORM_BUFFER, GL_PIXEL_PACK_BUFFER, GL_PIXEL_UNPACK_BUFFER };
+	glBindBuffer( targets[target], buffer );
+}
+
+/*
+========================
+GL_GenBuffers
+========================
+*/
+void GL_GenBuffers( int count, unsigned int * buffers ) {
+	glGenBuffers( count, buffers );
+}
+
+/*
+========================
+GL_DeleteBuffers
+========================
+*/
+void GL_DeleteBuffers( int count, const unsigned int * buffers ) {
+	glDeleteBuffers( count, buffers );
+}
+
+/*
+========================
+GL_BufferData
+========================
+*/
+void GL_BufferData( wrapperBufferTarget_t target, intptr_t size, const void * data, wrapperBufferUsage_t usage ) {
+	static const GLenum usages[] = { GL_STATIC_DRAW, GL_DYNAMIC_DRAW, GL_STREAM_DRAW };
+	glBufferData( BufferTargetGL( target ), size, data, usages[usage] );
+}
+
+/*
+========================
+GL_BufferSubData
+========================
+*/
+void GL_BufferSubData( wrapperBufferTarget_t target, intptr_t offset, intptr_t size, const void * data ) {
+	glBufferSubData( BufferTargetGL( target ), offset, size, data );
+}
+
+/*
+========================
+GL_MapBufferRange
+========================
+*/
+void * GL_MapBufferRange( wrapperBufferTarget_t target, intptr_t offset, intptr_t length, unsigned int flags ) {
+	GLbitfield access = 0;
+	if ( flags & BUFFER_MAP_READ ) { access |= GL_MAP_READ_BIT; }
+	if ( flags & BUFFER_MAP_WRITE ) { access |= GL_MAP_WRITE_BIT; }
+	if ( flags & BUFFER_MAP_INVALIDATE_RANGE ) { access |= GL_MAP_INVALIDATE_RANGE_BIT; }
+	if ( flags & BUFFER_MAP_UNSYNCHRONIZED ) { access |= GL_MAP_UNSYNCHRONIZED_BIT; }
+	return glMapBufferRange( BufferTargetGL( target ), offset, length, access );
+}
+
+/*
+========================
+GL_UnmapBuffer
+========================
+*/
+bool GL_UnmapBuffer( wrapperBufferTarget_t target ) {
+	return glUnmapBuffer( BufferTargetGL( target ) ) != 0;
+}
+
+/*
+========================
+GL_GetError
+========================
+*/
+unsigned int GL_GetError() {
+	return glGetError();
+}
+
+/*
+========================
+GL_DeleteProgram
+========================
+*/
+void GL_DeleteProgram( unsigned int program ) {
+	glDeleteProgram( program );
+}

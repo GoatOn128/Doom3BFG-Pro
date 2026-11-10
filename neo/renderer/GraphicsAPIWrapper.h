@@ -162,4 +162,38 @@ wrapperStats_t	GL_GetCurrentStats();
 void			GL_ClearStats();
 
 
+
+// Buffer object entry points. Targets, usage and map flags use wrapper enums
+// so front end code does not need GL names.
+enum wrapperBufferTarget_t {
+	BUFFER_TARGET_ARRAY,
+	BUFFER_TARGET_ELEMENT,
+	BUFFER_TARGET_UNIFORM,
+	BUFFER_TARGET_PIXEL_PACK,
+	BUFFER_TARGET_PIXEL_UNPACK
+};
+
+enum wrapperBufferUsage_t {
+	BUFFER_USAGE_STATIC_DRAW,
+	BUFFER_USAGE_DYNAMIC_DRAW,
+	BUFFER_USAGE_STREAM_DRAW
+};
+
+enum wrapperBufferMapFlags_t {
+	BUFFER_MAP_READ				= BIT( 0 ),
+	BUFFER_MAP_WRITE			= BIT( 1 ),
+	BUFFER_MAP_INVALIDATE_RANGE	= BIT( 2 ),
+	BUFFER_MAP_UNSYNCHRONIZED	= BIT( 3 )
+};
+
+void			GL_BindBuffer( wrapperBufferTarget_t target, unsigned int buffer );
+void			GL_GenBuffers( int count, unsigned int * buffers );
+void			GL_DeleteBuffers( int count, const unsigned int * buffers );
+void			GL_BufferData( wrapperBufferTarget_t target, intptr_t size, const void * data, wrapperBufferUsage_t usage );
+void			GL_BufferSubData( wrapperBufferTarget_t target, intptr_t offset, intptr_t size, const void * data );
+void *			GL_MapBufferRange( wrapperBufferTarget_t target, intptr_t offset, intptr_t length, unsigned int flags );
+bool			GL_UnmapBuffer( wrapperBufferTarget_t target );
+unsigned int	GL_GetError();
+void			GL_DeleteProgram( unsigned int program );
+
 #endif // !__GRAPHICSAPIWRAPPER_H__

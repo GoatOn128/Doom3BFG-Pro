@@ -32,8 +32,8 @@ If you have questions concerning this license or the applicable additional terms
 idCVar r_showBuffers( "r_showBuffers", "0", CVAR_INTEGER, "" );
 
 
-//static const GLenum bufferUsage = GL_STATIC_DRAW_ARB;
-static const GLenum bufferUsage = GL_DYNAMIC_DRAW_ARB;
+//static const GLenum bufferUsage = BUFFER_USAGE_STATIC_DRAW;
+static const GLenum bufferUsage = BUFFER_USAGE_DYNAMIC_DRAW;
 
 /*
 ==================
@@ -68,10 +68,10 @@ UnbindBufferObjects
 ========================
 */
 void UnbindBufferObjects() {
-	glBindBuffer( GL_ARRAY_BUFFER, 0 );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-	glBindBuffer( GL_PIXEL_PACK_BUFFER, 0 );
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
+	GL_BindBuffer( BUFFER_TARGET_ARRAY, 0 );
+	GL_BindBuffer( BUFFER_TARGET_ELEMENT, 0 );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK, 0 );
 }
 
 #ifdef ID_WIN_X86_SSE2_INTRIN
@@ -172,20 +172,20 @@ bool idVertexBuffer::AllocBufferObject( const void * data, int allocSize ) {
 
 
 	// clear out any previous error
-	glGetError();
+	GL_GetError();
 
 	GLuint bufferObject = 0xFFFF;
-	glGenBuffers( 1, & bufferObject );
+	GL_GenBuffers( 1, & bufferObject );
 	if ( bufferObject == 0xFFFF ) {
 		idLib::FatalError( "idVertexBuffer::AllocBufferObject: failed" );
 	}
-	glBindBuffer( GL_ARRAY_BUFFER, bufferObject );
+	GL_BindBuffer( BUFFER_TARGET_ARRAY, bufferObject );
 
 	// these are rewritten every frame
-	glBufferData( GL_ARRAY_BUFFER, numBytes, NULL, bufferUsage );
+	GL_BufferData( BUFFER_TARGET_ARRAY, numBytes, NULL, bufferUsage );
 	apiObject = reinterpret_cast< void * >( bufferObject );
 
-	GLenum err = glGetError();
+	GLenum err = GL_GetError();
 	if ( err == GL_OUT_OF_MEMORY ) {
 		idLib::Warning( "idVertexBuffer::AllocBufferObject: allocation failed" );
 		allocationFailed = true;
@@ -229,7 +229,7 @@ void idVertexBuffer::FreeBufferObject() {
 	}
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glDeleteBuffers( 1, & bufferObject );
+	GL_DeleteBuffers( 1, & bufferObject );
 
 	ClearWithoutFreeing();
 }
@@ -290,8 +290,8 @@ void idVertexBuffer::Update( const void * data, int updateSize ) const {
 	int numBytes = ( updateSize + 15 ) & ~15;
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ARRAY_BUFFER, bufferObject );
-	glBufferSubData( GL_ARRAY_BUFFER, GetOffset(), (GLsizeiptrARB)numBytes, data );
+	GL_BindBuffer( BUFFER_TARGET_ARRAY, bufferObject );
+	GL_BufferSubData( BUFFER_TARGET_ARRAY, GetOffset(), (GLsizeiptrARB)numBytes, data );
 /*
 	void * buffer = MapBuffer( BM_WRITE );
 	CopyBuffer( (byte *)buffer + GetOffset(), (byte *)data, numBytes );
@@ -311,16 +311,16 @@ void * idVertexBuffer::MapBuffer( bufferMapType_t mapType ) const {
 	void * buffer = NULL;
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ARRAY_BUFFER, bufferObject );
+	GL_BindBuffer( BUFFER_TARGET_ARRAY, bufferObject );
 	if ( mapType == BM_READ ) {
 		//buffer = glMapBuffer( GL_ARRAY_BUFFER, GL_READ_ONLY_ARB );
-		buffer = glMapBufferRange( GL_ARRAY_BUFFER, 0, GetAllocedSize(), GL_MAP_READ_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT );
+		buffer = GL_MapBufferRange( BUFFER_TARGET_ARRAY, 0, GetAllocedSize(), BUFFER_MAP_READ | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
 	} else if ( mapType == BM_WRITE ) {
 		//buffer = glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY_ARB );
-		buffer = glMapBufferRange( GL_ARRAY_BUFFER, 0, GetAllocedSize(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT );
+		buffer = GL_MapBufferRange( BUFFER_TARGET_ARRAY, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
@@ -347,8 +347,8 @@ void idVertexBuffer::UnmapBuffer() const {
 	assert( IsMapped() );
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ARRAY_BUFFER, bufferObject );
-	if ( !glUnmapBuffer( GL_ARRAY_BUFFER ) ) {
+	GL_BindBuffer( BUFFER_TARGET_ARRAY, bufferObject );
+	if ( !GL_UnmapBuffer( BUFFER_TARGET_ARRAY ) ) {
 		idLib::Printf( "idVertexBuffer::UnmapBuffer failed\n" );
 	}
 
@@ -416,21 +416,21 @@ bool idIndexBuffer::AllocBufferObject( const void * data, int allocSize ) {
 
 
 	// clear out any previous error
-	glGetError();
+	GL_GetError();
 
 	GLuint bufferObject = 0xFFFF;
-	glGenBuffers( 1, & bufferObject );
+	GL_GenBuffers( 1, & bufferObject );
 	if ( bufferObject == 0xFFFF ) {
-		GLenum error = glGetError();
+		GLenum error = GL_GetError();
 		idLib::FatalError( "idIndexBuffer::AllocBufferObject: failed - GL_Error %d", error );
 	}
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, bufferObject );
+	GL_BindBuffer( BUFFER_TARGET_ELEMENT, bufferObject );
 
 	// these are rewritten every frame
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, numBytes, NULL, bufferUsage );
+	GL_BufferData( BUFFER_TARGET_ELEMENT, numBytes, NULL, bufferUsage );
 	apiObject = reinterpret_cast< void * >( bufferObject );
 
-	GLenum err = glGetError();
+	GLenum err = GL_GetError();
 	if ( err == GL_OUT_OF_MEMORY ) {
 		idLib::Warning( "idIndexBuffer:AllocBufferObject: allocation failed" );
 		allocationFailed = true;
@@ -474,7 +474,7 @@ void idIndexBuffer::FreeBufferObject() {
 	}
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glDeleteBuffers( 1, & bufferObject );
+	GL_DeleteBuffers( 1, & bufferObject );
 
 	ClearWithoutFreeing();
 }
@@ -536,8 +536,8 @@ void idIndexBuffer::Update( const void * data, int updateSize ) const {
 	int numBytes = ( updateSize + 15 ) & ~15;
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, bufferObject );
-	glBufferSubData( GL_ELEMENT_ARRAY_BUFFER, GetOffset(), (GLsizeiptrARB)numBytes, data );
+	GL_BindBuffer( BUFFER_TARGET_ELEMENT, bufferObject );
+	GL_BufferSubData( BUFFER_TARGET_ELEMENT, GetOffset(), (GLsizeiptrARB)numBytes, data );
 /*
 	void * buffer = MapBuffer( BM_WRITE );
 	CopyBuffer( (byte *)buffer + GetOffset(), (byte *)data, numBytes );
@@ -558,16 +558,16 @@ void * idIndexBuffer::MapBuffer( bufferMapType_t mapType ) const {
 	void * buffer = NULL;
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, bufferObject );
+	GL_BindBuffer( BUFFER_TARGET_ELEMENT, bufferObject );
 	if ( mapType == BM_READ ) {
 		//buffer = glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY_ARB );
-		buffer = glMapBufferRange( GL_ELEMENT_ARRAY_BUFFER, 0, GetAllocedSize(), GL_MAP_READ_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT );
+		buffer = GL_MapBufferRange( BUFFER_TARGET_ELEMENT, 0, GetAllocedSize(), BUFFER_MAP_READ | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
 	} else if ( mapType == BM_WRITE ) {
 		//buffer = glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY_ARB );
-		buffer = glMapBufferRange( GL_ELEMENT_ARRAY_BUFFER, 0, GetAllocedSize(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT );
+		buffer = GL_MapBufferRange( BUFFER_TARGET_ELEMENT, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 		if ( buffer != NULL ) {
 			buffer = (byte *)buffer + GetOffset();
 		}
@@ -594,8 +594,8 @@ void idIndexBuffer::UnmapBuffer() const {
 	assert( IsMapped() );
 
 	GLuint bufferObject = reinterpret_cast< GLuint >( apiObject );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, bufferObject );
-	if ( !glUnmapBuffer( GL_ELEMENT_ARRAY_BUFFER ) ) {
+	GL_BindBuffer( BUFFER_TARGET_ELEMENT, bufferObject );
+	if ( !GL_UnmapBuffer( BUFFER_TARGET_ELEMENT ) ) {
 		idLib::Printf( "idIndexBuffer::UnmapBuffer failed\n" );
 	}
 
@@ -662,10 +662,10 @@ bool idJointBuffer::AllocBufferObject( const float * joints, int numAllocJoints 
 	const int numBytes = GetAllocedSize();
 
 	GLuint buffer = 0;
-	glGenBuffers( 1, &buffer );
-	glBindBuffer( GL_UNIFORM_BUFFER, buffer );
-	glBufferData( GL_UNIFORM_BUFFER, numBytes, NULL, GL_STREAM_DRAW_ARB );
-	glBindBuffer( GL_UNIFORM_BUFFER, 0);
+	GL_GenBuffers( 1, &buffer );
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, buffer );
+	GL_BufferData( BUFFER_TARGET_UNIFORM, numBytes, NULL, BUFFER_USAGE_STREAM_DRAW );
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, 0);
 	apiObject = reinterpret_cast< void * >( buffer );
 
 	if ( r_showBuffers.GetBool() ) {
@@ -705,8 +705,8 @@ void idJointBuffer::FreeBufferObject() {
 	}
 
 	GLuint buffer = reinterpret_cast< GLuint > ( apiObject );
-	glBindBuffer( GL_UNIFORM_BUFFER, 0 );
-	glDeleteBuffers( 1, & buffer );
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, 0 );
+	GL_DeleteBuffers( 1, & buffer );
 
 	ClearWithoutFreeing();
 }
@@ -767,8 +767,8 @@ void idJointBuffer::Update( const float * joints, int numUpdateJoints ) const {
 
 	const int numBytes = numUpdateJoints * 3 * 4 * sizeof( float );
 
-	glBindBuffer( GL_UNIFORM_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	glBufferSubData( GL_UNIFORM_BUFFER, GetOffset(), (GLsizeiptrARB)numBytes, joints );
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, reinterpret_cast< GLuint >( apiObject ) );
+	GL_BufferSubData( BUFFER_TARGET_UNIFORM, GetOffset(), (GLsizeiptrARB)numBytes, joints );
 }
 
 /*
@@ -785,11 +785,11 @@ float * idJointBuffer::MapBuffer( bufferMapType_t mapType ) const {
 
 	void * buffer = NULL;
 
-	glBindBuffer( GL_UNIFORM_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, reinterpret_cast< GLuint >( apiObject ) );
 	numBytes = numBytes;
 	assert( GetOffset() == 0 );
 	//buffer = glMapBuffer( GL_UNIFORM_BUFFER, GL_WRITE_ONLY_ARB );
-	buffer = glMapBufferRange( GL_UNIFORM_BUFFER, 0, GetAllocedSize(), GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT );
+	buffer = GL_MapBufferRange( BUFFER_TARGET_UNIFORM, 0, GetAllocedSize(), BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED );
 	if ( buffer != NULL ) {
 		buffer = (byte *)buffer + GetOffset();
 	}
@@ -811,8 +811,8 @@ void idJointBuffer::UnmapBuffer() const {
 	assert( apiObject != NULL );
 	assert( IsMapped() );
 
-	glBindBuffer( GL_UNIFORM_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	if ( !glUnmapBuffer( GL_UNIFORM_BUFFER ) ) {
+	GL_BindBuffer( BUFFER_TARGET_UNIFORM, reinterpret_cast< GLuint >( apiObject ) );
+	if ( !GL_UnmapBuffer( BUFFER_TARGET_UNIFORM ) ) {
 		idLib::Printf( "idJointBuffer::UnmapBuffer failed\n" );
 	}
 
@@ -854,26 +854,26 @@ void idJointBuffer::Swap( idJointBuffer & other ) {
 
 static GLbitfield PixelBufferMapFlags( bufferMapType_t mapType ) {
 	switch ( mapType ) {
-		case BM_READ:			return GL_MAP_READ_BIT;
-		case BM_READ_NOSYNC:	return GL_MAP_READ_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
-		case BM_WRITE:			return GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT;
-		case BM_WRITE_NOSYNC:	return GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT | GL_MAP_UNSYNCHRONIZED_BIT;
+		case BM_READ:			return BUFFER_MAP_READ;
+		case BM_READ_NOSYNC:	return BUFFER_MAP_READ | BUFFER_MAP_UNSYNCHRONIZED;
+		case BM_WRITE:			return BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE;
+		case BM_WRITE_NOSYNC:	return BUFFER_MAP_WRITE | BUFFER_MAP_INVALIDATE_RANGE | BUFFER_MAP_UNSYNCHRONIZED;
 		default:				assert( false ); return 0;
 	}
 }
 
-static bool AllocPixelBuffer( GLenum target, GLenum usage, void * & apiObject, int allocSize ) {
+static bool AllocPixelBuffer( wrapperBufferTarget_t target, wrapperBufferUsage_t usage, void * & apiObject, int allocSize ) {
 	if ( allocSize <= 0 ) {
 		idLib::Error( "AllocPixelBuffer: allocSize = %i", allocSize );
 	}
 	GLuint object = 0;
-	glGetError();
-	glGenBuffers( 1, &object );
-	glBindBuffer( target, object );
-	glBufferData( target, ( allocSize + 15 ) & ~15, NULL, usage );
+	GL_GetError();
+	GL_GenBuffers( 1, &object );
+	GL_BindBuffer( target, object );
+	GL_BufferData( target, ( allocSize + 15 ) & ~15, NULL, usage );
 	apiObject = reinterpret_cast< void * >( object );
-	if ( glGetError() == GL_OUT_OF_MEMORY ) {
-		glDeleteBuffers( 1, &object );
+	if ( GL_GetError() == GL_OUT_OF_MEMORY ) {
+		GL_DeleteBuffers( 1, &object );
 		apiObject = NULL;
 		return false;
 	}
@@ -883,7 +883,7 @@ static bool AllocPixelBuffer( GLenum target, GLenum usage, void * & apiObject, i
 static void FreePixelBuffer( void * & apiObject ) {
 	if ( apiObject != NULL ) {
 		GLuint object = reinterpret_cast< GLuint >( apiObject );
-		glDeleteBuffers( 1, &object );
+		GL_DeleteBuffers( 1, &object );
 		apiObject = NULL;
 	}
 }
@@ -914,14 +914,14 @@ void idPixelPackBuffer::FreeBufferObject() {
 
 void idPixelPackBuffer::Update( const void * data, int updateSize ) const {
 	assert( apiObject != NULL && !IsMapped() && updateSize <= GetSize() );
-	glBindBuffer( GL_PIXEL_PACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	glBufferSubData( GL_PIXEL_PACK_BUFFER, 0, updateSize, data );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, reinterpret_cast< GLuint >( apiObject ) );
+	GL_BufferSubData( BUFFER_TARGET_PIXEL_PACK, 0, updateSize, data );
 }
 
 void * idPixelPackBuffer::TryMapBuffer( bufferMapType_t mapType ) const {
 	assert( apiObject != NULL && !IsMapped() );
-	glBindBuffer( GL_PIXEL_PACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	void * buffer = glMapBufferRange( GL_PIXEL_PACK_BUFFER, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, reinterpret_cast< GLuint >( apiObject ) );
+	void * buffer = GL_MapBufferRange( BUFFER_TARGET_PIXEL_PACK, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
 	if ( buffer != NULL ) {
 		SetMapped();
 	}
@@ -938,8 +938,8 @@ void * idPixelPackBuffer::MapBuffer( bufferMapType_t mapType ) const {
 
 void idPixelPackBuffer::UnmapBuffer() const {
 	assert( apiObject != NULL && IsMapped() );
-	glBindBuffer( GL_PIXEL_PACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	if ( !glUnmapBuffer( GL_PIXEL_PACK_BUFFER ) ) {
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, reinterpret_cast< GLuint >( apiObject ) );
+	if ( !GL_UnmapBuffer( BUFFER_TARGET_PIXEL_PACK ) ) {
 		idLib::Warning( "idPixelPackBuffer::UnmapBuffer failed" );
 	}
 	SetUnmapped();
@@ -950,7 +950,7 @@ idPixelUnpackBuffer::~idPixelUnpackBuffer() { FreeBufferObject(); }
 
 bool idPixelUnpackBuffer::AllocBufferObject( const void * data, int allocSize ) {
 	assert( apiObject == NULL );
-	if ( !AllocPixelBuffer( GL_PIXEL_UNPACK_BUFFER, GL_STREAM_DRAW_ARB, apiObject, allocSize ) ) {
+	if ( !AllocPixelBuffer( BUFFER_TARGET_PIXEL_UNPACK, BUFFER_USAGE_STREAM_DRAW, apiObject, allocSize ) ) {
 		return false;
 	}
 	size = allocSize;
@@ -971,14 +971,14 @@ void idPixelUnpackBuffer::FreeBufferObject() {
 
 void idPixelUnpackBuffer::Update( const void * data, int updateSize ) const {
 	assert( apiObject != NULL && !IsMapped() && updateSize <= GetSize() );
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	glBufferSubData( GL_PIXEL_UNPACK_BUFFER, 0, updateSize, data );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK, reinterpret_cast< GLuint >( apiObject ) );
+	GL_BufferSubData( BUFFER_TARGET_PIXEL_UNPACK, 0, updateSize, data );
 }
 
 void * idPixelUnpackBuffer::TryMapBuffer( bufferMapType_t mapType ) const {
 	assert( apiObject != NULL && !IsMapped() );
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	void * buffer = glMapBufferRange( GL_PIXEL_UNPACK_BUFFER, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK, reinterpret_cast< GLuint >( apiObject ) );
+	void * buffer = GL_MapBufferRange( BUFFER_TARGET_PIXEL_UNPACK, 0, GetAllocedSize(), PixelBufferMapFlags( mapType ) );
 	if ( buffer != NULL ) {
 		SetMapped();
 	}
@@ -995,8 +995,8 @@ void * idPixelUnpackBuffer::MapBuffer( bufferMapType_t mapType ) const {
 
 void idPixelUnpackBuffer::UnmapBuffer() const {
 	assert( apiObject != NULL && IsMapped() );
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, reinterpret_cast< GLuint >( apiObject ) );
-	if ( !glUnmapBuffer( GL_PIXEL_UNPACK_BUFFER ) ) {
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK, reinterpret_cast< GLuint >( apiObject ) );
+	if ( !GL_UnmapBuffer( BUFFER_TARGET_PIXEL_UNPACK ) ) {
 		idLib::Warning( "idPixelUnpackBuffer::UnmapBuffer failed" );
 	}
 	SetUnmapped();
