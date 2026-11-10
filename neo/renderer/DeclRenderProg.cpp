@@ -480,7 +480,7 @@ void idDeclRenderProg::UploadTargetCode() {
 		return;
 	}
 
-	if ( r_dumpGeneratedGLSL.GetBool() && fileSystem != nullptr ) {
+	//if ( r_dumpGeneratedGLSL.GetBool() && fileSystem != nullptr ) {
 		idStr vertexName( "generated/glsl/" );
 		vertexName += GetName();
 		vertexName += "_vertex.glsl";
@@ -489,7 +489,7 @@ void idDeclRenderProg::UploadTargetCode() {
 		fragmentName += GetName();
 		fragmentName += "_fragment.glsl";
 		fileSystem->WriteFile( fragmentName.c_str(), data.fragmentCode.c_str(), data.fragmentCode.Length() );
-	}
+	//}
 
 	const unsigned int vertexShader = CompileGLSL( data.vertexCode, true, GetName(), GetFileName() );
 	const unsigned int fragmentShader = CompileGLSL( data.fragmentCode, false, GetName(), GetFileName() );
