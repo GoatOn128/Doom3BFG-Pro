@@ -118,7 +118,7 @@ static void RB_FinishStageTexturing( const shaderStage_t * pStage, const drawSur
 
 void RB_ShutdownShadowAtlas() {
 	if ( lightShadowFBO != 0 ) {
-		qglDeleteFramebuffers( 1, &lightShadowFBO );
+		glDeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 	}
 	lightShadowTextureObject = 0;
@@ -195,7 +195,7 @@ static bool RB_EnsureShadowAtlas() {
 		return true;
 	}
 	if ( lightShadowFBO != 0 ) {
-		qglDeleteFramebuffers( 1, &lightShadowFBO );
+		glDeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 	}
 	lightShadowTextureObject = 0;
@@ -219,31 +219,31 @@ static bool RB_EnsureShadowAtlas() {
 	// the engine's DSA bookkeeping.  Legacy glTexParameteri operates on the
 	// actual active unit, so select unit 5 explicitly or these depth sampler
 	// parameters corrupt whichever ordinary color image is active on unit 0.
-	GLint previousActiveTexture = GL_TEXTURE0_ARB;
-	qglGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
-	qglActiveTextureARB( GL_TEXTURE0_ARB + 5 );
-	qglBindTexture( GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject() );
-	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
-	qglTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
-	qglActiveTextureARB( previousActiveTexture );
-	qglGenFramebuffers( 1, &lightShadowFBO );
+	GLint previousActiveTexture = GL_TEXTURE0;
+	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	glActiveTexture( GL_TEXTURE0 + 5 );
+	glBindTexture( GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject() );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
+	glActiveTexture( previousActiveTexture );
+	glGenFramebuffers( 1, &lightShadowFBO );
 	GLint previousFramebuffer = 0;
 	GLint previousDrawBuffer = GL_BACK;
 	GLint previousReadBuffer = GL_BACK;
-	qglGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
-	qglGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
-	qglGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
-	qglBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
-	qglFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject(), 0 );
-	qglDrawBuffer( GL_NONE );
-	qglReadBuffer( GL_NONE );
-	const GLenum status = qglCheckFramebufferStatus( GL_FRAMEBUFFER );
-	qglBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
-	qglDrawBuffer( previousDrawBuffer );
-	qglReadBuffer( previousReadBuffer );
+	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
+	glGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
+	glGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
+	glBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject(), 0 );
+	glDrawBuffer( GL_NONE );
+	glReadBuffer( GL_NONE );
+	const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
+	glBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
+	glDrawBuffer( previousDrawBuffer );
+	glReadBuffer( previousReadBuffer );
 	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
 		common->Warning( "light shadow framebuffer incomplete: 0x%x", status );
-		qglDeleteFramebuffers( 1, &lightShadowFBO );
+		glDeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 		lightShadowTextureObject = 0;
 		return false;
@@ -409,12 +409,12 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	GLint previousReadBuffer = GL_BACK;
 	const int previousCullType = backEnd.glState.faceCulling;
 	const uint64 previousState = GL_GetCurrentState();
-	qglGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
-	qglGetIntegerv( GL_VIEWPORT, previousViewport );
-	qglGetIntegerv( GL_SCISSOR_BOX, previousScissor );
-	qglGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
-	qglGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
-	qglBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
+	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
+	glGetIntegerv( GL_VIEWPORT, previousViewport );
+	glGetIntegerv( GL_SCISSOR_BOX, previousScissor );
+	glGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
+	glGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
+	glBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
 	// glClear obeys the scissor test.  The previous light's screen-space
 	// scissor and depth write mask.  Interaction rendering leaves depth writes
 	// disabled, so establish the shadow depth state before clearing or the
@@ -424,8 +424,8 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 		GL_State( GLS_COLORMASK | GLS_ALPHAMASK | GLS_POLYGON_OFFSET | GLS_DEPTHFUNC_LESS );
 		GL_Cull( CT_TWO_SIDED );
 		GL_PolygonOffset( 1.0f, 2.0f );
-		qglClearDepth( 1.0 );
-		qglClear( GL_DEPTH_BUFFER_BIT );
+		glClearDepth( 1.0 );
+		glClear( GL_DEPTH_BUFFER_BIT );
 	}
 	static const int slotX[6] = { 0, 1, 0, 1, 0, 1 };
 	static const int slotY[6] = { 0, 0, 1, 1, 2, 2 };
@@ -441,7 +441,7 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	static bool reportedShadowAtlas = false;
 	if ( r_shadowMapDebug.GetBool() && !reportedShadowAtlas ) {
 		idTempArray<float> depth( lightShadowAtlasSize * lightShadowAtlasSize );
-		qglReadPixels( 0, 0, lightShadowAtlasSize, lightShadowAtlasSize, GL_DEPTH_COMPONENT, GL_FLOAT, depth.Ptr() );
+		glReadPixels( 0, 0, lightShadowAtlasSize, lightShadowAtlasSize, GL_DEPTH_COMPONENT, GL_FLOAT, depth.Ptr() );
 		float minimum = 1.0f;
 		float maximum = 0.0f;
 		int written = 0;
@@ -468,9 +468,9 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	}
 	renderProgManager.Unbind();
 	GL_Cull( previousCullType );
-	qglBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
-	qglDrawBuffer( previousDrawBuffer );
-	qglReadBuffer( previousReadBuffer );
+	glBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
+	glDrawBuffer( previousDrawBuffer );
+	glReadBuffer( previousReadBuffer );
 	GL_State( previousState );
 	GL_Viewport( previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3] );
 	GL_Scissor( previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3] );
@@ -563,38 +563,38 @@ void RB_DrawElementsWithCounters( const drawSurf_t *surf ) {
 		assert( ( jointBuffer.GetOffset() & ( glConfig.uniformBufferOffsetAlignment - 1 ) ) == 0 );
 
 		const GLuint ubo = reinterpret_cast< GLuint >( jointBuffer.GetAPIObject() );
-		qglBindBufferRange( GL_UNIFORM_BUFFER, 0, ubo, jointBuffer.GetOffset(), jointBuffer.GetNumJoints() * sizeof( idJointMat ) );
+		glBindBufferRange( GL_UNIFORM_BUFFER, 0, ubo, jointBuffer.GetOffset(), jointBuffer.GetNumJoints() * sizeof( idJointMat ) );
 	}
 
 	renderProgManager.CommitUniforms();
 
 	if ( backEnd.glState.currentIndexBuffer != (GLuint)indexBuffer->GetAPIObject() || !r_useStateCaching.GetBool() ) {
-		qglBindBufferARB( GL_ELEMENT_ARRAY_BUFFER_ARB, (GLuint)indexBuffer->GetAPIObject() );
+		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, (GLuint)indexBuffer->GetAPIObject() );
 		backEnd.glState.currentIndexBuffer = (GLuint)indexBuffer->GetAPIObject();
 	}
 
 	if ( ( backEnd.glState.vertexLayout != LAYOUT_DRAW_VERT ) || ( backEnd.glState.currentVertexBuffer != (GLuint)vertexBuffer->GetAPIObject() ) || !r_useStateCaching.GetBool() ) {
-		qglBindBufferARB( GL_ARRAY_BUFFER_ARB, (GLuint)vertexBuffer->GetAPIObject() );
+		glBindBuffer( GL_ARRAY_BUFFER, (GLuint)vertexBuffer->GetAPIObject() );
 		backEnd.glState.currentVertexBuffer = (GLuint)vertexBuffer->GetAPIObject();
 
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_VERTEX );
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_NORMAL );
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_COLOR );
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_COLOR2 );
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_ST );
-		qglEnableVertexAttribArrayARB( PC_ATTRIB_INDEX_TANGENT );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_VERTEX );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_NORMAL );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR2 );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_ST );
+		glEnableVertexAttribArray( PC_ATTRIB_INDEX_TANGENT );
 
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_VERTEX, 3, GL_FLOAT, GL_FALSE, sizeof( idDrawVert ), (void *)( DRAWVERT_XYZ_OFFSET ) );
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_NORMAL, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_NORMAL_OFFSET ) );
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_COLOR, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR_OFFSET ) );
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_COLOR2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR2_OFFSET ) );
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_ST, 2, GL_HALF_FLOAT, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_ST_OFFSET ) );
-		qglVertexAttribPointerARB( PC_ATTRIB_INDEX_TANGENT, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_TANGENT_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_VERTEX, 3, GL_FLOAT, GL_FALSE, sizeof( idDrawVert ), (void *)( DRAWVERT_XYZ_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_NORMAL, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_NORMAL_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_COLOR, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_COLOR2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR2_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_ST, 2, GL_HALF_FLOAT, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_ST_OFFSET ) );
+		glVertexAttribPointer( PC_ATTRIB_INDEX_TANGENT, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_TANGENT_OFFSET ) );
 
 		backEnd.glState.vertexLayout = LAYOUT_DRAW_VERT;
 	}
 	
-	qglDrawElementsBaseVertex( GL_TRIANGLES, 
+	glDrawElementsBaseVertex( GL_TRIANGLES, 
 							  r_singleTriangle.GetBool() ? 3 : surf->numIndexes,
 							  GL_INDEX_TYPE,
 							  (triIndex_t *)indexOffset,
@@ -1052,13 +1052,9 @@ static void RB_FillDepthBufferGeneric( const drawSurf_t * const * drawSurfs, int
 
 				GL_Color( color );
 
-#ifdef USE_CORE_PROFILE
 				GL_State( stageGLState );
 				idVec4 alphaTestValue( regs[ pStage->alphaTestRegister ] );
 				SetFragmentParm( RENDERPARM_ALPHA_TEST, alphaTestValue.ToFloatPtr() );
-#else
-				GL_State( stageGLState | GLS_ALPHATEST_FUNC_GREATER | GLS_ALPHATEST_MAKE_REF( idMath::Ftob( 255.0f * regs[ pStage->alphaTestRegister ] ) ) );
-#endif
 
 				if ( drawSurf->jointCache ) {
 					renderProgManager.BindShader_TextureVertexColorSkinned();
@@ -1120,9 +1116,7 @@ static void RB_FillDepthBufferGeneric( const drawSurf_t * const * drawSurfs, int
 		renderLog.CloseBlock();
 	}
 
-#ifdef USE_CORE_PROFILE
 	SetFragmentParm( RENDERPARM_ALPHA_TEST, vec4_zero.ToFloatPtr() );
-#endif
 }
 
 /*
@@ -2044,7 +2038,7 @@ static int RB_DrawShaderPasses( const drawSurf_t * const * const drawSurfs, cons
 							// _currentRender feeds refraction surfaces; a stale
 							// per-unit binding cache would silently sample whatever
 							// last touched this unit, so always issue the real bind
-							qglBindMultiTextureEXT( GL_TEXTURE0_ARB + j, GL_TEXTURE_2D, image->GetAPIObject() );
+							glBindMultiTextureEXT( GL_TEXTURE0 + j, GL_TEXTURE_2D, image->GetAPIObject() );
 						}
 					}
 				}
@@ -2621,10 +2615,8 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	// normal face culling
 	GL_Cull( CT_FRONT_SIDED );
 
-#ifdef USE_CORE_PROFILE
 	// bind one global Vertex Array Object (VAO)
-	qglBindVertexArray( glConfig.global_vao );
-#endif
+	glBindVertexArray( glConfig.global_vao );
 
 	// Allocate persistent shadow resources before any view geometry is drawn.
 	// idImage allocation invalidates the renderer's texture binding caches, so
@@ -2803,9 +2795,9 @@ void RB_MotionBlur() {
 
 	// clear the alpha buffer and draw only the hands + weapon into it so
 	// we can avoid blurring them
-	qglClearColor( 0, 0, 0, 1 );
+	glClearColor( 0, 0, 0, 1 );
 	GL_State( GLS_COLORMASK | GLS_DEPTHMASK );
-	qglClear( GL_COLOR_BUFFER_BIT );
+	glClear( GL_COLOR_BUFFER_BIT );
 	GL_Color( 0, 0, 0, 0 );
 	GL_SelectTexture( 0 );
 	globalImages->blackImage->Bind();
@@ -3014,3 +3006,4 @@ void RB_PostProcess( const void * data ) {
 
 	renderLog.CloseBlock();
 }
+

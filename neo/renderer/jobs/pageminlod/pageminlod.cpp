@@ -41,11 +41,12 @@ void UpdatePageMinLodJob( const pageMinLodUpdate_t * parms ) {
 }
 
 void UploadPageMinLod( const pageMinLodUpdate_t * parms ) {
-	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB,
+	glBindBuffer( GL_PIXEL_UNPACK_BUFFER,
 		reinterpret_cast< GLuint >( const_cast< void * >( parms->pageMinLodPBO ) ) );
 	parms->pageMinLodImage->SubImageUpload( 0, 0, 0, 0,
 		parms->pageMinLodImageSize, parms->pageMinLodImageSize, NULL );
-	qglBindBufferARB( GL_PIXEL_UNPACK_BUFFER_ARB, 0 );
+	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
 }
 
 REGISTER_PARALLEL_JOB( UpdatePageMinLodJob, "UpdatePageMinLodJob" );
+
