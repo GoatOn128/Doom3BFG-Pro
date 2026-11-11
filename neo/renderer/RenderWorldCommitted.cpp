@@ -173,3 +173,32 @@ void idRenderWorldCommitted::ApproximateAmbientForBounds( const idBounds & bound
 	AmbientOnlyLighting( parms, lighting );
 }
 
+
+
+/*
+===================
+idRenderWorldLocal::ApproximateLightingForBounds
+
+Game interface forwarder into the committed world.
+===================
+*/
+void idRenderWorldLocal::ApproximateLightingForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const {
+	if ( committedWorld != NULL ) {
+		committedWorld->ApproximateLightingForBounds( bounds, lighting );
+	} else {
+		lighting.Clear();
+	}
+}
+
+/*
+===================
+idRenderWorldLocal::ApproximateAmbientForBounds
+===================
+*/
+void idRenderWorldLocal::ApproximateAmbientForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const {
+	if ( committedWorld != NULL ) {
+		committedWorld->ApproximateAmbientForBounds( bounds, lighting );
+	} else {
+		lighting.Clear();
+	}
+}
