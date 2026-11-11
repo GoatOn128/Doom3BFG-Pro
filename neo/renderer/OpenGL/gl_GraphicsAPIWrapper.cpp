@@ -610,9 +610,30 @@ void GL_Disable( wrapperCap_t cap ) { glDisable( CapGL( cap ) ); }
 bool GL_IsEnabled( wrapperCap_t cap ) { return glIsEnabled( CapGL( cap ) ) != 0; }
 
 void GL_GenQueries( int count, unsigned int * ids ) { glGenQueries( count, ids ); }
-void GL_BeginQuery( wrapperQueryTarget_t target, unsigned int id ) { glBeginQuery( GL_TIME_ELAPSED_EXT, id ); }
-void GL_EndQuery( wrapperQueryTarget_t target ) { glEndQuery( GL_TIME_ELAPSED_EXT ); }
+void GL_DeleteQueries( int count, const unsigned int * ids ) { glDeleteQueries( count, ids ); }
+
+// core GL 3.3 enums, guarded in case the glad header was generated without them
+#ifndef GL_SAMPLES_PASSED
+#define GL_SAMPLES_PASSED 0x8914
+#endif
+#ifndef GL_QUERY_RESULT_AVAILABLE
+#define GL_QUERY_RESULT_AVAILABLE 0x8867
+#endif
+
+static GLenum QueryTargetGL( wrapperQueryTarget_t target ) {
+	static const GLenum targets[] = { GL_TIME_ELAPSED_EXT, GL_SAMPLES_PASSED };
+	return targets[target];
+}
+
+void GL_BeginQuery( wrapperQueryTarget_t target, unsigned int id ) { glBeginQuery( QueryTargetGL( target ), id ); }
+void GL_EndQuery( wrapperQueryTarget_t target ) { glEndQuery( QueryTargetGL( target ) ); }
 void GL_GetQueryObjectui64v( unsigned int id, unsigned long long * params ) { glGetQueryObjectui64v( id, GL_QUERY_RESULT, params ); }
+void GL_GetQueryObjectuiv( unsigned int id, unsigned int * params ) { glGetQueryObjectuiv( id, GL_QUERY_RESULT, params ); }
+bool GL_QueryResultAvailable( unsigned int id ) {
+	unsigned int available = 0;
+	glGetQueryObjectuiv( id, GL_QUERY_RESULT_AVAILABLE, &available );
+	return available != 0;
+}
 
 void GL_ActiveTexture( int unit ) { glActiveTexture( GL_TEXTURE0 + unit ); }
 void GL_BindMultiTexture( int unit, wrapperTexTarget_t target, unsigned int texture ) { glBindMultiTextureEXT( GL_TEXTURE0 + unit, TexTargetGL( target ), texture ); }

@@ -352,6 +352,12 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 	// we will add all interaction surfs here, to be chained to the lights in later serial code
 	vEntity->drawSurfs = NULL;
 
+	// TNO style occlusion culling: the entity is hidden behind the scene
+	// depth, only its bounds query runs this frame
+	if ( vEntity->occlusionQueryOnly ) {
+		return;
+	}
+
 	// globals we really should pass in...
 	const viewDef_t * viewDef = tr.viewDef;
 
