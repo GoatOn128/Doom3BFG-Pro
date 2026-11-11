@@ -1,3 +1,4 @@
+#ifndef __JOBS_RENDER_RENDERPASSES_H__
 #define __JOBS_RENDER_RENDERPASSES_H__
 
 void RB_ShutdownShadowAtlas();
