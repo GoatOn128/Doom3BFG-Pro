@@ -713,6 +713,12 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 				continue;
 			}
 
+			// Some entities (like the view weapon) only cast shadows in
+			// subviews such as mirrors, not in the view with a matching id.
+			if ( entityDef->parms.suppressShadowInViewID != 0 && entityDef->parms.suppressShadowInViewID == viewDef->renderView.viewID ) {
+				continue;
+			}
+
 			drawSurf_t * shadowDrawSurf = (drawSurf_t *)R_FrameAlloc( sizeof( *shadowDrawSurf ), FRAME_ALLOC_DRAW_SURFACE );
 
 			// Tech 5 shadow buffers consume the source surface.  Keep ordinary
