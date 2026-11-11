@@ -460,6 +460,9 @@ void idRender::RenderSingleView( idRenderWorldCommitted * renderWorld, viewDef_t
 	// any viewLight that didn't have visible surfaces can have it's shadows removed
 	R_OptimizeViewLightsList();
 
+	// TNO style approximate lighting: per model prime light direction for the dim shadows
+	R_ApproximateLighting();
+
 	// sort all the ambient surfaces for translucency ordering
 	R_SortDrawSurfs( tr.viewDef->drawSurfs, tr.viewDef->numDrawSurfs );
 
