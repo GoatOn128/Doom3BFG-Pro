@@ -79,6 +79,8 @@ renderprog interaction {
 			//# texture 2 has one texgen
 			result.texcoord2 = defaultTexCoord;
 			result.texcoord2.x = dot4( vertex.position, rpLightFalloffS );
+			// raw light-view depth for the parallel shadow slice LOD (negated)
+			result.texcoord2.z = -dot4( vertex.position, rpShadowProjectionZ );
 
 			//# texture 3 has three texgens
 			result.texcoord3.x = dot4( vertex.position, rpLightProjectionS );
@@ -160,8 +162,39 @@ renderprog interaction {
 			half shadow = 1.0;
 			if ( rpShadowParams.x > 0.5 ) {
 				float3 shadowCoord;
-				if ( rpShadowParams.x < 1.5 ) {
+				if ( rpShadowParams.x < 1.25 ) {
 					shadowCoord = fragment.texcoord7.xyz / fragment.texcoord7.w;
+				} else if ( rpShadowParams.x < 1.75 ) {
+					// Tech5 parallel light slice cascade: the shadow matrix covers the
+					// largest slice extent and maps it to [-2, 2]; each slice is folded
+					// into its own atlas quadrant and the two bracketing slices are
+					// mixed by the ramp fraction.
+					float2 shadowXY = fragment.texcoord7.xy / fragment.texcoord7.w;
+					float viewDepth = fragment.texcoord2.z;
+					float sliceLOD = log2( max( 1.0, viewDepth * rpParallelLightSliceScale.x ) ) * rpParallelLightSliceScale.z;
+					float2 slice = min( float2( 3.0, 3.0 ), floor( float2( sliceLOD, sliceLOD ) ) + float2( 0.0, 1.0 ) );
+					float4 stScale = exp2( -slice.xyxy * rpParallelLightSliceScale.yyyy );
+					float4 stBias;
+					stBias.xy = 0.25 + frac( slice * 0.5 );
+					stBias.zw = 0.25 + floor( slice * 0.5 ) * 0.5;
+					float4 sliceTC = shadowXY.xxyy * stScale.xyxy + stBias;
+					float depth = fragment.texcoord7.z / fragment.texcoord7.w - rpShadowParams.z;
+					float fraction = saturate( ( slice.y - sliceLOD ) * rpParallelLightSliceScale.w );
+					float2 texel = float2( rpShadowParams.y, rpShadowParams.y ) * 2.0;
+					float shadow1 = 0.25 * ( tex2D( samp5, float3( sliceTC.xz + float2( 0.375, 0.125 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.xz + float2( -0.125, 0.375 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.xz + float2( -0.375, -0.125 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.xz + float2( 0.125, -0.375 ) * texel, depth ) ).x );
+					float shadow2 = 0.25 * ( tex2D( samp5, float3( sliceTC.yw + float2( 0.375, 0.125 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.yw + float2( -0.125, 0.375 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.yw + float2( -0.375, -0.125 ) * texel, depth ) ).x +
+						tex2D( samp5, float3( sliceTC.yw + float2( 0.125, -0.375 ) * texel, depth ) ).x );
+					// keep a bounds test so far-out geometry cannot sample the other
+					// lights' tiles in the shared depth atlas
+					float insideCascade = step( -2.0, shadowXY.x ) * step( shadowXY.x, 2.0 ) *
+						step( -2.0, shadowXY.y ) * step( shadowXY.y, 2.0 ) *
+						step( 0.0, fragment.texcoord7.z ) * step( fragment.texcoord7.z, 1.0 );
+					shadow = lerp( 1.0, lerp( shadow2, shadow1, fraction ), insideCascade );
 				} else {
 					float3 absCoord = abs( fragment.texcoord7.xyz );
 					float maxCoord = max( absCoord.x, max( absCoord.y, absCoord.z ) );
@@ -186,6 +219,7 @@ renderprog interaction {
 					shadowCoord = faceCoord.xyz / faceCoord.w;
 					shadowCoord.xy *= ( 1.0 / 3.0 );
 				}
+				if ( rpShadowParams.x < 1.25 || rpShadowParams.x > 1.75 ) {
 				shadowCoord.z -= rpShadowParams.z;
 				float insideShadowMap = step( 0.0, shadowCoord.x ) * step( shadowCoord.x, 1.0 ) *
 					step( 0.0, shadowCoord.y ) * step( shadowCoord.y, 1.0 ) *
@@ -196,6 +230,7 @@ renderprog interaction {
 					tex2D( samp5, shadowCoord + float3( -texel.x, texel.y, 0.0 ) ).x +
 					tex2D( samp5, shadowCoord + float3( texel.x, texel.y, 0.0 ) ).x );
 				shadow = lerp( 1.0, filteredShadow, insideShadowMap );
+				}
 			}
 			half4 bumpMap =			tex2D( samp0, fragment.texcoord1.xy );
 			half4 lightFalloff =	idtex2Dproj( samp1, fragment.texcoord2 );
