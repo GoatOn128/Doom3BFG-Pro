@@ -156,6 +156,8 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_DIM_SHADOW_DRAW, "dimshadowdraw.rp" },
 		{ BUILTIN_DIM_SHADOW_DRAW_HQ, "dimshadowdrawhighquality.rp" },
 		{ BUILTIN_DIM_SHADOW_DRAW_MID, "dimshadowdrawmidquality.rp" },
+		{ BUILTIN_SELF_SHADOW_SAMPLE, "selfshadowsample.rp" },
+		{ BUILTIN_SELF_SHADOW_SAMPLE_SKINNED, "selfshadowsampleskinned.rp" },
 	};
 	int numBuiltins = sizeof( builtins ) / sizeof( builtins[0] );
 
@@ -518,4 +520,5 @@ idRenderProgManager::ZeroUniforms
 void idRenderProgManager::ZeroUniforms() {
 	memset( glslUniforms.Ptr(), 0, glslUniforms.Allocated() );
 }
+
 

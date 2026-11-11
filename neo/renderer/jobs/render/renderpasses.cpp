@@ -31,6 +31,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "../../tr_local.h"
 #include "rendershadowbuffer.h"
+#include "renderselfshadows.h"
 #include "renderpasses.h"
 #include "../../virtualtexture.h"
 
@@ -2383,6 +2384,7 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	// light, blended against the freshly filled depth
 	//-------------------------------------------------
 	RB_RenderDimShadows();
+	RB_RenderSelfShadows();
 
 	RB_DrawInteractions();
 
@@ -2718,5 +2720,6 @@ void RB_PostProcess( const void * data ) {
 
 	renderLog.CloseBlock();
 }
+
 
 

@@ -31,6 +31,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 #include "jobs/render/renderpasses.h"
+#include "jobs/render/renderselfshadows.h"
 #include "virtualtexture.h"
 #include "renderdestination.h"
 
@@ -2084,6 +2085,7 @@ void idRenderSystemLocal::ShutdownOpenGL() {
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
 	RB_ShutdownDimShadows();
+	RB_ShutdownSelfShadows();
 	R_DestroyRenderDestinations();
 	GLimp_Shutdown();
 	r_initialized = false;
@@ -2215,3 +2217,4 @@ float idRenderSystemLocal::GetPhysicalScreenWidthInCentimeters() const {
 	}
 	return glConfig.physicalScreenWidthInCentimeters;
 }
+

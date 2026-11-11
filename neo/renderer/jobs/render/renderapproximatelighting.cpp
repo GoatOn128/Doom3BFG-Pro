@@ -31,6 +31,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "../../tr_local.h"
 #include "../../globalshadows.h"
+#include "../../ambientlighting.h"
+#include "../approximatelighting/approximatelighting.h"
 
 /*
 ================================================================================================
@@ -46,8 +48,9 @@ A minimal subset is enough for the dim shadows: every model in the view gets
 a prime light direction accumulated from the lights that illuminate it
 without casting shadow maps, weighted by light color and distance falloff.
 The dim shadow pass uses the direction to build the per model shadow
-projection. TNO also fills channel and radial light data for its full
-approximate lighting shader, which this engine does not consume yet.
+projection. The full job also blends the offline ambient map into six
+channel colors and gathers the strongest radial lights, which the self
+shadow pass consumes.
 
 ================================================================================================
 */
@@ -146,5 +149,46 @@ void R_ApproximateLighting() {
 			vEnt->primeLightDir = accum;
 			vEnt->primeLightWeight = total;
 		}
+
+		// full Tech5 approximate lighting: blend the offline ambient map
+		// and gather the strongest radial lights for the self shadow pass
+		approximateLightParms_t parms;
+		memset( &parms, 0, sizeof( parms ) );
+		parms.modelOrigin = center;
+		parms.viewOrigin = tr.viewDef->renderView.vieworg;
+		parms.ambientMap = R_GetAmbientLighting().ambientMap;
+		for ( const viewLight_t * vLight = tr.viewDef->viewLights; vLight != NULL && parms.numContributingLights < MAX_CONTRIBUTING_LIGHTS; vLight = vLight->next ) {
+			const idMaterial * lightShader = vLight->lightShader;
+			if ( lightShader == NULL || lightShader->IsFogLight() || lightShader->IsBlendLight() ) {
+				continue;
+			}
+			// parallel lights have no radial origin for the self shadow slots
+			if ( vLight->shadowParallel ) {
+				continue;
+			}
+			idVec3 color( 0.0f, 0.0f, 0.0f );
+			if ( vLight->shaderRegisters != NULL ) {
+				for ( int s = 0; s < lightShader->GetNumStages(); s++ ) {
+					const shaderStage_t * stage = lightShader->GetStage( s );
+					if ( vLight->shaderRegisters[stage->conditionRegister] == 0.0f ) {
+						continue;
+					}
+					color.x = vLight->shaderRegisters[stage->color.registers[0]];
+					color.y = vLight->shaderRegisters[stage->color.registers[1]];
+					color.z = vLight->shaderRegisters[stage->color.registers[2]];
+					break;
+				}
+			}
+			if ( color.LengthSqr() <= 0.0f ) {
+				continue;
+			}
+			contributingLight_t & cl = parms.contributingLights[parms.numContributingLights++];
+			// w == 1.0f marks a light that never casts shadows
+			const float noShadows = ( vLight->lightDef != NULL && vLight->lightDef->parms.noShadows ) ? 1.0f : 0.0f;
+			cl.lightOrigin = idVec4( vLight->globalLightOrigin.x, vLight->globalLightOrigin.y, vLight->globalLightOrigin.z, noShadows );
+			cl.lightColor = color;
+		}
+		LocalLighting( parms, vEnt->approximateLighting );
 	}
 }
+
