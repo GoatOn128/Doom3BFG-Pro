@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.25)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -243,6 +242,8 @@ file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/OpenGL/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/*.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/approximatelighting/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/approximatelighting/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/render/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/feedbackanalysis/*.cpp"

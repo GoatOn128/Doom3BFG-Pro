@@ -1,4 +1,3 @@
-/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
@@ -31,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 #include "virtualtexture.h"
+#include "globalshadows.h"
 
 
 /*
@@ -852,6 +852,9 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 
 	AddWorldModelEntities();
 	ClearPortalStates();
+
+	// load the Tech5 style offline global shadow map for this map
+	R_GetGlobalShadows().LoadGlobalShadows( name );
 
 	// done!
 	return true;

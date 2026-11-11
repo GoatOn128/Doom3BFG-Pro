@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../../idlib/precompiled.h"
 
 #include "../../tr_local.h"
+#include "../../globalshadows.h"
 
 /*
 ================================================================================================
@@ -67,6 +68,8 @@ void R_ApproximateLighting() {
 		return;
 	}
 	SCOPED_PROFILE_EVENT( "R_ApproximateLighting" );
+
+	const shadowMapCPU_t * globalShadowMap = R_GetGlobalShadows().GetShadowMap();
 
 	for ( viewEntity_t * vEnt = tr.viewDef->viewEntitys; vEnt != NULL; vEnt = vEnt->next ) {
 		vEnt->primeLightDir.Zero();
@@ -126,6 +129,14 @@ void R_ApproximateLighting() {
 				// smooth falloff over the light radius
 				const float radius = Max( ( vLight->shadowLightBounds[1] - vLight->shadowLightBounds[0] ).Length() * 0.5f, 1.0f );
 				weight *= radius * radius / ( radius * radius + dist * dist );
+			}
+			// Tech5 attenuates parallel light contributions by the offline
+			// global shadow map sampled at the model center
+			if ( vLight->shadowParallel && globalShadowMap != NULL ) {
+				weight *= globalShadowMap->ShadowSample( center );
+				if ( weight <= 0.0f ) {
+					continue;
+				}
 			}
 			accum += dir * weight;
 		}
