@@ -370,23 +370,30 @@ Returns -1 on failure, or a pixel format
 */
 static int GLW_ChoosePixelFormat( const HDC hdc, const int multisamples, const bool stereo3D ) {
 	FLOAT	fAttributes[] = { 0, 0 };
-	int		iAttributes[] = {
-		WGL_SAMPLE_BUFFERS_ARB, ( ( multisamples > 1 ) ? 1 : 0 ),
-		WGL_SAMPLES_ARB, multisamples,
-		WGL_DOUBLE_BUFFER_ARB, TRUE,
-		WGL_STENCIL_BITS_ARB, 8,
-		WGL_DEPTH_BITS_ARB, 24,
-		WGL_RED_BITS_ARB, 8,
-		WGL_BLUE_BITS_ARB, 8,
-		WGL_GREEN_BITS_ARB, 8,
-		WGL_ALPHA_BITS_ARB, 8,
-		WGL_STEREO_ARB, ( stereo3D ? TRUE : FALSE ),
-		0, 0
-	};
+	// some Intel drivers return no formats when WGL_SAMPLES_ARB is present
+	// with 0 samples, so only ask for multisampling when it is wanted
+	int		iAttributes[32];
+	int		n = 0;
+	if ( multisamples > 1 ) {
+		iAttributes[n++] = WGL_SAMPLE_BUFFERS_ARB;
+		iAttributes[n++] = 1;
+		iAttributes[n++] = WGL_SAMPLES_ARB;
+		iAttributes[n++] = multisamples;
+	}
+	iAttributes[n++] = WGL_DOUBLE_BUFFER_ARB;	iAttributes[n++] = TRUE;
+	iAttributes[n++] = WGL_STENCIL_BITS_ARB;	iAttributes[n++] = 8;
+	iAttributes[n++] = WGL_DEPTH_BITS_ARB;		iAttributes[n++] = 24;
+	iAttributes[n++] = WGL_RED_BITS_ARB;		iAttributes[n++] = 8;
+	iAttributes[n++] = WGL_GREEN_BITS_ARB;		iAttributes[n++] = 8;
+	iAttributes[n++] = WGL_BLUE_BITS_ARB;		iAttributes[n++] = 8;
+	iAttributes[n++] = WGL_ALPHA_BITS_ARB;		iAttributes[n++] = 8;
+	iAttributes[n++] = WGL_STEREO_ARB;			iAttributes[n++] = ( stereo3D ? TRUE : FALSE );
+	iAttributes[n++] = 0;
+	iAttributes[n++] = 0;
 
-	int	pixelFormat;
-	UINT numFormats;
-	if ( !wglChoosePixelFormatARB( hdc, iAttributes, fAttributes, 1, &pixelFormat, &numFormats ) ) {
+	int		pixelFormat = 0;
+	UINT	numFormats = 0;
+	if ( !wglChoosePixelFormatARB( hdc, iAttributes, fAttributes, 1, &pixelFormat, &numFormats ) || numFormats == 0 ) {
 		return -1;
 	}
 	return pixelFormat;
@@ -440,9 +447,12 @@ static bool GLW_InitDriver( glimpParms_t parms ) {
 	}
 
 	// the multisample path uses the wgl 
+	win32.pixelformat = -1;
 	if ( wglChoosePixelFormatARB ) {
 		win32.pixelformat = GLW_ChoosePixelFormat( win32.hDC, parms.multiSamples, parms.stereo );
-	} else {
+	}
+	// fall back to the classic GDI path when the ARB query came up empty
+	if ( win32.pixelformat <= 0 ) {
 		// this is the "classic" choose pixel format path
 		common->Printf( "Using classic ChoosePixelFormat\n" );
 
@@ -478,7 +488,7 @@ static bool GLW_InitDriver( glimpParms_t parms ) {
 
 	// the same SetPixelFormat is used either way
 	if ( SetPixelFormat( win32.hDC, win32.pixelformat, &win32.pfd ) == FALSE ) {
-		common->Printf( "...^3SetPixelFormat failed^0\n", win32.hDC );
+		common->Printf( "...^3SetPixelFormat failed (GLError 0x%x)^0\n", (unsigned int)GetLastError() );
 		return false;
 	}
 
@@ -1000,6 +1010,10 @@ static bool GLW_CreateWindow( glimpParms_t parms ) {
 	}
 
 	if ( !GLW_InitDriver( parms ) ) {
+		if ( win32.hDC != NULL ) {
+			ReleaseDC( win32.hWnd, win32.hDC );
+			win32.hDC = NULL;
+		}
 		ShowWindow( win32.hWnd, SW_HIDE );
 		DestroyWindow( win32.hWnd );
 		win32.hWnd = NULL;
@@ -1262,10 +1276,15 @@ void GLimp_Shutdown() {
 
 	common->Printf( "Shutting down OpenGL subsystem\n" );
 
-	// set current context to NULL
+	// set current context to NULL, but a failure is expected when no
+	// context was ever created
 	{
 		retVal = wglMakeCurrent( NULL, NULL ) != 0;
-		common->Printf( "...wglMakeCurrent( NULL, NULL ): %s\n", success[retVal] );
+		if ( !retVal && win32.hGLRC == NULL ) {
+			common->Printf( "...wglMakeCurrent( NULL, NULL ): skipped (no context)\n" );
+		} else {
+			common->Printf( "...wglMakeCurrent( NULL, NULL ): %s\n", success[retVal] );
+		}
 	}
 
 	// delete HGLRC
