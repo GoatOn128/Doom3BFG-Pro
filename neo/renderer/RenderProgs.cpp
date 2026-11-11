@@ -155,6 +155,7 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_MOTION_BLUR, "motionBlur.vfp" },
 		{ BUILTIN_DIM_SHADOW_DRAW, "dimshadowdraw.rp" },
 		{ BUILTIN_DIM_SHADOW_DRAW_HQ, "dimshadowdrawhighquality.rp" },
+		{ BUILTIN_DIM_SHADOW_DRAW_MID, "dimshadowdrawmidquality.rp" },
 	};
 	int numBuiltins = sizeof( builtins ) / sizeof( builtins[0] );
 
