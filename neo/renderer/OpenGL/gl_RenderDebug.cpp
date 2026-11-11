@@ -129,9 +129,13 @@ RB_SimpleSurfaceSetup
 static void RB_SimpleSurfaceSetup( const drawSurf_t *drawSurf ) {
 	// change the matrix if needed
 	if ( drawSurf->space != backEnd.currentSpace ) {
-		glLoadMatrixf( drawSurf->space->modelViewMatrix );
+		RB_SetMVP( drawSurf->space->mvp );
 		backEnd.currentSpace = drawSurf->space;
 	}
+
+	// the shader pipeline ignores the fixed function matrix loads,
+	// so make sure the color program is bound for the immediate mode draws
+	renderProgManager.BindShader_Color();
 
 	// change the scissor if needed
 	if ( !backEnd.currentScissor.Equals( drawSurf->scissorRect ) && r_useScissor.GetBool() ) {
@@ -151,8 +155,11 @@ RB_SimpleWorldSetup
 static void RB_SimpleWorldSetup() {
 	backEnd.currentSpace = &backEnd.viewDef->worldSpace;
 
+	RB_SetMVP( backEnd.viewDef->worldSpace.mvp );
 
-	glLoadMatrixf( backEnd.viewDef->worldSpace.modelViewMatrix );
+	// the shader pipeline ignores the fixed function matrix loads,
+	// so make sure the color program is bound for the immediate mode draws
+	renderProgManager.BindShader_Color();
 
 	GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
 				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
@@ -172,9 +179,16 @@ stenciling will matter.
 =================
 */
 void RB_PolygonClear() {
-	glPushMatrix();
+	// the shader pipeline ignores the fixed function matrix loads,
+	// so set an ortho MVP matching the polygon coordinates
+	idRenderMatrix mvp( 1.0f / 20.0f, 0.0f, 0.0f, 0.0f,
+						0.0f, 1.0f / 20.0f, 0.0f, 0.0f,
+						0.0f, 0.0f, 0.1f, 0.0f,
+						0.0f, 0.0f, 0.0f, 1.0f );
+	RB_SetMVP( mvp );
+	renderProgManager.BindShader_Color();
+
 	glPushAttrib( GL_ALL_ATTRIB_BITS  );
-	glLoadIdentity();
 	glDisable( GL_TEXTURE_2D );
 	glDisable( GL_DEPTH_TEST );
 	glDisable( GL_CULL_FACE );
@@ -186,7 +200,6 @@ void RB_PolygonClear() {
 	glVertex3f( -20, 20, -10 );
 	glEnd();
 	glPopAttrib();
-	glPopMatrix();
 }
 
 /*
@@ -593,17 +606,6 @@ static void RB_LeaveDepthHack() {
 }
 
 /*
-=============
-RB_LoadMatrixWithBypass
-
-does a glLoadMatrixf after optionally applying the low-latency bypass matrix
-=============
-*/
-static void RB_LoadMatrixWithBypass( const float m[16] ) {
-	glLoadMatrixf( m );
-}
-
-/*
 ====================
 RB_RenderDrawSurfListWithFunction
 
@@ -634,7 +636,8 @@ static void RB_RenderDrawSurfListWithFunction( drawSurf_t **drawSurfs, int numDr
 
 			// change the matrix if needed
 			if ( drawSurf->space != backEnd.currentSpace ) {
-				RB_LoadMatrixWithBypass( drawSurf->space->modelViewMatrix );
+				// the depth hacks are already baked into the view entity mvp
+				RB_SetMVP( drawSurf->space->mvp );
 			}
 
 			if ( drawSurf->space->weaponDepthHack ) {
@@ -793,7 +796,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 	for ( const viewEntity_t * vModel = vModels; vModel; vModel = vModel->next ) {
 		idBounds	b;
 
-		glLoadMatrixf( vModel->modelViewMatrix );
+		RB_SetMVP( vModel->mvp );
 
 		const idRenderEntityCommitted * edef = vModel->entityDef;
 		if ( !edef ) {
@@ -866,7 +869,7 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
 		tri = drawSurf->frontEndGeo;
-		if ( !tri->verts ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 
@@ -942,6 +945,9 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 		RB_SimpleSurfaceSetup( drawSurf );
 
 		tri = drawSurf->frontEndGeo;
+		if ( tri == NULL || tri->verts == NULL ) {
+			continue;
+		}
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j+=3 ) {
 			idDrawVert	*a, *b, *c;
@@ -988,7 +994,7 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_SimpleSurfaceSetup( drawSurf );
 
 		tri = drawSurf->frontEndGeo;
-		if ( !tri->verts ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 		glBegin( GL_TRIANGLES );
@@ -1043,7 +1049,7 @@ static void RB_ShowVertexColor( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_SimpleSurfaceSetup( drawSurf );
 
 		tri = drawSurf->frontEndGeo;
-		if ( !tri->verts ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 		glBegin( GL_TRIANGLES );
@@ -1102,7 +1108,7 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_SimpleSurfaceSetup( drawSurf );
 
 		tri = drawSurf->frontEndGeo;
-		if ( !tri->verts ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 
@@ -1134,7 +1140,7 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		for ( i = 0; i < numDrawSurfs; i++ ) {
 			drawSurf = drawSurfs[i];
 			tri = drawSurf->frontEndGeo;
-			if ( !tri->verts ) {
+			if ( tri == NULL || tri->verts == NULL ) {
 				continue;
 			}
 			
@@ -1243,7 +1249,7 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		const srfTriangles_t * tri = drawSurf->frontEndGeo;
 
-		if ( tri->verts == NULL ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 
@@ -1346,7 +1352,7 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		if ( !tri->verts ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
 		if ( !tri->dominantTris ) {
@@ -1405,10 +1411,10 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		idDrawVert *ac = (idDrawVert *)tri->verts;
-		if ( !ac ) {
+		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
 		}
+		idDrawVert *ac = (idDrawVert *)tri->verts;
 
 		RB_SimpleSurfaceSetup( drawSurf );
 
@@ -2435,6 +2441,8 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	// check and draw the surfaces
 	globalImages->whiteImage->Bind();
 
+	renderProgManager.BindShader_Color();
+
 	// find how many are ambient
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		surf = drawSurfs[i];
@@ -2453,7 +2461,7 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			continue;
 		}
 
-		glLoadMatrixf( surf->space->modelViewMatrix );
+		RB_SetMVP( surf->space->mvp );
 
 		// highlight the surface
 		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
@@ -2549,3 +2557,4 @@ void RB_ShutdownDebugTools() {
 		rb_debugPolygons[i].winding.Clear();
 	}
 }
+
