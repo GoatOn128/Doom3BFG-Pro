@@ -1,6 +1,6 @@
 # Build digest
 
-commit: c00f282ac5ef
+commit: 259b5a14028a
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
@@ -10,7 +10,7 @@ commit: c00f282ac5ef
 status: success
 
 errors: 0
-warnings: 502 in 8 kinds
+warnings: 503 in 8 kinds
 
 ### errors
 
@@ -20,7 +20,7 @@ warnings: 502 in 8 kinds
 
 ### warning kinds
 
-- [269x] C4467
+- [270x] C4467
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\game\gamesys\SaveGame.h(128,18): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\idlib\idlib.vcxproj]
@@ -93,7 +93,7 @@ warnings: 502 in 8 kinds
 status: success
 
 errors: 0
-warnings: 502 in 8 kinds
+warnings: 503 in 8 kinds
 
 ### errors
 
@@ -103,7 +103,7 @@ warnings: 502 in 8 kinds
 
 ### warning kinds
 
-- [269x] C4467
+- [270x] C4467
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\game\gamesys\SaveGame.h(128,18): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
   - C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include\CodeAnalysis\SourceAnnotations.h(68,1): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\idlib\idlib.vcxproj]
