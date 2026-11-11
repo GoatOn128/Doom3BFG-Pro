@@ -510,6 +510,25 @@ void RB_RenderDimShadows() {
 			extrudedBounds[0][a] = Min( worldBounds[0][a], worldBounds[0][a] + extrude[a] ) - 1.0f;
 			extrudedBounds[1][a] = Max( worldBounds[1][a], worldBounds[1][a] + extrude[a] ) + 1.0f;
 		}
+		// TNO clip plane: the shadow volume stops one model height past the
+		// model on the far side from the light, so a caster never darkens
+		// geometry farther below or above it than its own height. TNO clips
+		// the depth bounds with a plane, clamping the projected box has the
+		// same effect through the inside gate of the draw programs.
+		const float modelHeight = worldBounds[1][2] - worldBounds[0][2];
+		if ( casterDirs[i].z < 0.0f ) {
+			float clipZ = worldBounds[0][2] - modelHeight;
+			if ( clipZ + 1.0f > worldBounds[0][2] ) {
+				clipZ = worldBounds[0][2] - 1.0f;
+			}
+			extrudedBounds[0][2] = Max( extrudedBounds[0][2], clipZ );
+		} else {
+			float clipZ = worldBounds[1][2] + modelHeight;
+			if ( clipZ - 1.0f < worldBounds[1][2] ) {
+				clipZ = worldBounds[1][2] + 1.0f;
+			}
+			extrudedBounds[1][2] = Min( extrudedBounds[1][2], clipZ );
+		}
 
 		idScreenRect screenRect;
 		if ( !RB_DimShadowScreenRect( extrudedBounds, screenRect ) ) {
