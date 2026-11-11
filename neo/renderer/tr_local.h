@@ -37,6 +37,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "Image.h"
 #include "RenderTexture.h"
 #include "Font.h"
+#include "jobs/approximatelighting/approximatelighting.h"
 
 // everything that is needed by the backend needs
 // to be double buffered to allow it to run in
@@ -237,6 +238,10 @@ struct viewEntity_t {
 	// weight for the dim shadow pass, filled in by the front end
 	idVec3				primeLightDir;
 	float				primeLightWeight;
+
+	// full Tech5 approximate lighting data for the self shadow pass,
+	// filled in by the front end approximate lighting job
+	approximateLighting_t	approximateLighting;
 };
 
 
@@ -1214,3 +1219,4 @@ struct occlusionQueryState_t {
 extern occlusionQueryState_t	occlusionQueryState;
 
 #endif /* !__TR_LOCAL_H__ */
+
