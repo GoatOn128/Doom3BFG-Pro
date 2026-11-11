@@ -201,6 +201,7 @@ public:
 	void	BindShader_BinkGUI() { BindShader_Builtin( BUILTIN_BINK_GUI ); }
 	void	BindShader_MotionBlur() { BindShader_Builtin( BUILTIN_MOTION_BLUR); }
 	void	BindShader_DimShadowDraw() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW ); }
+	void	BindShader_DimShadowDrawHighQuality() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW_HQ ); }
 
 	// the joints buffer should only be bound for vertex programs that use joints
 	bool	ShaderUsesJoints() const { return currentUsesJoints; }
@@ -260,6 +261,7 @@ protected:
 		BUILTIN_MOTION_BLUR,
 
 		BUILTIN_DIM_SHADOW_DRAW,
+	BUILTIN_DIM_SHADOW_DRAW_HQ,
 
 		MAX_BUILTINS
 	};
