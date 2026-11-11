@@ -236,7 +236,7 @@ struct viewEntity_t {
 	// TNO style approximate lighting: per model prime light direction and
 	// weight for the dim shadow pass, filled in by the front end
 	idVec3				primeLightDir;
-	float				primeLightWeight
+	float				primeLightWeight;
 };
 
 
