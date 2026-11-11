@@ -2,9 +2,9 @@
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
-Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
 
-This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
 Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -72,39 +72,48 @@ void idRenderDestination::Resize( int width, int height ) {
 
 void idRenderDestination::CreateFromImages( idImage * color, idImage * depth,
 		idImage * stencil ) {
+	GL_CheckErrors();
 	if ( color == NULL && depth == NULL && stencil == NULL ) {
 		idLib::Error( "idRenderDestination::CreateFromImages: no images" );
 	}
+	// Dimensions come from the color image first, then depth.
 	idImage * dimensions = color != NULL ? color : ( depth != NULL ? depth : stencil );
 	targetWidth = dimensions->GetUploadWidth();
 	targetHeight = dimensions->GetUploadHeight();
 	targetImage[0] = color;
+	targetImage[1] = NULL;
+	targetImage[2] = NULL;
+	targetImage[3] = NULL;
 	depthImage = depth;
 	stencilImage = stencil;
 	boundSide = boundLevel = 0;
 
 	if ( FBOhandle != 0 ) {
 		glDeleteFramebuffers( 1, &FBOhandle );
+		FBOhandle = 0;
 	}
 	GLint previousFBO = 0;
 	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFBO );
 	glGenFramebuffers( 1, &FBOhandle );
 	glBindFramebuffer( GL_FRAMEBUFFER, FBOhandle );
 	if ( color != NULL ) {
+		// Cube maps attach face 0, everything else is a plain 2D texture.
+		const GLenum colorTarget = ( color->GetOpts().textureType == TT_CUBIC )
+			? GL_TEXTURE_CUBE_MAP_POSITIVE_X : GL_TEXTURE_2D;
 		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-			GL_TEXTURE_2D, color->GetAPIObject(), 0 );
+			colorTarget, color->GetAPIObject(), 0 );
 	} else {
+		// Attaching texture 0 detaches any stale color attachment.
+		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+			GL_TEXTURE_2D, 0, 0 );
 		glDrawBuffer( GL_NONE );
 		glReadBuffer( GL_NONE );
 	}
-	if ( depth != NULL ) {
-		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-			GL_TEXTURE_2D, depth->GetAPIObject(), 0 );
-	}
-	if ( stencil != NULL ) {
-		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
-			GL_TEXTURE_2D, stencil->GetAPIObject(), 0 );
-	}
+	// Always touch both attachments so re-creation drops stale images.
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+		GL_TEXTURE_2D, depth != NULL ? depth->GetAPIObject() : 0, 0 );
+	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT,
+		GL_TEXTURE_2D, stencil != NULL ? stencil->GetAPIObject() : 0, 0 );
 	const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
 	glBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
 	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
@@ -125,7 +134,11 @@ void idRenderDestination::AddTarget( idImage * target ) {
 	GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
 		GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
 	glDrawBuffers( index + 1, buffers );
+	const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
 	glBindFramebuffer( GL_FRAMEBUFFER, previousFBO );
+	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
+		idLib::Warning( "render destination incomplete after AddTarget: 0x%x", status );
+	}
 }
 
 void idRenderDestination::Create( const char * name, int width, int height,
@@ -151,4 +164,51 @@ void idRenderDestination::Create( const char * name, int width, int height,
 			TR_CLAMP, TD_LOOKUP_TABLE_RGBA );
 	}
 	CreateFromImages( color, depth, NULL );
+}
+
+/*
+========================
+R_CreateRenderDestinations
+
+Creates the global render destinations. The engine currently renders into
+the default framebuffer, so the scaled destinations are created as default
+destinations; they become FBO backed once callers attach images to them.
+========================
+*/
+void R_CreateRenderDestinations() {
+	R_DestroyRenderDestinations();
+	renderDestNative = NULL;
+	renderDestScaledLinear = NULL;
+	renderDestScaledColor = new ( TAG_RENDER ) idRenderDestination();
+	renderDestScaledColor->SetDefault();
+	renderDestScaledColor2 = new ( TAG_RENDER ) idRenderDestination();
+	renderDestScaledColor2->SetDefault();
+	renderDestScaledDepth = new ( TAG_RENDER ) idRenderDestination();
+	renderDestScaledDepth->SetDefault();
+	renderDestScaledFeedback = new ( TAG_RENDER ) idRenderDestination();
+	renderDestScaledFeedback->SetDefault();
+	renderDestScaledColorWithFeedback = new ( TAG_RENDER ) idRenderDestination();
+	renderDestScaledColorWithFeedback->SetDefault();
+}
+
+/*
+========================
+R_DestroyRenderDestinations
+========================
+*/
+void R_DestroyRenderDestinations() {
+	idRenderDestination * dests[7] = { renderDestScaledLinear,
+		renderDestScaledColorWithFeedback, renderDestScaledFeedback,
+		renderDestScaledDepth, renderDestScaledColor2,
+		renderDestScaledColor, renderDestNative };
+	for ( int i = 0; i < 7; ++i ) {
+		if ( dests[i] != NULL ) { delete dests[i]; }
+	}
+	renderDestScaledLinear = NULL;
+	renderDestScaledColorWithFeedback = NULL;
+	renderDestScaledFeedback = NULL;
+	renderDestScaledDepth = NULL;
+	renderDestScaledColor2 = NULL;
+	renderDestScaledColor = NULL;
+	renderDestNative = NULL;
 }

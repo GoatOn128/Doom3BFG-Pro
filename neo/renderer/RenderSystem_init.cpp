@@ -32,6 +32,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "tr_local.h"
 #include "jobs/render/renderpasses.h"
 #include "virtualtexture.h"
+#include "renderdestination.h"
 
 // Vista OpenGL wrapper check
 #include "../sys/win32/win_local.h"
@@ -528,6 +529,9 @@ void R_InitOpenGL() {
 
 	// Reset our gamma
 	R_SetColorMappings();
+
+	// global render destinations live as long as the GL context
+	R_CreateRenderDestinations();
 
 	static bool glCheck = false;
 	if ( !glCheck && win32.osversion.dwMajorVersion == 6 ) {
@@ -2073,6 +2077,7 @@ void idRenderSystemLocal::ShutdownOpenGL() {
 	// free the context and close the window
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
+	R_DestroyRenderDestinations();
 	GLimp_Shutdown();
 	r_initialized = false;
 }
