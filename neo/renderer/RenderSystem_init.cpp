@@ -2083,6 +2083,7 @@ void idRenderSystemLocal::ShutdownOpenGL() {
 	// free the context and close the window
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
+	RB_ShutdownDimShadows();
 	R_DestroyRenderDestinations();
 	GLimp_Shutdown();
 	r_initialized = false;

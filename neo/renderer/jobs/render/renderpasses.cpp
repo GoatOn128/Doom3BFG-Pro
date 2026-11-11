@@ -2872,6 +2872,12 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	//-------------------------------------------------
 	// main light renderer
 	//-------------------------------------------------
+	//-------------------------------------------------
+	// TNO style dim shadows: soft per model shadows from the prime
+	// light, blended against the freshly filled depth
+	//-------------------------------------------------
+	RB_RenderDimShadows();
+
 	RB_DrawInteractions();
 
 	//-------------------------------------------------
