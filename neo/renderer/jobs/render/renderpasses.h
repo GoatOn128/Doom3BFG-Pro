@@ -1,4 +1,3 @@
-successfully downloaded text file (SHA: e4b7a37a6cbb1dfe4beba26a8f060ec3e2eb92d4)#ifndef __JOBS_RENDER_RENDERPASSES_H__
 #define __JOBS_RENDER_RENDERPASSES_H__
 
 void RB_ShutdownShadowAtlas();

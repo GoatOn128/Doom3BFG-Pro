@@ -1,4 +1,3 @@
-successfully downloaded text file (SHA: 71e3176e42988f39ddafb4a380d781a0541bd68c)/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
