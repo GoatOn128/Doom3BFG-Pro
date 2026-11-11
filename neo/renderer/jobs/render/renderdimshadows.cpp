@@ -67,6 +67,7 @@ idCVar r_dimShadowResolution( "r_dimShadowResolution", "1024", CVAR_RENDERER | C
 idCVar r_dimShadowLixelScale( "r_dimShadowLixelScale", "1.0", CVAR_RENDERER | CVAR_FLOAT, "clip space to lixel scale factor, 0 disables the per caster resolution", 0.0f, 16.0f );
 idCVar r_dimShadowMaxLixelsPerUnit( "r_dimShadowMaxLixelsPerUnit", "8.0", CVAR_RENDERER | CVAR_FLOAT, "cap shadow map size to a factor of bounding box radius", 0.0f, 64.0f );
 idCVar r_dimShadowResolutionCap( "r_dimShadowResolutionCap", "2048", CVAR_RENDERER | CVAR_INTEGER, "cap dim shadow size", 64, 2048 );
+idCVar r_dimShadowHighQuality( "r_dimShadowHighQuality", "2", CVAR_RENDERER | CVAR_INTEGER, "2 = all casters use the high quality dithered PCF dim shadow draw, 0 = standard single tap, TNO r_dimShadowForceHighQuality minus the per model flags this engine lacks", 0, 2 );
 idCVar r_dimShadowDensity( "r_dimShadowDensity", "0.75", CVAR_RENDERER | CVAR_FLOAT, "maximum darkness of the dim shadows", 0.0f, 1.0f );
 idCVar r_dimShadowBias( "r_dimShadowBias", "0.002", CVAR_RENDERER | CVAR_FLOAT, "normalized depth bias that keeps the caster itself lit", 0.0f, 0.1f );
 idCVar r_dimShadowMaxRange( "r_dimShadowMaxRange", "2200", CVAR_RENDERER | CVAR_FLOAT, "distance at which dim shadows are fully faded out", 0.0f, 10000.0f );
@@ -563,7 +564,11 @@ void RB_RenderDimShadows() {
 			screenRect.x2 - screenRect.x1 + 1, screenRect.y2 - screenRect.y1 + 1 );
 		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHFUNC_ALWAYS );
 		GL_Cull( CT_TWO_SIDED );
-		renderProgManager.BindShader_DimShadowDraw();
+		if ( r_dimShadowHighQuality.GetInteger() > 0 ) {
+			renderProgManager.BindShader_DimShadowDrawHighQuality();
+		} else {
+			renderProgManager.BindShader_DimShadowDraw();
+		}
 		GL_SelectTexture( 0 );
 		dimShadowViewDepthImage->Bind();
 		GL_SelectTexture( 1 );
@@ -583,9 +588,10 @@ void RB_RenderDimShadows() {
 			renderProgManager.SetUniformValue( (renderParm_t)( RENDERPARM_SHADOWPROJECTION_X + i ), shadowMatrix[i] );
 		}
 		// the sample transform rides in the spare shadow parm components,
-		// the draw program remaps its target lookup into the caster
-		// sub-viewport with them
-		const float shadowParms[4] = { fade, sampleScale, bias, sampleOffset };
+		// the draw programs remap their target lookup into the caster
+		// sub-viewport with them, w holds the target texel size for the
+		// PCF taps of the high quality draw
+		const float shadowParms[4] = { fade, sampleScale, bias, 1.0f / (float)dimShadowTargetSize };
 		renderProgManager.SetUniformValue( RENDERPARM_SHADOWPARAMS, shadowParms );
 
 		RB_SetMVP( identity );
