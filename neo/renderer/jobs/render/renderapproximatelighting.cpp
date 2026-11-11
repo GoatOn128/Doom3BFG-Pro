@@ -58,6 +58,83 @@ shadow pass consumes.
 // prime directions weaker than this are treated as no prime light at all
 static const float DIM_SHADOW_MIN_PRIME_WEIGHT = 0.01f;
 
+// Tech5 approximate lighting debug visualization
+idCVar r_showDynamicLighting( "r_showDynamicLighting", "0", CVAR_RENDERER | CVAR_INTEGER, "draw approximate lighting debug for each model, 2 = also draw non contributing lights" );
+idCVar r_showDynamicLightingSingleModel( "r_showDynamicLightingSingleModel", "-1", CVAR_RENDERER | CVAR_INTEGER, "restrict the approximate lighting debug to one entity handle" );
+idCVar r_showAmbientLighting( "r_showAmbientLighting", "0", CVAR_RENDERER | CVAR_BOOL, "draw the ambient map samples around each model lighting point" );
+
+
+/*
+==================
+R_ShowApproximateLighting
+
+Tech5 style debug visualization of the approximate lighting data:
+model bounds, lighting point, contributing light lines and the ambient
+map samples. Driven by r_showDynamicLighting and r_showAmbientLighting.
+==================
+*/
+static void R_ShowApproximateLighting( const viewEntity_t * vEnt, const approximateLightParms_t & parms ) {
+	idRenderWorldLocal * world = tr.primaryWorld;
+	if ( world == NULL || vEnt->entityDef == NULL ) {
+		return;
+	}
+	const int selectedModel = r_showDynamicLightingSingleModel.GetInteger();
+	if ( selectedModel >= 0 && selectedModel != vEnt->entityDef->index ) {
+		return;
+	}
+	if ( r_showAmbientLighting.GetBool() ) {
+		R_GetAmbientLighting().DebugDrawAmbientLightingSamples( world, parms.modelOrigin );
+	}
+	const int mode = r_showDynamicLighting.GetInteger();
+	if ( mode <= 0 ) {
+		return;
+	}
+
+	// oriented bounds of the model and the lighting point
+	const idBox box( vEnt->entityDef->localReferenceBounds, vEnt->entityDef->parms.origin, vEnt->entityDef->parms.axis );
+	world->DebugBox( colorWhite, box, 1 );
+	idBounds sampleBounds( parms.modelOrigin );
+	sampleBounds.ExpandSelf( 2.0f );
+	world->DebugBounds( colorWhite, sampleBounds, vec3_origin, 1 );
+
+	// one line per contributing light, colored like the light
+	for ( int i = 0; i < parms.numContributingLights; i++ ) {
+		const contributingLight_t & cl = parms.contributingLights[i];
+		const idVec4 lineColor( cl.lightColor.x, cl.lightColor.y, cl.lightColor.z, 1.0f );
+		world->DebugLine( lineColor, cl.lightOrigin.ToVec3(), parms.modelOrigin, 3 );
+	}
+
+	// mode 2 also shows the view lights that did not contribute
+	if ( mode >= 2 ) {
+		const idVec4 unusedColor( 0.4f, 0.4f, 0.4f, 1.0f );
+		for ( const viewLight_t * vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
+			const idMaterial * lightShader = vLight->lightShader;
+			if ( lightShader == NULL || lightShader->IsFogLight() || lightShader->IsBlendLight() || vLight->shadowParallel ) {
+				continue;
+			}
+			bool contributed = false;
+			for ( int i = 0; i < parms.numContributingLights; i++ ) {
+				if ( parms.contributingLights[i].lightOrigin.ToVec3() == vLight->globalLightOrigin ) {
+					contributed = true;
+					break;
+				}
+			}
+			if ( contributed ) {
+				continue;
+			}
+			world->DebugLine( unusedColor, vLight->globalLightOrigin, parms.modelOrigin, 3 );
+		}
+	}
+
+	// labels above the lighting point
+	char label[256];
+	idStr::snPrintf( label, sizeof( label ), "%i: %s", vEnt->entityDef->index, vEnt->entityDef->parms.hModel != NULL ? vEnt->entityDef->parms.hModel->Name() : "<none>" );
+	idVec3 labelPoint = parms.modelOrigin;
+	labelPoint.z += 8.0f;
+	world->DrawText( label, labelPoint, 0.2f, colorWhite, mat3_identity, 1, 3 );
+	idStr::snPrintf( label, sizeof( label ), "%i light slots used", parms.numContributingLights );
+	world->DrawText( label, parms.modelOrigin, 0.2f, colorWhite, mat3_identity, 1, 3 );
+}
 /*
 ==================
 R_ApproximateLighting
@@ -84,7 +161,7 @@ void R_ApproximateLighting() {
 		if ( globalBounds.IsCleared() ) {
 			continue;
 		}
-		const idVec3 center = ( globalBounds[0] + globalBounds[1] ) * 0.5f;
+		const idVec3 center = vEnt->entityDef->GetLightingPoint();
 
 		idVec3 accum( 0.0f, 0.0f, 0.0f );
 		for ( const viewLight_t * vLight = tr.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
@@ -189,6 +266,11 @@ void R_ApproximateLighting() {
 			cl.lightColor = color;
 		}
 		LocalLighting( parms, vEnt->approximateLighting );
+
+		// Tech5 debug visualization of the approximate lighting data
+		if ( r_showDynamicLighting.GetInteger() > 0 || r_showAmbientLighting.GetBool() ) {
+			R_ShowApproximateLighting( vEnt, parms );
+		}
 	}
 }
 
