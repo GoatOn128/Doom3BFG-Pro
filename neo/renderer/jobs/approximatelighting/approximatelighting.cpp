@@ -80,6 +80,7 @@ void LocalLighting( const approximateLightParms_t & parms, approximateLighting_t
 	const int numLights = Min( parms.numContributingLights, MAX_CONTRIBUTING_LIGHTS );
 	for ( int i = 0; i < numLights; i++ ) {
 		lighting.lightOrigin[i] = parms.contributingLights[i].lightOrigin;
-		lighting.lightColor[i] = idVec4( parms.contributingLights[i].lightColor, 0.0f );
+		const idVec3 & lightColor = parms.contributingLights[i].lightColor;
+		lighting.lightColor[i] = idVec4( lightColor.x, lightColor.y, lightColor.z, 0.0f );
 	}
 }

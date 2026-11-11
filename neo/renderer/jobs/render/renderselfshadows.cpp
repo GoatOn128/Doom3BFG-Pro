@@ -435,7 +435,8 @@ void RB_RenderSelfShadows() {
 		}
 		// fourth tile: ambient occlusion projection from the view origin,
 		// gated by the first ambient channel like the Tech5 job
-		lightOrigins[3] = idVec4( backEnd.viewDef->renderView.vieworg, 0.0f );
+		const idVec3 & viewOrigin = backEnd.viewDef->renderView.vieworg;
+		lightOrigins[3] = idVec4( viewOrigin.x, viewOrigin.y, viewOrigin.z, 0.0f );
 		lightColors[3] = r_selfShadowAmbientOcclusion.GetBool() ? lighting.channelLighting[0] : idVec4( 0.0f, 0.0f, 0.0f, 0.0f );
 
 		// depth only render of the model into its atlas tiles
@@ -469,14 +470,19 @@ void RB_RenderSelfShadows() {
 			if ( localLightOrigin.x >= expandedBounds[0].x && localLightOrigin.x <= expandedBounds[1].x &&
 				localLightOrigin.y >= expandedBounds[0].y && localLightOrigin.y <= expandedBounds[1].y &&
 				localLightOrigin.z >= expandedBounds[0].z && localLightOrigin.z <= expandedBounds[1].z ) {
+				// push a light inside the expanded bounds out to the surface,
+				// along the ray away from the bounds center
 				const idVec3 expandedCenter = ( expandedBounds[0] + expandedBounds[1] ) * 0.5f;
-				idVec3 rayDirection = expandedCenter - localLightOrigin;
-				if ( rayDirection.Normalize() != 0.0f ) {
-					float scale1 = 0.0f;
-					float scale2 = 0.0f;
-					if ( expandedBounds.RayIntersection( localLightOrigin, rayDirection, scale1, scale2 ) ) {
-						localLightOrigin += rayDirection * scale1;
+				idVec3 away = localLightOrigin - expandedCenter;
+				if ( away.Normalize() != 0.0f ) {
+					float exitDist = 1.0e20f;
+					for ( int a = 0; a < 3; a++ ) {
+						if ( idMath::Fabs( away[a] ) > 1.0e-8f ) {
+							const float target = away[a] > 0.0f ? expandedBounds[1][a] : expandedBounds[0][a];
+							exitDist = Min( exitDist, ( target - expandedCenter[a] ) / away[a] );
+						}
 					}
+					localLightOrigin = expandedCenter + away * ( exitDist + 1.0f );
 				}
 			}
 

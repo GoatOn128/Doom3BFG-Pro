@@ -31,6 +31,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 #include "jobs/render/renderpasses.h"
+#include "jobs/render/renderselfshadows.h"
 #include "virtualtexture.h"
 #include "renderdestination.h"
 

@@ -31,6 +31,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "../../tr_local.h"
 #include "../../globalshadows.h"
+#include "../../ambientlighting.h"
 #include "../approximatelighting/approximatelighting.h"
 
 /*
@@ -183,7 +184,8 @@ void R_ApproximateLighting() {
 			}
 			contributingLight_t & cl = parms.contributingLights[parms.numContributingLights++];
 			// w == 1.0f marks a light that never casts shadows
-			cl.lightOrigin = idVec4( vLight->globalLightOrigin, ( vLight->lightDef != NULL && vLight->lightDef->parms.noShadows ) ? 1.0f : 0.0f );
+			const float noShadows = ( vLight->lightDef != NULL && vLight->lightDef->parms.noShadows ) ? 1.0f : 0.0f;
+			cl.lightOrigin = idVec4( vLight->globalLightOrigin.x, vLight->globalLightOrigin.y, vLight->globalLightOrigin.z, noShadows );
 			cl.lightColor = color;
 		}
 		LocalLighting( parms, vEnt->approximateLighting );
