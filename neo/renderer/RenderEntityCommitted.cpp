@@ -52,3 +52,25 @@ void idRenderEntityCommitted::PostCommit() {
 	}
 	R_CreateEntityRefs( this );
 }
+
+/*
+==================
+idRenderEntityCommitted::GetLightingPoint
+
+Tech5 keeps an optional lighting point override per model, this engine
+derives the point from the global reference bounds like the default case.
+==================
+*/
+idVec3 idRenderEntityCommitted::GetLightingPoint() const {
+	return globalReferenceBounds.GetCenter();
+}
+
+/*
+==================
+idRenderEntityCommitted::GetLightingRadius
+==================
+*/
+float idRenderEntityCommitted::GetLightingRadius() const {
+	return globalReferenceBounds.GetRadius( GetLightingPoint() );
+}
+
