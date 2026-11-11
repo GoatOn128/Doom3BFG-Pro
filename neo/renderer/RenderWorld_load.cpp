@@ -32,6 +32,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "tr_local.h"
 #include "virtualtexture.h"
 #include "globalshadows.h"
+#include "ambientlighting.h"
 
 
 /*
@@ -856,6 +857,9 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 
 	// load the Tech5 style offline global shadow map for this map
 	R_GetGlobalShadows().LoadGlobalShadows( name );
+
+	// load the Tech5 style ambient lighting octree for this map
+	R_GetAmbientLighting().LoadAmbientLighting( name );
 
 	// done!
 	return true;

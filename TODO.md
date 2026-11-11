@@ -97,3 +97,16 @@ entity hierarchy is possible but is a new feature decision, not a port.
 
 Nothing left requires an OpenGL upgrade. The 3.3 floor is sufficient for everything TNO's dim
 shadows do.
+
+## Offline lighting tools
+
+The engine consumes two offline produced lighting files that Tech5 shipped with standalone
+compiler tools. The engine side of both loaders is ported; the compiler tools are not.
+
+- .ambient: the ambient lighting octree loaded by idAmbientLighting::LoadAmbientLighting
+  (<map>.ambient, magic 0x21155701, big endian header, nodes and samples, layout checked by
+  static_asserts in ambientmapcpu.h). Needs a tool that samples ambient lighting per grid cell
+  over the map and writes the octree.
+- .globalShadows2.bin: the global shadow depth map loaded by idGlobalShadows::LoadGlobalShadows
+  (<map>.globalShadows2.bin, 64 byte light matrix plus 1024x1024 16 bit depth). Needs a tool
+  that renders the map's static geometry from the sun into that depth map.
