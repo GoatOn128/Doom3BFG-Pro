@@ -97,6 +97,7 @@ static const char * const s_renderParmNames[RENDERPROG_NUM_BUILTIN_PARMS] = {
 	"rpShadowProjectionZ",			// c59
 	"rpShadowProjectionW",			// c60
 	"rpShadowParams"				// c61
+	"rpParallelLightSliceScale",	// c62
 };
 
 // The temporary expression parm names must outlive the registry entries

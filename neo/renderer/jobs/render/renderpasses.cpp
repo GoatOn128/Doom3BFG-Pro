@@ -52,6 +52,8 @@ idCVar r_sb_polyOfsUnits( "r_sb_polyOfsUnits", "2000", CVAR_RENDERER | CVAR_FLOA
 idCVar r_sb_parallelPolyOfsFactor( "r_sb_parallelPolyOfsFactor", "2", CVAR_RENDERER | CVAR_FLOAT, "polygon offset factor for parallel (sun) light shadow casters" );
 idCVar r_sb_parallelPolyOfsUnits( "r_sb_parallelPolyOfsUnits", "2000", CVAR_RENDERER | CVAR_FLOAT, "polygon offset units for parallel (sun) light shadow casters" );
 idCVar r_sb_maxCasters( "r_sb_maxCasters", "256", CVAR_RENDERER | CVAR_INTEGER, "maximum number of shadow casters drawn per light face", 16, 1024 );
+idCVar r_sb_sliceStep( "r_sb_sliceStep", "512", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "initial ortho half-extent of the first parallel light shadow slice", 64.0f, 4096.0f );
+idCVar r_sb_sliceRampScale( "r_sb_sliceRampScale", "2", CVAR_RENDERER | CVAR_FLOAT, "larger values perform a faster lerp between parallel light shadow slices", 1.0f, 8.0f );
 
 extern idCVar stereoRender_swapEyes;
 
@@ -416,8 +418,12 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 		RB_GetParallelLightViewMatrix( -vLight->shadowLightCenter, parallelView );
 		idRenderMatrix baseProjection;
 		idRenderMatrix::Multiply( parallelView, viewInverse, baseProjection );
-		const float extent = r_shadowMapParallelExtent.GetFloat();
-		const float snapStep = 16.0f * extent / static_cast<float>( lightShadowAtlasSize );
+		// Tech5 slice cascade: slice 0 covers the base extent, each wider
+		// slice doubles it.  The matrix handed to the shader covers the
+		// largest extent and maps it to [-2, 2] texture coordinates; the
+		// shader folds each slice into its own atlas quadrant.
+		const float slice0Extent = Max( r_sb_sliceStep.GetFloat() * 0.35355338f, r_shadowMapParallelExtent.GetFloat() );
+		const float snapStep = 64.0f * slice0Extent / static_cast<float>( lightShadowAtlasSize );
 		baseProjection.m[3] = idMath::Floor( baseProjection.m[3] / snapStep ) * snapStep;
 		baseProjection.m[7] = idMath::Floor( baseProjection.m[7] / snapStep ) * snapStep;
 		baseProjection.m[11] = idMath::Floor( baseProjection.m[11] / snapStep ) * snapStep;
@@ -429,14 +435,28 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 		}
 		const float depthScale = -2.0f / ( depthMax - depthMin );
 		const float depthBias = ( depthMin + depthMax ) / ( depthMax - depthMin );
-		const idRenderMatrix projection( 1.0f / extent, 0, 0, 0,
-			0, -1.0f / extent, 0, 0,
-			0, 0, depthScale, depthBias,
-			0, 0, 0, 1 );
-		idRenderMatrix::Multiply( projection, baseProjection, shadowMVP[0] );
-		RB_WorldToShadowMap( shadowMVP[0], 0.5f, 0.5f, 0.5f, currentShadowMatrix );
+		for ( int slice = 0; slice < 4; slice++ ) {
+			const float sliceScale = 1.0f / ( slice0Extent * static_cast<float>( 1 << slice ) );
+			const idRenderMatrix projection( sliceScale, 0, 0, 0,
+				0, -sliceScale, 0, 0,
+				0, 0, depthScale, depthBias,
+				0, 0, 0, 1 );
+			idRenderMatrix::Multiply( projection, baseProjection, shadowMVP[slice] );
+		}
+		// the shader unprojects against the largest slice and folds each
+		// slice into its quadrant, so hand it the largest extent matrix
+		RB_WorldToShadowMap( shadowMVP[3], 2.0f, 0.0f, 0.0f, currentShadowMatrix );
 		currentShadowProjection.Identity();
-		currentShadowType = 1.0f;
+		// raw light-view depth row for the shader's slice LOD; the vertex
+		// shader negates it because view space depth is negative forward
+		for ( int i = 0; i < 4; i++ ) {
+			currentShadowProjection.m[8 + i] = baseProjection.m[8 + i];
+		}
+		// rpParallelLightSliceScale = ( 1 / slice0 extent, log2 scale, 1 / log2 scale, ramp )
+		const float logarithmicScale = 0.69314718f * 1.442695f;
+		const idVec4 sliceParms( 1.0f / slice0Extent, logarithmicScale, 1.0f / logarithmicScale, r_sb_sliceRampScale.GetFloat() );
+		SetFragmentParm( RENDERPARM_PARALLEL_LIGHT_SLICE_SCALE, sliceParms.ToFloatPtr() );
+		currentShadowType = 1.5f;
 	} else if ( vLight->shadowPointLight ) {
 		idRenderMatrix centerTranslation;
 		centerTranslation.Identity();
@@ -514,12 +534,24 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	if ( r_shadowMapDrawCasters.GetBool() ) {
 		const idVec3 & sortOrigin = vLight->shadowParallel ? vLight->shadowViewOrigin : vLight->shadowLightOrigin;
 		for ( int side = 0; side < numSides; side++ ) {
-			const int face = vLight->shadowPointLight ? sideStart + side : 0;
-			const int x = vLight->shadowPointLight ? slotX[face] * tileSize : 0;
-			const int y = vLight->shadowPointLight ? slotY[face] * tileSize : 0;
+			int x = 0;
+			int y = 0;
+			int matrixIndex = 0;
+			if ( vLight->shadowPointLight ) {
+				const int face = sideStart + side;
+				x = slotX[face] * tileSize;
+				y = slotY[face] * tileSize;
+				matrixIndex = face;
+			} else if ( vLight->shadowParallel ) {
+				// slice 0 top-left, wider slices outward, matching the
+				// shader's quadrant bias math
+				x = ( side & 1 ) * tileSize;
+				y = ( side >> 1 ) * tileSize;
+				matrixIndex = side;
+			}
 			GL_ViewportAndScissor( x, y, tileSize, tileSize );
-			RB_DrawShadowCasters( vLight->globalShadows, shadowMVP[face], sortOrigin, vLight->shadowParallel );
-			RB_DrawShadowCasters( vLight->localShadows, shadowMVP[face], sortOrigin, vLight->shadowParallel );
+			RB_DrawShadowCasters( vLight->globalShadows, shadowMVP[matrixIndex], sortOrigin, vLight->shadowParallel );
+			RB_DrawShadowCasters( vLight->localShadows, shadowMVP[matrixIndex], sortOrigin, vLight->shadowParallel );
 		}
 	}
 	static bool reportedShadowAtlas = false;
@@ -1645,7 +1677,16 @@ static void RB_RenderInteractions( const drawSurf_t *surfList, const viewLight_t
 				idRenderMatrix localShadowMatrix;
 				idRenderMatrix::Multiply( currentShadowMatrix, surf->space->modelRenderMatrix, localShadowMatrix );
 				SetVertexParms( RENDERPARM_SHADOWMATRIX_X, localShadowMatrix.m, 4 );
-				SetVertexParms( RENDERPARM_SHADOWPROJECTION_X, currentShadowProjection.m, 4 );
+				if ( currentShadowType == 1.5f ) {
+					// cascade path: the vertex shader dots the MODEL-space
+					// position against rpShadowProjectionZ for the slice LOD,
+					// so fold the model transform into the projection rows
+					idRenderMatrix localShadowProjection;
+					idRenderMatrix::Multiply( currentShadowProjection, surf->space->modelRenderMatrix, localShadowProjection );
+					SetVertexParms( RENDERPARM_SHADOWPROJECTION_X, localShadowProjection.m, 4 );
+				} else {
+					SetVertexParms( RENDERPARM_SHADOWPROJECTION_X, currentShadowProjection.m, 4 );
+				}
 				const idVec4 shadowParms( useShadowMap && r_shadowMapSample.GetBool() ? currentShadowType : 0.0f, lightShadowAtlasSize > 0 ? 1.0f / lightShadowAtlasSize : 0.0f, r_shadowMapBias.GetFloat(), 0.0f );
 				SetFragmentParm( RENDERPARM_SHADOWPARAMS, shadowParms.ToFloatPtr() );
 			}
