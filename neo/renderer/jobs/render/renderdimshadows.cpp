@@ -59,6 +59,10 @@ accumulates the non shadowed lights of the view per model, TNO style.
 Models without a usable prime direction fall back to the dominant parallel
 shadow light of the view.
 
+Alpha tested casters render their active alpha test stages with the
+textured vertex color program so the mask holes show up in the depth
+target, matching the alpha bucket of the TNO dim shadow job.
+
 ================================================================================================
 */
 
@@ -549,6 +553,41 @@ void RB_RenderDimShadows() {
 				continue;
 			}
 			RB_SetMVP( mvp );
+
+			// alpha tested casters punch holes into the depth target with
+			// their alpha test stages, one draw per active stage, the same
+			// pattern the Tech 5 shadow map caster pass uses. Without an
+			// active alpha stage the surface casts a solid depth shadow.
+			bool drewAlphaStage = false;
+			if ( surf->material->Coverage() == MC_PERFORATED ) {
+				const float * regs = surf->shaderRegisters;
+				for ( int stage = 0; stage < surf->material->GetNumStages(); stage++ ) {
+					const shaderStage_t * pStage = surf->material->GetStage( stage );
+					if ( !pStage->hasAlphaTest || regs[pStage->conditionRegister] == 0.0f || regs[pStage->color.registers[3]] <= 0.0f ) {
+						continue;
+					}
+					drewAlphaStage = true;
+					const idVec4 alphaTestValue( regs[pStage->alphaTestRegister] );
+					renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, alphaTestValue.ToFloatPtr() );
+					if ( surf->jointCache ) {
+						renderProgManager.BindShader_TextureVertexColorSkinned();
+					} else {
+						renderProgManager.BindShader_TextureVertexColor();
+					}
+					// keep the vertex color out of the alpha mask
+					const float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+					const float one[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+					renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_MODULATE, zero );
+					renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_ADD, one );
+					GL_SelectTexture( 0 );
+					pStage->texture.image->Bind();
+					RB_DrawElementsWithCounters( surf );
+				}
+				renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, vec4_zero.ToFloatPtr() );
+			}
+			if ( drewAlphaStage ) {
+				continue;
+			}
 			if ( surf->jointCache ) {
 				renderProgManager.BindShader_DepthSkinned();
 			} else {
