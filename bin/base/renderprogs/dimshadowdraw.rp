@@ -92,8 +92,9 @@ renderprog dimshadowdraw {
 			// depth bias keeps the caster itself lit
 			shadowCoord.z -= rpShadowParams.z;
 			// the caster may only fill a centered sub-square of the shared
-			// target, y holds the sample scale and w the sample offset
-			float2 sampleUV = shadowCoord.xy * rpShadowParams.y + rpShadowParams.ww;
+			// target, y holds the sample scale, the centered offset follows
+			// from it
+			float2 sampleUV = shadowCoord.xy * rpShadowParams.y + 0.5 * ( 1.0 - rpShadowParams.y );
 			half shadow = tex2D( samp1, float3( sampleUV, shadowCoord.z ) ).x;
 			shadow = lerp( 1.0, shadow, inside );
 
