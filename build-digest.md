@@ -1,6 +1,6 @@
 # Build digest
 
-commit: 4bdbf4ebb307
+commit: eb23275981cd
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
@@ -123,14 +123,6 @@ warnings: 505 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\extern\jxrlib\image\decode\strdec.c(433,9): warning C4005: 'max': macro redefinition [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\extern\jxrlib_encoder.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\idlib\math\Vector.h(1501,9): warning C4005: 'VectorMA': macro redefinition [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [24x] C5051
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
@@ -139,6 +131,14 @@ warnings: 505 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
