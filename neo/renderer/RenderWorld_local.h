@@ -124,6 +124,8 @@ public:
 	virtual	void			RenderScene( const renderView_t *renderView );
 	virtual void			Commit( bool isHeadless = false );
 	virtual idRenderWorldCommitted * GetCommittedWorld() const { return committedWorld; }
+	virtual void			ApproximateLightingForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const;
+	virtual void			ApproximateAmbientForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const;
 
 	virtual	int				NumAreas() const;
 	virtual int				PointInArea( const idVec3 &point ) const;
@@ -277,3 +279,4 @@ void R_ListRenderLightDefs_f( const idCmdArgs &args );
 void R_ListRenderEntityDefs_f( const idCmdArgs &args );
 
 #endif /* !__RENDERWORLDLOCAL_H__ */
+

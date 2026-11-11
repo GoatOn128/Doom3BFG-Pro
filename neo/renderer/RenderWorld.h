@@ -77,6 +77,7 @@ ID_INLINE void SIMD_INIT_LAST_JOINT( idJointMat * joints, int numJoints )	{ if (
 #include "RenderLight.h"
 
 class idRenderWorldCommitted;
+struct approximateLighting_t;
 
 
 
@@ -214,6 +215,12 @@ public:
 	virtual void			Commit( bool isHeadless = false ) = 0;
 	virtual idRenderWorldCommitted * GetCommittedWorld() const = 0;
 
+	// Tech5 style approximate lighting queries. They evaluate the offline
+	// ambient map and the committed lights that touch the given bounds
+	// without needing a view, for game side models and tools.
+	virtual void			ApproximateLightingForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const = 0;
+	virtual void			ApproximateAmbientForBounds( const idBounds & bounds, approximateLighting_t & lighting ) const = 0;
+
 	//-------------- Portal Area Information -----------------
 
 	// returns the number of portals
@@ -311,3 +318,4 @@ public:
 };
 
 #endif /* !__RENDERWORLD_H__ */
+
