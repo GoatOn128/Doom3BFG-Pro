@@ -1,4 +1,4 @@
-/*
+successfully downloaded text file (SHA: b83e017765195f6f2d32f34062beb6f3828c259f)/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
@@ -200,6 +200,7 @@ public:
 	void	BindShader_Bink() { BindShader_Builtin( BUILTIN_BINK ); }
 	void	BindShader_BinkGUI() { BindShader_Builtin( BUILTIN_BINK_GUI ); }
 	void	BindShader_MotionBlur() { BindShader_Builtin( BUILTIN_MOTION_BLUR); }
+	void	BindShader_DimShadowDraw() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW ); }
 
 	// the joints buffer should only be bound for vertex programs that use joints
 	bool	ShaderUsesJoints() const { return currentUsesJoints; }
@@ -257,6 +258,8 @@ protected:
 		BUILTIN_BINK_GUI,
 		BUILTIN_STEREO_INTERLACE,
 		BUILTIN_MOTION_BLUR,
+
+		BUILTIN_DIM_SHADOW_DRAW,
 
 		MAX_BUILTINS
 	};

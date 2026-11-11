@@ -1,4 +1,4 @@
-/*
+successfully downloaded text file (SHA: 71e3176e42988f39ddafb4a380d781a0541bd68c)/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
@@ -153,6 +153,7 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_BINK_GUI, "bink_gui.vfp" },
 		{ BUILTIN_STEREO_INTERLACE, "stereoInterlace.vfp" },
 		{ BUILTIN_MOTION_BLUR, "motionBlur.vfp" },
+		{ BUILTIN_DIM_SHADOW_DRAW, "dimshadowdraw.rp" },
 	};
 	int numBuiltins = sizeof( builtins ) / sizeof( builtins[0] );
 

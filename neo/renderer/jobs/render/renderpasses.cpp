@@ -1,4 +1,4 @@
-/*
+successfully downloaded text file (SHA: 92eb70e77886f33590766605251993a589d11b82)/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
@@ -2872,6 +2872,12 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	//-------------------------------------------------
 	// main light renderer
 	//-------------------------------------------------
+	//-------------------------------------------------
+	// TNO style dim shadows: soft per model shadows from the prime
+	// light, blended against the freshly filled depth
+	//-------------------------------------------------
+	RB_RenderDimShadows();
+
 	RB_DrawInteractions();
 
 	//-------------------------------------------------

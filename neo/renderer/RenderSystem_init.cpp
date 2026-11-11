@@ -1,4 +1,4 @@
-/*
+successfully downloaded text file (SHA: a389ea04f90f9325b7e813b95c9536f648b7e794)/*
 ===========================================================================
 
 Doom 3 BFG Edition GPL Source Code
@@ -2083,6 +2083,7 @@ void idRenderSystemLocal::ShutdownOpenGL() {
 	// free the context and close the window
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
+	RB_ShutdownDimShadows();
 	R_DestroyRenderDestinations();
 	GLimp_Shutdown();
 	r_initialized = false;
