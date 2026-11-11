@@ -105,6 +105,7 @@ uniform float4 rpShadowProjectionY : register(c58);
 uniform float4 rpShadowProjectionZ : register(c59);
 uniform float4 rpShadowProjectionW : register(c60);
 uniform float4 rpShadowParams : register(c61);
+uniform float4 rpParallelLightSliceScale : register(c62);
 
 static float dot2( float2 a, float2 b ) { return dot( a, b ); }
 static float dot3( float3 a, float3 b ) { return dot( a, b ); }
