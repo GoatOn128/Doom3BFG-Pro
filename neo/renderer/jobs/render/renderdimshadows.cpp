@@ -64,6 +64,9 @@ shadow light of the view.
 
 idCVar r_dimShadows( "r_dimShadows", "1", CVAR_RENDERER | CVAR_BOOL, "TNO style per model dim shadows from the prime light" );
 idCVar r_dimShadowResolution( "r_dimShadowResolution", "1024", CVAR_RENDERER | CVAR_INTEGER, "resolution of the shared dim shadow depth target", 64, 2048 );
+idCVar r_dimShadowLixelScale( "r_dimShadowLixelScale", "1.0", CVAR_RENDERER | CVAR_FLOAT, "clip space to lixel scale factor, 0 disables the per caster resolution", 0.0f, 16.0f );
+idCVar r_dimShadowMaxLixelsPerUnit( "r_dimShadowMaxLixelsPerUnit", "8.0", CVAR_RENDERER | CVAR_FLOAT, "cap shadow map size to a factor of bounding box radius", 0.0f, 64.0f );
+idCVar r_dimShadowResolutionCap( "r_dimShadowResolutionCap", "2048", CVAR_RENDERER | CVAR_INTEGER, "cap dim shadow size", 64, 2048 );
 idCVar r_dimShadowDensity( "r_dimShadowDensity", "0.75", CVAR_RENDERER | CVAR_FLOAT, "maximum darkness of the dim shadows", 0.0f, 1.0f );
 idCVar r_dimShadowBias( "r_dimShadowBias", "0.002", CVAR_RENDERER | CVAR_FLOAT, "normalized depth bias that keeps the caster itself lit", 0.0f, 0.1f );
 idCVar r_dimShadowMaxRange( "r_dimShadowMaxRange", "2200", CVAR_RENDERER | CVAR_FLOAT, "distance at which dim shadows are fully faded out", 0.0f, 10000.0f );
@@ -281,6 +284,47 @@ static bool RB_DimShadowScreenRect( const idBounds & bounds, idScreenRect & rect
 
 /*
 ==================
+RB_DimShadowDistanceToBox
+
+Distance from a point to a bounds, zero inside.
+==================
+*/
+static float RB_DimShadowDistanceToBox( const idBounds & bounds, const idVec3 & point ) {
+	float distanceSquared = 0.0f;
+	for ( int a = 0; a < 3; a++ ) {
+		if ( point[a] < bounds[0][a] ) {
+			const float edge = bounds[0][a] - point[a];
+			distanceSquared += edge * edge;
+		} else if ( point[a] > bounds[1][a] ) {
+			const float edge = point[a] - bounds[1][a];
+			distanceSquared += edge * edge;
+		}
+	}
+	return idMath::Sqrt( distanceSquared );
+}
+
+/*
+==================
+RB_DimShadowLODDistance
+
+Distance from the camera used to size a caster shadow map: the distance to
+the caster bounds pushed out along the light direction, so casters whose
+shadow volume stretches away from the viewer get a coarser resolution.
+==================
+*/
+static float RB_DimShadowLODDistance( const idBounds & bounds, const idVec3 & camera, const idVec3 & lightDir ) {
+	const idVec3 center = ( bounds[0] + bounds[1] ) * 0.5f;
+	const idVec3 delta = center - camera;
+	const float radius = ( bounds[1] - bounds[0] ).Length() * 0.5f;
+	const float crossDistance = delta.Cross( lightDir ).Length();
+	const float alongLight = delta * lightDir;
+	const float shadowDistance = Max( Max( 0.0f, crossDistance - radius * 0.5f ),
+		Max( -alongLight, Max( 0.0f, alongLight - radius * 3.0f ) ) );
+	return Max( Min( RB_DimShadowDistanceToBox( bounds, camera ), shadowDistance ), 8.0f );
+}
+
+/*
+==================
 RB_RenderDimShadows
 
 Called from RB_DrawViewInternal after the depth buffer is filled and before
@@ -421,6 +465,29 @@ void RB_RenderDimShadows() {
 			continue;
 		}
 
+		// per caster resolution: the smaller of a density cap based on the
+		// caster radius and the screen space size of the caster, the TNO
+		// lixel math. A scale of zero keeps the full target.
+		int shadowResolution = dimShadowTargetSize;
+		if ( r_dimShadowLixelScale.GetFloat() > 0.0f ) {
+			const idVec3 boundsRadiusVector = worldBounds[1] - boundsCenter;
+			const float boundsRadius = idMath::Sqrt( Max( boundsRadiusVector.LengthSqr(), idMath::FLT_SMALLEST_NON_DENORMAL ) );
+			const float lodDistance = RB_DimShadowLODDistance( worldBounds, backEnd.viewDef->renderView.vieworg, casterDirs[i] );
+			const idRenderMatrix & projection = backEnd.viewDef->projectionRenderMatrix;
+			const float projectedSize = ( boundsRadius * projection[0][0] - lodDistance * projection[0][2] + projection[0][3] ) /
+				( boundsRadius * projection[3][0] - lodDistance * projection[3][2] + projection[3][3] );
+			if ( projectedSize < 0.02f ) {
+				continue;
+			}
+			const int densityResolution = (int)( boundsRadius * r_dimShadowMaxLixelsPerUnit.GetFloat() );
+			const int screenResolution = (int)( (float)viewWidth * r_dimShadowLixelScale.GetFloat() * 0.5f * projectedSize );
+			shadowResolution = Min( densityResolution, screenResolution ) & ~1;
+			shadowResolution = Min( shadowResolution, Min( r_dimShadowResolutionCap.GetInteger(), dimShadowTargetSize ) );
+			shadowResolution = Max( shadowResolution, 2 );
+		}
+		const float sampleScale = (float)shadowResolution / (float)dimShadowTargetSize;
+		const float sampleOffset = 0.5f * ( 1.0f - sampleScale );
+
 		// extrude the caster bounds along the light travel direction
 		const idVec3 extrude = casterDirs[i] * r_dimShadowExtrude.GetFloat();
 		idBounds extrudedBounds;
@@ -460,7 +527,10 @@ void RB_RenderDimShadows() {
 
 		// depth only render of the caster into the shared target
 		GL_BindFramebuffer( dimShadowFBO );
-		GL_ViewportAndScissor( 0, 0, dimShadowTargetSize, dimShadowTargetSize );
+		// render into a centered sub-viewport of the shared target sized to
+		// the caster resolution
+		const int viewportOffset = ( dimShadowTargetSize - shadowResolution ) >> 1;
+		GL_ViewportAndScissor( viewportOffset, viewportOffset, shadowResolution, shadowResolution );
 		GL_State( GLS_COLORMASK | GLS_DEPTHMASK | GLS_DEPTHFUNC_LESS );
 		GL_Cull( CT_TWO_SIDED );
 		GL_ClearDepth( 1.0 );
@@ -512,7 +582,10 @@ void RB_RenderDimShadows() {
 			renderProgManager.SetUniformValue( (renderParm_t)( RENDERPARM_SHADOWMATRIX_X + i ), inverseViewProjection[i] );
 			renderProgManager.SetUniformValue( (renderParm_t)( RENDERPARM_SHADOWPROJECTION_X + i ), shadowMatrix[i] );
 		}
-		const float shadowParms[4] = { fade, 0.0f, bias, 0.0f };
+		// the sample transform rides in the spare shadow parm components,
+		// the draw program remaps its target lookup into the caster
+		// sub-viewport with them
+		const float shadowParms[4] = { fade, sampleScale, bias, sampleOffset };
 		renderProgManager.SetUniformValue( RENDERPARM_SHADOWPARAMS, shadowParms );
 
 		RB_SetMVP( identity );
