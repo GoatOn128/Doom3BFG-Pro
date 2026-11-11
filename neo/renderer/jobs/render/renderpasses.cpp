@@ -234,7 +234,7 @@ static bool RB_EnsureShadowAtlas() {
 	GL_GetIntegerv( GET_DRAW_BUFFER, &previousDrawBuffer );
 	GL_GetIntegerv( GET_READ_BUFFER, &previousReadBuffer );
 	GL_BindFramebuffer( lightShadowFBO );
-	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject(), 0 );
+	GL_FramebufferTexture2D( ATTACHMENT_DEPTH, TEX_TARGET_2D, lightShadowAtlas->GetAPIObject(), 0 );
 	GL_DrawBuffer( BUFFER_SELECT_NONE );
 	GL_ReadBuffer( BUFFER_SELECT_NONE );
 	const bool status = GL_CheckFramebufferStatus();

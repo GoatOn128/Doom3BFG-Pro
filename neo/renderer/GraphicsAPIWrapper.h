@@ -313,6 +313,7 @@ void			GL_BindBufferRange( wrapperBufferTarget_t target, unsigned int index, uns
 void			GL_BindVertexArray( unsigned int vao );
 void			GL_GenVertexArrays( int count, unsigned int * ids );
 void			GL_UseProgram( unsigned int program );
+void			GL_Uniform4fv( int location, int count, const float * value );
 void			GL_ColorMask( bool r, bool g, bool b, bool a );
 void			GL_DepthMask( bool enable );
 void			GL_ClearColor( float r, float g, float b, float a );

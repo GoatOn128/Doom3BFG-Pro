@@ -693,7 +693,7 @@ void idRenderSystemLocal::SwapCommandBuffers_FinishRendering(
 	if ( glConfig.timerQueryAvailable ) {
 		uint64 drawingTimeNanoseconds = 0;
 		if ( tr.timerQueryId != 0 ) {
-			glGetQueryObjectui64v( tr.timerQueryId, GL_QUERY_RESULT, &drawingTimeNanoseconds );
+			GL_GetQueryObjectui64v( tr.timerQueryId, &drawingTimeNanoseconds );
 		}
 		if ( gpuMicroSec != NULL ) {
 			*gpuMicroSec = drawingTimeNanoseconds / 1000;

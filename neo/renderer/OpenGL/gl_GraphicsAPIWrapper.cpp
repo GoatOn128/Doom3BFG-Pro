@@ -670,3 +670,7 @@ void GL_DebugMessageCallback( GLDebugMessageProc_t callback, const void * userPa
 void GL_DebugMessageControl( bool enabled ) {
 	glDebugMessageControlARB( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, enabled ? true : false );
 }
+
+void GL_Uniform4fv( int location, int count, const float * value ) {
+	glUniform4fv( location, count, value );
+}

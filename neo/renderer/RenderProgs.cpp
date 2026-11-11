@@ -496,13 +496,13 @@ void idRenderProgManager::CommitUniforms() {
 	for ( int index = 0; index < data.vertexParms.Num(); index++ ) {
 		const int location = decl->GetVertexUniformLocation( index );
 		if ( location != 0 ) {
-			glUniform4fv( location - 1, 1, glslUniforms[data.vertexParms[index]].ToFloatPtr() );
+			GL_Uniform4fv( location - 1, 1, glslUniforms[data.vertexParms[index]].ToFloatPtr() );
 		}
 	}
 	for ( int index = 0; index < data.fragmentParms.Num(); index++ ) {
 		const int location = decl->GetFragmentUniformLocation( index );
 		if ( location != 0 ) {
-			glUniform4fv( location - 1, 1, glslUniforms[data.fragmentParms[index]].ToFloatPtr() );
+			GL_Uniform4fv( location - 1, 1, glslUniforms[data.fragmentParms[index]].ToFloatPtr() );
 		}
 	}
 }
