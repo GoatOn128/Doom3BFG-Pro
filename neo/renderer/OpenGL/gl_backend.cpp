@@ -604,11 +604,12 @@ void idRenderWorldLocal::ShowPortals() {
 			}
 
 			if ( portalAreas[ p->intoArea ].viewCount != tr.viewCount ) {
-				// red = can't see
-				GL_Color( 1, 0, 0 );
+				// red = can't see; immediate mode colors only reach the
+				// shader through the COLOR0 attribute, so use glColor
+				glColor3f( 1, 0, 0 );
 			} else {
 				// green = see through
-				GL_Color( 0, 1, 0 );
+				glColor3f( 0, 1, 0 );
 			}
 
 			glBegin( GL_LINE_LOOP );
