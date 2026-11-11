@@ -2084,6 +2084,7 @@ void idRenderSystemLocal::ShutdownOpenGL() {
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
 	RB_ShutdownDimShadows();
+	RB_ShutdownSelfShadows();
 	R_DestroyRenderDestinations();
 	GLimp_Shutdown();
 	r_initialized = false;
@@ -2215,3 +2216,4 @@ float idRenderSystemLocal::GetPhysicalScreenWidthInCentimeters() const {
 	}
 	return glConfig.physicalScreenWidthInCentimeters;
 }
+

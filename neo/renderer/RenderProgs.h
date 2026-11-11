@@ -203,6 +203,8 @@ public:
 	void	BindShader_DimShadowDraw() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW ); }
 	void	BindShader_DimShadowDrawHighQuality() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW_HQ ); }
 	void	BindShader_DimShadowDrawMidQuality() { BindShader_Builtin( BUILTIN_DIM_SHADOW_DRAW_MID ); }
+	void	BindShader_SelfShadowSample() { BindShader_Builtin( BUILTIN_SELF_SHADOW_SAMPLE ); }
+	void	BindShader_SelfShadowSampleSkinned() { BindShader_Builtin( BUILTIN_SELF_SHADOW_SAMPLE_SKINNED ); }
 
 	// the joints buffer should only be bound for vertex programs that use joints
 	bool	ShaderUsesJoints() const { return currentUsesJoints; }
@@ -265,6 +267,9 @@ protected:
 	BUILTIN_DIM_SHADOW_DRAW_HQ,
 	BUILTIN_DIM_SHADOW_DRAW_MID,
 
+		BUILTIN_SELF_SHADOW_SAMPLE,
+		BUILTIN_SELF_SHADOW_SAMPLE_SKINNED,
+
 		MAX_BUILTINS
 	};
 	int builtinShaders[MAX_BUILTINS];
@@ -308,3 +313,4 @@ protected:
 extern idRenderProgManager renderProgManager;
 
 #endif
+

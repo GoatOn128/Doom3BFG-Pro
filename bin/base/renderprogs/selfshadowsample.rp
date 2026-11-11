@@ -1,0 +1,110 @@
+/*
+===========================================================================
+
+Doom 3 BFG Edition GPL Source Code
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
+
+Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
+
+	renderprog selfshadowsample {
+		hlsl_vp {
+
+			struct VS_IN {
+				float4 position : POSITION;
+			};
+
+			struct VS_OUT {
+				float4 position : POSITION;
+				float3 modelPos : TEXCOORD0;
+			};
+
+			void main( VS_IN vertex, out VS_OUT result ) {
+				result.position.x = dot4( vertex.position, rpMVPmatrixX );
+				result.position.y = dot4( vertex.position, rpMVPmatrixY );
+				result.position.z = dot4( vertex.position, rpMVPmatrixZ );
+				result.position.w = dot4( vertex.position, rpMVPmatrixW );
+
+				result.modelPos = vertex.position.xyz;
+			}
+		}
+		hlsl_fp {
+
+			uniform sampler2DShadow samp0 : register(s0); // self shadow atlas
+			
+			struct PS_IN {
+				half4 position : VPOS;
+				float3 modelPos : TEXCOORD0;
+			};
+			
+			struct PS_OUT {
+				half4 color : COLOR;
+			};
+			
+			void main( PS_IN fragment, out PS_OUT result ) {
+				// project the model space position into the four atlas tiles
+				float4 shadowCoord0;
+				shadowCoord0.x = dot4( fragment.modelPos, rpShadowMatrixX );
+				shadowCoord0.y = dot4( fragment.modelPos, rpShadowMatrixY );
+				shadowCoord0.z = dot4( fragment.modelPos, rpShadowMatrixZ );
+				shadowCoord0.w = dot4( fragment.modelPos, rpShadowMatrixW );
+				shadowCoord0.xyz /= shadowCoord0.w;
+			
+				float4 shadowCoord1;
+				shadowCoord1.x = dot4( fragment.modelPos, rpShadowProjectionX );
+				shadowCoord1.y = dot4( fragment.modelPos, rpShadowProjectionY );
+				shadowCoord1.z = dot4( fragment.modelPos, rpShadowProjectionZ );
+				shadowCoord1.w = dot4( fragment.modelPos, rpShadowProjectionW );
+				shadowCoord1.xyz /= shadowCoord1.w;
+			
+				float4 shadowCoord2;
+				shadowCoord2.x = dot4( fragment.modelPos, rpUser0 );
+				shadowCoord2.y = dot4( fragment.modelPos, rpUser1 );
+				shadowCoord2.z = dot4( fragment.modelPos, rpUser2 );
+				shadowCoord2.w = dot4( fragment.modelPos, rpUser3 );
+				shadowCoord2.xyz /= shadowCoord2.w;
+			
+				float4 shadowCoord3;
+				shadowCoord3.x = dot4( fragment.modelPos, rpUser4 );
+				shadowCoord3.y = dot4( fragment.modelPos, rpUser5 );
+				shadowCoord3.z = dot4( fragment.modelPos, rpUser6 );
+				shadowCoord3.w = dot4( fragment.modelPos, rpUser7 );
+				shadowCoord3.xyz /= shadowCoord3.w;
+			
+				// depth bias keeps lit surfaces unshadowed, disabled tiles point at
+				// the cleared far corner of the atlas
+				shadowCoord0.z -= rpShadowParams.y;
+				shadowCoord1.z -= rpShadowParams.y;
+				shadowCoord2.z -= rpShadowParams.y;
+				shadowCoord3.z -= rpShadowParams.y;
+			
+				half shadow = tex2D( samp0, float3( shadowCoord0.xy, shadowCoord0.z ) ).x *
+					tex2D( samp0, float3( shadowCoord1.xy, shadowCoord1.z ) ).x *
+					tex2D( samp0, float3( shadowCoord2.xy, shadowCoord2.z ) ).x *
+					tex2D( samp0, float3( shadowCoord3.xy, shadowCoord3.z ) ).x;
+			
+				half dark = 1.0 - rpShadowParams.x * ( 1.0 - shadow );
+				result.color = half4( dark, dark, dark, 1.0 );
+			}
+		}
+	}
+}
