@@ -487,3 +487,129 @@ void idImage::Resize( int width, int height ) {
 	opts.height = height;
 	AllocImage();
 }
+
+/*
+==============
+Bind
+
+Automatically enables 2D mapping or cube mapping if needed
+==============
+*/
+void idImage::Bind() {
+
+	RENDERLOG_PRINTF( "idImage::Bind( %s )\n", GetName() );
+
+	// load the image if necessary (FIXME: not SMP safe!)
+	if ( !IsLoaded() ) {
+		// load the image on demand here, which isn't our normal game operating mode
+		ActuallyLoadImage( true );
+	}
+
+	const int texUnit = backEnd.glState.currenttmu;
+
+	tmu_t * tmu = &backEnd.glState.tmu[texUnit];
+	// bind the texture
+	if ( opts.textureType == TT_2D ) {
+		if ( tmu->current2DMap != texnum ) {
+			tmu->current2DMap = texnum;
+			glBindMultiTextureEXT( GL_TEXTURE0 + texUnit, GL_TEXTURE_2D, texnum );
+		}
+	} else if ( opts.textureType == TT_CUBIC ) {
+		if ( tmu->currentCubeMap != texnum ) {
+			tmu->currentCubeMap = texnum;
+			glBindMultiTextureEXT( GL_TEXTURE0 + texUnit, GL_TEXTURE_CUBE_MAP_EXT, texnum );
+		}
+	}
+
+}/*
+====================
+CopyFramebuffer
+====================
+*/
+void idImage::CopyFramebuffer( int x, int y, int imageWidth, int imageHeight ) {
+	const GLenum target = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0;
+	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+
+	// CopyTexImage operates on the texture bound to the *active* unit. Most of
+	// the renderer uses BindMultiTextureEXT and only changes currenttmu in
+	// GL_SelectTexture, so a raw BindTexture here may otherwise target the last
+	// unit touched by the DSA fallback (VT commonly leaves that at unit 9).
+	// Keep the real GL binding and the renderer's per-unit cache synchronized.
+	glActiveTexture( GL_TEXTURE0 + texUnit );
+	glBindTexture( target, texnum );
+	if ( target == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
+
+	glReadBuffer( GL_BACK );
+
+	opts.width = imageWidth;
+	opts.height = imageHeight;
+	glCopyTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, x, y, imageWidth, imageHeight, 0 );
+
+	// these shouldn't be necessary if the image was initialized properly
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+	glActiveTexture( previousActiveTexture );
+
+	backEnd.pc.c_copyFrameBuffer++;
+}
+
+/*
+====================
+CopyDepthbuffer
+====================
+*/
+void idImage::CopyDepthbuffer( int x, int y, int imageWidth, int imageHeight ) {
+	const GLenum target = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0;
+	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	glActiveTexture( GL_TEXTURE0 + texUnit );
+	glBindTexture( target, texnum );
+	if ( target == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
+
+	opts.width = imageWidth;
+	opts.height = imageHeight;
+	glCopyTexImage2D( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, x, y, imageWidth, imageHeight, 0 );
+	glActiveTexture( previousActiveTexture );
+
+	backEnd.pc.c_copyFrameBuffer++;
+}/*
+========================
+idImage::SetSamplerState
+========================
+*/
+void idImage::SetSamplerState( textureFilter_t tf, textureRepeat_t tr ) {
+	if ( tf == filter && tr == repeat ) {
+		return;
+	}
+	filter = tf;
+	repeat = tr;
+	// Same bind-to-edit hazard as SubImageUpload: bind on the logical current
+	// unit and sync its cache instead of whatever unit happens to be active.
+	const int texUnit = backEnd.glState.currenttmu;
+	GLint previousActiveTexture = GL_TEXTURE0;
+	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
+	glActiveTexture( GL_TEXTURE0 + texUnit );
+	const GLenum samplerTarget = ( opts.textureType == TT_CUBIC ) ? GL_TEXTURE_CUBE_MAP_EXT : GL_TEXTURE_2D;
+	glBindTexture( samplerTarget, texnum );
+	if ( samplerTarget == GL_TEXTURE_2D ) {
+		backEnd.glState.tmu[texUnit].current2DMap = texnum;
+	} else {
+		backEnd.glState.tmu[texUnit].currentCubeMap = texnum;
+	}
+	SetTexParameters();
+	glActiveTexture( previousActiveTexture );
+}

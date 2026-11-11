@@ -128,12 +128,12 @@ void idRenderSystemLocal::RenderCommandBuffers( const emptyCommand_t * const cmd
 	if ( !r_skipBackEnd.GetBool() ) {
 		if ( glConfig.timerQueryAvailable ) {
 			if ( tr.timerQueryId == 0 ) {
-				glGenQueries( 1, & tr.timerQueryId );
+				GL_GenQueries( 1, & tr.timerQueryId );
 			}
-			glBeginQuery( GL_TIME_ELAPSED_EXT, tr.timerQueryId );
+			GL_BeginQuery( QUERY_TARGET_TIME_ELAPSED, tr.timerQueryId );
 			RB_ExecuteBackEndCommands( cmdHead );
-			glEndQuery( GL_TIME_ELAPSED_EXT );
-			glFlush();
+			GL_EndQuery( QUERY_TARGET_TIME_ELAPSED );
+			GL_Flush();
 		} else {
 			RB_ExecuteBackEndCommands( cmdHead );
 		}
@@ -280,9 +280,9 @@ static void R_CheckCvars() {
 		r_useSeamlessCubeMap.ClearModified();
 		if ( glConfig.seamlessCubeMapAvailable ) {
 			if ( r_useSeamlessCubeMap.GetBool() ) {
-				glEnable( GL_TEXTURE_CUBE_MAP_SEAMLESS );
+				GL_Enable( CAP_TEXTURE_CUBE_MAP_SEAMLESS );
 			} else {
-				glDisable( GL_TEXTURE_CUBE_MAP_SEAMLESS );
+				GL_Disable( CAP_TEXTURE_CUBE_MAP_SEAMLESS );
 			}
 		}
 	}
@@ -292,9 +292,9 @@ static void R_CheckCvars() {
 		r_useSRGB.ClearModified();
 		if ( glConfig.sRGBFramebufferAvailable ) {
 			if ( r_useSRGB.GetBool() ) {
-				glEnable( GL_FRAMEBUFFER_SRGB );
+				GL_Enable( CAP_FRAMEBUFFER_SRGB );
 			} else {
-				glDisable( GL_FRAMEBUFFER_SRGB );
+				GL_Disable( CAP_FRAMEBUFFER_SRGB );
 			}
 		}
 	}
@@ -302,9 +302,9 @@ static void R_CheckCvars() {
 
 	if ( r_multiSamples.IsModified() ) {
 		if ( r_multiSamples.GetInteger() > 0 ) {
-			glEnable( GL_MULTISAMPLE_ARB );
+			GL_Enable( CAP_MULTISAMPLE );
 		} else {
-			glDisable( GL_MULTISAMPLE_ARB );
+			GL_Disable( CAP_MULTISAMPLE );
 		}
 	}
 
@@ -693,7 +693,7 @@ void idRenderSystemLocal::SwapCommandBuffers_FinishRendering(
 	if ( glConfig.timerQueryAvailable ) {
 		uint64 drawingTimeNanoseconds = 0;
 		if ( tr.timerQueryId != 0 ) {
-			glGetQueryObjectui64v( tr.timerQueryId, GL_QUERY_RESULT, &drawingTimeNanoseconds );
+			GL_GetQueryObjectui64v( tr.timerQueryId, &drawingTimeNanoseconds );
 		}
 		if ( gpuMicroSec != NULL ) {
 			*gpuMicroSec = drawingTimeNanoseconds / 1000;
@@ -984,13 +984,13 @@ void idRenderSystemLocal::CaptureRenderToFile( const char *fileName, bool fixAlp
 	guiModel->Clear();
 	RenderCommandBuffers( frameData->cmdHead );
 
-	glReadBuffer( GL_BACK );
+	GL_ReadBuffer( BUFFER_SELECT_BACK );
 
 	// include extra space for OpenGL padding to word boundaries
 	int	c = ( rc.GetWidth() + 3 ) * rc.GetHeight();
 	byte *data = (byte *)R_StaticAlloc( c * 3 );
 	
-	glReadPixels( rc.x1, rc.y1, rc.GetWidth(), rc.GetHeight(), GL_RGB, GL_UNSIGNED_BYTE, data ); 
+	GL_ReadPixels( rc.x1, rc.y1, rc.GetWidth(), rc.GetHeight(), PIXELFORMAT_RGB, data ); 
 
 	byte *data2 = (byte *)R_StaticAlloc( c * 4 );
 

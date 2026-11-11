@@ -29,8 +29,8 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "../../../idlib/precompiled.h"
 
-#include "../../tr_local.h"
-#include "../../simplex.h"	// line font definition
+#include "../tr_local.h"
+#include "../simplex.h"	// line font definition
 
 idCVar r_showCenterOfProjection( "r_showCenterOfProjection", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a cross to show the center of projection" );
 idCVar r_showLines( "r_showLines", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = draw alternate horizontal lines, 2 = draw alternate vertical lines" );
@@ -420,7 +420,7 @@ static void RB_ShowIntensity() {
 	GL_State( GLS_DEPTHFUNC_ALWAYS );
 	glPushMatrix();
 	glLoadIdentity(); 
-    glOrtho( 0, 1, 0, 1, -1, 1 );
+	glOrtho( 0, 1, 0, 1, -1, 1 );
 	glRasterPos2f( 0, 0 );
 	glPopMatrix();
 	GL_Color( 1, 1, 1 );
@@ -452,7 +452,7 @@ static void RB_ShowDepthBuffer() {
 	glMatrixMode( GL_PROJECTION );
 	glPushMatrix();
 	glLoadIdentity(); 
-    glOrtho( 0, 1, 0, 1, -1, 1 );
+	glOrtho( 0, 1, 0, 1, -1, 1 );
 	glRasterPos2f( 0, 0 );
 	glPopMatrix();
 	glMatrixMode( GL_MODELVIEW );
@@ -1294,7 +1294,7 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			temp[2] = (d0[2] * d1[4] - d0[4] * d1[2]) * inva;
 			temp.Normalize();
 			tangents[0] = temp;
-        
+		
 			temp[0] = (d0[3] * d1[0] - d0[0] * d1[3]) * inva;
 			temp[1] = (d0[3] * d1[1] - d0[1] * d1[3]) * inva;
 			temp[2] = (d0[3] * d1[2] - d0[2] * d1[3]) * inva;
@@ -2167,7 +2167,7 @@ void RB_TestGamma() {
 	glPushMatrix();
 	glLoadIdentity(); 
 	glDisable( GL_TEXTURE_2D );
-    glOrtho( 0, 1, 0, 1, -1, 1 );
+	glOrtho( 0, 1, 0, 1, -1, 1 );
 	glRasterPos2f( 0.01f, 0.01f );
 	glDrawPixels( G_WIDTH, G_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, image );
 	glPopMatrix();
@@ -2216,7 +2216,7 @@ static void RB_TestGammaBias() {
 	glPushMatrix();
 	glLoadIdentity(); 
 	glDisable( GL_TEXTURE_2D );
-    glOrtho( 0, 1, 0, 1, -1, 1 );
+	glOrtho( 0, 1, 0, 1, -1, 1 );
 	glRasterPos2f( 0.01f, 0.01f );
 	glDrawPixels( G_WIDTH, G_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, image );
 	glPopMatrix();

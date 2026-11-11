@@ -696,7 +696,6 @@ public:
 
 extern backEndState_t		backEnd;
 extern idRenderSystemLocal	tr;
-extern glconfig_t			glConfig;		// outside of TR since it shouldn't be cleared during ref re-init
 
 //
 // cvars

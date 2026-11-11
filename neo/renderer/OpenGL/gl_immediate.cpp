@@ -29,7 +29,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
 
-#include "glcore.h"
+#include "gl_api.h"
 
 #include <cstring>
 #include <cstdlib>
