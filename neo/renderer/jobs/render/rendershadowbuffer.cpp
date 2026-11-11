@@ -32,6 +32,17 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderpasses.h"
 #include "rendershadowbuffer.h"
 
+// uniform helper shared with renderpasses.cpp, kept as a local inline here
+static ID_INLINE void SetFragmentParm( renderParm_t rp, const float * value ) {
+	renderProgManager.SetUniformValue( rp, value );
+}
+
+// stage helpers defined in renderpasses.cpp and draw_common.cpp
+void RB_SetMVP( const idRenderMatrix & mvp );
+void RB_SetVertexColorParms( stageVertexColor_t svc );
+void RB_PrepareStageTexturing( const shaderStage_t * pStage, const drawSurf_t * surf );
+void RB_FinishStageTexturing( const shaderStage_t * pStage, const drawSurf_t * surf );
+
 extern idCVar r_shadowMapEnable;
 
 /*
