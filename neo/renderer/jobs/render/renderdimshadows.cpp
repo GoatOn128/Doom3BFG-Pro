@@ -79,6 +79,11 @@ static GLuint dimShadowFBO = 0;
 static GLuint dimShadowTextureObject = 0;
 static int dimShadowTargetSize = 0;
 
+// this idlib's idBounds has no IsEmpty, compare the corners directly
+static bool DimShadowBoundsEmpty( const idBounds & b ) {
+	return b[0][0] > b[1][0] || b[0][1] > b[1][1] || b[0][2] > b[1][2];
+}
+
 /*
 ==================
 RB_ShutdownDimShadows
@@ -266,10 +271,10 @@ static bool RB_DimShadowScreenRect( const idBounds & bounds, idScreenRect & rect
 		rect.AddPoint( ( ndcX * 0.5f + 0.5f ) * viewWidth, ( ndcY * 0.5f + 0.5f ) * viewHeight );
 	}
 	rect.Expand();
-	rect.x1 = Max( rect.x1, 0 );
-	rect.y1 = Max( rect.y1, 0 );
-	rect.x2 = Min( rect.x2, (int)viewWidth );
-	rect.y2 = Min( rect.y2, (int)viewHeight );
+	rect.x1 = (short)Max( (int)rect.x1, 0 );
+	rect.y1 = (short)Max( (int)rect.y1, 0 );
+	rect.x2 = (short)Min( (int)rect.x2, (int)viewWidth );
+	rect.y2 = (short)Min( (int)rect.y2, (int)viewHeight );
 	return !rect.IsEmpty();
 }
 
@@ -339,7 +344,7 @@ void RB_RenderDimShadows() {
 			worldBounds.AddPoint( RB_DimShadowTransformPoint( vEntity->modelRenderMatrix, surf->frontEndGeo->bounds[1] ) );
 			numSurfs++;
 		}
-		if ( numSurfs == 0 || worldBounds.IsEmpty() ) {
+		if ( numSurfs == 0 || DimShadowBoundsEmpty( worldBounds ) ) {
 			continue;
 		}
 		// the world model and other very large geometry are not dim shadow
@@ -430,7 +435,7 @@ void RB_RenderDimShadows() {
 				( c & 4 ) ? extrudedBounds[1].z : extrudedBounds[0].z );
 			lightSpaceBounds.AddPoint( RB_DimShadowTransformPoint( lightView, corner ) );
 		}
-		if ( lightSpaceBounds.IsEmpty() ) {
+		if ( DimShadowBoundsEmpty( lightSpaceBounds ) ) {
 			continue;
 		}
 		idRenderMatrix lightProjection;
@@ -488,14 +493,16 @@ void RB_RenderDimShadows() {
 		windowCoord[1] = 1.0f / viewHeight;
 		windowCoord[2] = (float)viewport.x1;
 		windowCoord[3] = (float)viewport.y1;
-		SetFragmentParm( RENDERPARM_WINDOWCOORD, windowCoord );
+		renderProgManager.SetUniformValue( RENDERPARM_WINDOWCOORD, windowCoord );
 		// the sample transform rows are stored in the spare shadow parms,
 		// they are only used by the interactions while rpShadowParams gates
 		// them on and this pass runs outside the interaction passes
-		SetVertexParms( RENDERPARM_SHADOWMATRIX_X, inverseViewProjection.m, 4 );
-		SetVertexParms( RENDERPARM_SHADOWPROJECTION_X, shadowMatrix.m, 4 );
+		for ( int i = 0; i < 4; i++ ) {
+			renderProgManager.SetUniformValue( (renderParm_t)( RENDERPARM_SHADOWMATRIX_X + i ), inverseViewProjection[i] );
+			renderProgManager.SetUniformValue( (renderParm_t)( RENDERPARM_SHADOWPROJECTION_X + i ), shadowMatrix[i] );
+		}
 		const float shadowParms[4] = { fade, 0.0f, bias, 0.0f };
-		SetFragmentParm( RENDERPARM_SHADOWPARAMS, shadowParms );
+		renderProgManager.SetUniformValue( RENDERPARM_SHADOWPARAMS, shadowParms );
 
 		RB_SetMVP( identity );
 		RB_DrawElementsWithCounters( &backEnd.unitSquareSurface );
