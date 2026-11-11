@@ -567,11 +567,6 @@ void GL_DeleteProgram( unsigned int program ) {
 Capability, query, texture, framebuffer, readback and draw entry points
 ========================
 */
-static GLenum BufferTargetGL( wrapperBufferTarget_t target ) {
-	static const GLenum targets[] = { GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_UNIFORM_BUFFER, GL_PIXEL_PACK_BUFFER, GL_PIXEL_UNPACK_BUFFER };
-	return targets[target];
-}
-
 static GLenum CapGL( wrapperCap_t cap ) {
 	static const GLenum caps[] = { GL_TEXTURE_CUBE_MAP_SEAMLESS, GL_FRAMEBUFFER_SRGB, GL_MULTISAMPLE_ARB, GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB, GL_SCISSOR_TEST };
 	return caps[cap];
@@ -674,3 +669,4 @@ void GL_DebugMessageControl( bool enabled ) {
 void GL_Uniform4fv( int location, int count, const float * value ) {
 	glUniform4fv( location, count, value );
 }
+

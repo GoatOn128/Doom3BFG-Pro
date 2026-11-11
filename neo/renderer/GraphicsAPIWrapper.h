@@ -320,8 +320,13 @@ void			GL_ClearColor( float r, float g, float b, float a );
 void			GL_ClearDepth( double depth );
 
 // Debug output control: dont-care source and type, low severity messages.
-typedef void ( *GLDebugMessageProc_t )( unsigned int source, unsigned int type, unsigned int id, unsigned int severity, int length, const char * message, const void * userParam );
+// APIENTRY matches the CALLBACK convention used by debug callback implementations
+#ifndef APIENTRY
+#define APIENTRY
+#endif
+typedef void ( APIENTRY *GLDebugMessageProc_t )( unsigned int source, unsigned int type, unsigned int id, unsigned int severity, int length, const char * message, const void * userParam );
 void			GL_DebugMessageCallback( GLDebugMessageProc_t callback, const void * userParam );
 void			GL_DebugMessageControl( bool enabled );
 
 #endif // !__GRAPHICSAPIWRAPPER_H__
+
