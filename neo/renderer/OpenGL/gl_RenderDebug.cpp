@@ -83,6 +83,102 @@ static void RB_DrawText( const char *text, const idVec3 &origin, float scale, co
 
 void RB_SetMVP( const idRenderMatrix & mvp );
 
+void RB_SetVertexColorParms( stageVertexColor_t svc );
+
+/*
+================
+RB_BindImmediateColorShader
+
+Immediate mode glBegin draws never go through RB_DrawElementsWithCounters,
+so nothing ever uploads the uniform values written by RB_SetMVP and
+GL_Color. Bind the vertex color program (its COLOR0 input picks up the
+compatibility glColor calls, which the plain color program ignores),
+point it at the white image, and commit the uniforms for the draws that
+follow.
+================
+*/
+static void RB_BindImmediateColorShader() {
+	renderProgManager.BindShader_TextureVertexColor();
+
+	GL_SelectTexture( 0 );
+	globalImages->whiteImage->Bind();
+
+	RB_SetVertexColorParms( SVC_MODULATE );
+
+	const float texS[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const float texT[4] = { 0.0f, 1.0f, 0.0f, 0.0f };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_S, texS );
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_T, texT );
+
+	const float zero[4] = { 0, 0, 0, 0 };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXGEN_0_ENABLED, zero );
+	renderProgManager.SetRenderParm( RENDERPARM_ALPHA_TEST, zero );
+
+	GL_Color( 1, 1, 1, 1 );
+
+	renderProgManager.CommitUniforms();
+}
+
+/*
+================
+RB_DrawReadbackFullScreen
+
+Upload an RGBA8 readback into a scratch image and draw it over the
+whole view. Replaces the fixed function glDrawPixels path, whose pixels
+never reach the active fragment shader.
+================
+*/
+static void RB_DrawReadbackFullScreen( const byte * rgba, int width, int height ) {
+	static idImage * readbackImage = NULL;
+	if ( readbackImage == NULL ) {
+		readbackImage = globalImages->AllocStandaloneImage( "_debugReadback" );
+	}
+	if ( readbackImage == NULL ) {
+		return;
+	}
+	readbackImage->UploadScratch( rgba, width, height );
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ZERO );
+	GL_Cull( CT_TWO_SIDED );
+
+	const float texS[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const float texT[4] = { 0.0f, 1.0f, 0.0f, 0.0f };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_S, texS );
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_T, texT );
+
+	const float texGenEnabled[4] = { 0, 0, 0, 0 };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXGEN_0_ENABLED, texGenEnabled );
+
+	// map the unit square the test image surface uses to the whole screen
+	const float scale[16] = { 1.0f, 0.0f, 0.0f, 0.0f,
+							0.0f, 1.0f, 0.0f, 0.0f,
+							0.0f, 0.0f, 1.0f, 0.0f,
+							0.0f, 0.0f, 0.0f, 1.0f };
+
+	float ortho[16] = { 0 };
+	ortho[0] = 2.0f;
+	ortho[5] = -2.0f;
+	ortho[10] = -2.0f;
+	ortho[12] = -1.0f;
+	ortho[13] = 1.0f;
+	ortho[14] = -1.0f;
+	ortho[15] = 1.0f;
+
+	float finalOrtho[16];
+	R_MatrixMultiply( scale, ortho, finalOrtho );
+
+	float projMatrixTranspose[16];
+	R_MatrixTranspose( finalOrtho, projMatrixTranspose );
+	renderProgManager.SetRenderParms( RENDERPARM_MVPMATRIX_X, projMatrixTranspose, 4 );
+
+	renderProgManager.BindShader_Texture();
+	GL_Color( 1, 1, 1, 1 );
+	GL_SelectTexture( 0 );
+	readbackImage->Bind();
+
+	RB_DrawElementsWithCounters( &backEnd.testImageSurface );
+}
+
 /*
 ================
 RB_DrawBounds
@@ -137,6 +233,9 @@ static void RB_SimpleSurfaceSetup( const drawSurf_t *drawSurf ) {
 	// so make sure the color program is bound for the immediate mode draws
 	renderProgManager.BindShader_Color();
 
+	// immediate mode draws never commit uniforms themselves
+	renderProgManager.CommitUniforms();
+
 	// change the scissor if needed
 	if ( !backEnd.currentScissor.Equals( drawSurf->scissorRect ) && r_useScissor.GetBool() ) {
 		GL_Scissor( backEnd.viewDef->viewport.x1 + drawSurf->scissorRect.x1, 
@@ -160,6 +259,9 @@ static void RB_SimpleWorldSetup() {
 	// the shader pipeline ignores the fixed function matrix loads,
 	// so make sure the color program is bound for the immediate mode draws
 	renderProgManager.BindShader_Color();
+
+	// immediate mode draws never commit uniforms themselves
+	renderProgManager.CommitUniforms();
 
 	GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
 				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
@@ -187,6 +289,10 @@ void RB_PolygonClear() {
 						0.0f, 0.0f, 0.0f, 1.0f );
 	RB_SetMVP( mvp );
 	renderProgManager.BindShader_Color();
+
+	// the callers set rpColor through GL_Color right before this, and
+	// immediate mode draws never commit uniforms themselves
+	renderProgManager.CommitUniforms();
 
 	glPushAttrib( GL_ALL_ATTRIB_BITS  );
 	glDisable( GL_TEXTURE_2D );
@@ -428,19 +534,7 @@ static void RB_ShowIntensity() {
 	}
 
 	// draw it back to the screen
-	glLoadIdentity();
-	glMatrixMode( GL_PROJECTION );
-	GL_State( GLS_DEPTHFUNC_ALWAYS );
-	glPushMatrix();
-	glLoadIdentity(); 
-	glOrtho( 0, 1, 0, 1, -1, 1 );
-	glRasterPos2f( 0, 0 );
-	glPopMatrix();
-	GL_Color( 1, 1, 1 );
-	globalImages->BindNull();
-	glMatrixMode( GL_MODELVIEW );
-
-	glDrawPixels( renderSystem->GetWidth(), renderSystem->GetHeight(), GL_RGBA , GL_UNSIGNED_BYTE, colorReadback );
+	RB_DrawReadbackFullScreen( colorReadback, renderSystem->GetWidth(), renderSystem->GetHeight() );
 
 	R_StaticFree( colorReadback );
 }
@@ -450,47 +544,34 @@ static void RB_ShowIntensity() {
 ===================
 RB_ShowDepthBuffer
 
-Draw the depth buffer as colors
+Draw the depth buffer as grayscale
 ===================
 */
 static void RB_ShowDepthBuffer() {
-	void	*depthReadback;
-
 	if ( !r_showDepth.GetBool() ) {
 		return;
 	}
 
-	glPushMatrix();
-	glLoadIdentity();
-	glMatrixMode( GL_PROJECTION );
-	glPushMatrix();
-	glLoadIdentity(); 
-	glOrtho( 0, 1, 0, 1, -1, 1 );
-	glRasterPos2f( 0, 0 );
-	glPopMatrix();
-	glMatrixMode( GL_MODELVIEW );
-	glPopMatrix();
+	const int width = renderSystem->GetWidth();
+	const int height = renderSystem->GetHeight();
 
-	GL_State( GLS_DEPTHFUNC_ALWAYS );
-	GL_Color( 1, 1, 1 );
-	globalImages->BindNull();
+	float * depthReadback = (float *)R_StaticAlloc( width * height * sizeof( float ), TAG_RENDER_TOOLS );
+	byte * image = (byte *)R_StaticAlloc( width * height * 4, TAG_RENDER_TOOLS );
 
-	depthReadback = R_StaticAlloc( renderSystem->GetWidth() * renderSystem->GetHeight()*4, TAG_RENDER_TOOLS );
-	memset( depthReadback, 0, renderSystem->GetWidth() * renderSystem->GetHeight()*4 );
+	// the pixel pack buffer may still be bound from regular rendering
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
+	glReadPixels( 0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, depthReadback );
 
-	glReadPixels( 0, 0, renderSystem->GetWidth(), renderSystem->GetHeight(), GL_DEPTH_COMPONENT , GL_FLOAT, depthReadback );
-
-#if 0
-	for ( i = 0; i < renderSystem->GetWidth() * renderSystem->GetHeight(); i++ ) {
-		((byte *)depthReadback)[i*4] = 
-		((byte *)depthReadback)[i*4+1] = 
-		((byte *)depthReadback)[i*4+2] = 255 * ((float *)depthReadback)[i];
-		((byte *)depthReadback)[i*4+3] = 1;
+	for ( int i = 0; i < width * height; i++ ) {
+		const float d = depthReadback[i];
+		image[i*4+0] = image[i*4+1] = image[i*4+2] = (byte)( d * 255.0f );
+		image[i*4+3] = 255;
 	}
-#endif
 
-	glDrawPixels( renderSystem->GetWidth(), renderSystem->GetHeight(), GL_RGBA , GL_UNSIGNED_BYTE, depthReadback );
+	RB_DrawReadbackFullScreen( image, width, height );
+
 	R_StaticFree( depthReadback );
+	R_StaticFree( image );
 }
 
 /*
@@ -521,12 +602,24 @@ static void RB_ShowLightCount() {
 		GL_State( GLS_DEPTHFUNC_EQUAL | GLS_STENCIL_OP_FAIL_KEEP | GLS_STENCIL_OP_ZFAIL_KEEP | GLS_STENCIL_OP_PASS_INCR );
 	}
 
-	globalImages->defaultImage->Bind();
+	globalImages->whiteImage->Bind();
+
+	// the vertex color parms must not perturb the stencil counting draws
+	RB_SetVertexColorParms( SVC_IGNORE );
 
 	for ( vLight = backEnd.viewDef->viewLights; vLight; vLight = vLight->next ) {
 		for ( i = 0; i < 2; i++ ) {
 			for ( surf = i ? vLight->localInteractions: vLight->globalInteractions; surf; surf = (drawSurf_t *)surf->nextOnLight ) {
 				RB_SimpleSurfaceSetup( surf );
+
+				// the color program fails the joint verify on skinned
+				// surfaces, so use the skinned vertex color program there
+				if ( surf->jointCache ) {
+					renderProgManager.BindShader_TextureVertexColorSkinned();
+				} else {
+					renderProgManager.BindShader_Color();
+				}
+
 				RB_DrawElementsWithCounters( surf );
 			}
 		}
@@ -671,6 +764,23 @@ static void RB_RenderDrawSurfListWithFunction( drawSurf_t **drawSurfs, int numDr
 
 /*
 =====================
+RB_ShowTrisDrawSurf
+
+Bind a program that survives skinned surfaces before handing the
+drawsurf to RB_DrawElementsWithCounters
+=====================
+*/
+static void RB_ShowTrisDrawSurf( const drawSurf_t * surf ) {
+	if ( surf->jointCache ) {
+		renderProgManager.BindShader_TextureVertexColorSkinned();
+	} else {
+		renderProgManager.BindShader_Color();
+	}
+	RB_DrawElementsWithCounters( surf );
+}
+
+/*
+=====================
 RB_ShowTris
 
 Debugging tool
@@ -708,9 +818,13 @@ static void RB_ShowTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	}
 
 	GL_Color( color );
-	renderProgManager.BindShader_Color();
 
-	RB_RenderDrawSurfListWithFunction( drawSurfs, numDrawSurfs, RB_DrawElementsWithCounters );
+	// the skinned surfaces need a texture for the vertex color program
+	GL_SelectTexture( 0 );
+	globalImages->whiteImage->Bind();
+	RB_SetVertexColorParms( SVC_MODULATE );
+
+	RB_RenderDrawSurfListWithFunction( drawSurfs, numDrawSurfs, RB_ShowTrisDrawSurf );
 
 	if ( r_showTris.GetInteger() == 3 ) {
 		GL_Cull( CT_FRONT_SIDED );
@@ -798,6 +912,10 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 
 		RB_SetMVP( vModel->mvp );
 
+		// the bounds draws below are immediate mode and never commit
+		// uniforms themselves
+		renderProgManager.CommitUniforms();
+
 		const idRenderEntityCommitted * edef = vModel->entityDef;
 		if ( !edef ) {
 			continue;
@@ -814,6 +932,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 			color.Set( 0, 0, 1, 1 );
 		}
 		GL_Color( color[0], color[1], color[2] );
+		renderProgManager.CommitUniforms();
 		RB_DrawBounds( edef->localReferenceBounds );
 
 		// transform the upper bounds corner into global space
@@ -831,6 +950,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 		// draw the actual bounds in yellow if different
 		if ( r_showViewEntitys.GetInteger() >= 3 ) {
 			GL_Color( 1, 1, 0 );
+			renderProgManager.CommitUniforms();
 			// FIXME: cannot instantiate a dynamic model from the renderer back-end
 			idRenderModel *model = R_EntityDefDynamicModel( vModel->entityDef );
 			if ( !model ) {
@@ -860,11 +980,8 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	if ( !r_showTexturePolarity.GetBool() ) {
 		return;
 	}
-	globalImages->BindNull();
 
 	GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
-
-	GL_Color( 1, 1, 1 );
 
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
@@ -874,6 +991,10 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 
 		RB_SimpleSurfaceSetup( drawSurf );
+
+		// per triangle colors go through the COLOR0 attribute with the
+		// vertex color program
+		RB_BindImmediateColorShader();
 
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j+=3 ) {
@@ -898,11 +1019,11 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			area = d0[3] * d1[4] - d0[4] * d1[3];
 
 			if ( idMath::Fabs( area ) < 0.0001 ) {
-				GL_Color( 0, 0, 1, 0.5 );
-			} else  if ( area < 0 ) {
-				GL_Color( 1, 0, 0, 0.5 );
+				glColor4f( 0, 0, 1, 0.5 );
+			} else if ( area < 0 ) {
+				glColor4f( 1, 0, 0, 0.5 );
 			} else {
-				GL_Color( 0, 1, 0, 0.5 );
+				glColor4f( 0, 1, 0, 0.5 );
 			}
 			glVertex3fv( a->xyz.ToFloatPtr() );
 			glVertex3fv( b->xyz.ToFloatPtr() );
@@ -929,11 +1050,10 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 	if ( !r_showUnsmoothedTangents.GetBool() ) {
 		return;
 	}
-	globalImages->BindNull();
 
 	GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
 
-	GL_Color( 0, 1, 0, 0.5 );
+	glColor4f( 0, 1, 0, 0.5 );
 
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
@@ -943,6 +1063,9 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 		}
 
 		RB_SimpleSurfaceSetup( drawSurf );
+
+		// immediate mode draws never commit uniforms themselves
+		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
 		if ( tri == NULL || tri->verts == NULL ) {
@@ -984,7 +1107,6 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	if ( !r_showTangentSpace.GetInteger() ) {
 		return;
 	}
-	globalImages->BindNull();
 
 	GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
 
@@ -992,6 +1114,10 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		drawSurf = drawSurfs[i];
 
 		RB_SimpleSurfaceSetup( drawSurf );
+
+		// per vertex colors go through the COLOR0 attribute with the
+		// vertex color program
+		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
 		if ( tri == NULL || tri->verts == NULL ) {
@@ -1005,15 +1131,15 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 			if ( r_showTangentSpace.GetInteger() == 1 ) {
 				const idVec3 vertexTangent = v->GetTangent();
-				GL_Color( 0.5 + 0.5 * vertexTangent[0],  0.5 + 0.5 * vertexTangent[1],  
+				glColor4f( 0.5 + 0.5 * vertexTangent[0],  0.5 + 0.5 * vertexTangent[1],
 					0.5 + 0.5 * vertexTangent[2], 0.5 );
 			} else if ( r_showTangentSpace.GetInteger() == 2 ) {
 				const idVec3 vertexBiTangent = v->GetBiTangent();
-				GL_Color( 0.5 + 0.5 *vertexBiTangent[0],  0.5 + 0.5 * vertexBiTangent[1],  
+				glColor4f( 0.5 + 0.5 *vertexBiTangent[0],  0.5 + 0.5 * vertexBiTangent[1],
 					0.5 + 0.5 * vertexBiTangent[2], 0.5 );
 			} else {
 				const idVec3 vertexNormal = v->GetNormal();
-				GL_Color( 0.5 + 0.5 * vertexNormal[0],  0.5 + 0.5 * vertexNormal[1],  
+				glColor4f( 0.5 + 0.5 * vertexNormal[0],  0.5 + 0.5 * vertexNormal[1],
 					0.5 + 0.5 * vertexNormal[2], 0.5 );
 			}
 			glVertex3fv( v->xyz.ToFloatPtr() );
@@ -1039,7 +1165,6 @@ static void RB_ShowVertexColor( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	if ( !r_showVertexColor.GetBool() ) {
 		return;
 	}
-	globalImages->BindNull();
 
 	GL_State( GLS_DEPTHFUNC_LESS );
 
@@ -1047,6 +1172,10 @@ static void RB_ShowVertexColor( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		drawSurf = drawSurfs[i];
 
 		RB_SimpleSurfaceSetup( drawSurf );
+
+		// the stored vertex colors go through the COLOR0 attribute with
+		// the vertex color program
+		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
 		if ( tri == NULL || tri->verts == NULL ) {
@@ -1086,8 +1215,6 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		return;
 	}
 
-	globalImages->BindNull();
-
 	if ( !r_debugLineDepthTest.GetBool() ) {
 		GL_State( GLS_POLYMODE_LINE | GLS_DEPTHFUNC_ALWAYS );
 	} else {
@@ -1107,6 +1234,10 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		RB_SimpleSurfaceSetup( drawSurf );
 
+		// per line colors go through the COLOR0 attribute with the
+		// vertex color program
+		RB_BindImmediateColorShader();
+
 		tri = drawSurf->frontEndGeo;
 		if ( tri == NULL || tri->verts == NULL ) {
 			continue;
@@ -1117,17 +1248,17 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			const idVec3 normal = tri->verts[j].GetNormal();
 			const idVec3 tangent = tri->verts[j].GetTangent();
 			const idVec3 bitangent = tri->verts[j].GetBiTangent();
-			GL_Color( 0, 0, 1 );
+			glColor3f( 0, 0, 1 );
 			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
 			VectorMA( tri->verts[j].xyz, size, normal, end );
 			glVertex3fv( end.ToFloatPtr() );
 
-			GL_Color( 1, 0, 0 );
+			glColor3f( 1, 0, 0 );
 			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
 			VectorMA( tri->verts[j].xyz, size, tangent, end );
 			glVertex3fv( end.ToFloatPtr() );
 
-			GL_Color( 0, 1, 0 );
+			glColor3f( 0, 1, 0 );
 			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
 			VectorMA( tri->verts[j].xyz, size, bitangent, end );
 			glVertex3fv( end.ToFloatPtr() );
@@ -1242,8 +1373,6 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 	GL_State( GLS_DEPTHFUNC_LESS );
 
-	globalImages->BindNull();
-
 	for ( int i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf_t * drawSurf = drawSurfs[i];
 
@@ -1254,6 +1383,10 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 
 		RB_SimpleSurfaceSetup( drawSurf );
+
+		// per line colors go through the COLOR0 attribute with the
+		// vertex color program
+		RB_BindImmediateColorShader();
 
 		// draw non-shared edges in yellow
 		glBegin( GL_LINES );
@@ -1311,11 +1444,11 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			tangents[0] = mid + tangents[0] * r_showTextureVectors.GetFloat();
 			tangents[1] = mid + tangents[1] * r_showTextureVectors.GetFloat();
 
-			GL_Color( 1, 0, 0 );
+			glColor3f( 1, 0, 0 );
 			glVertex3fv( mid.ToFloatPtr() );
 			glVertex3fv( tangents[0].ToFloatPtr() );
 
-			GL_Color( 0, 1, 0 );
+			glColor3f( 0, 1, 0 );
 			glVertex3fv( mid.ToFloatPtr() );
 			glVertex3fv( tangents[1].ToFloatPtr() );
 		}
@@ -1345,8 +1478,6 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	GL_PolygonOffset( -1, -2 );
 	glEnable( GL_POLYGON_OFFSET_LINE );
 
-	globalImages->BindNull();
-
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
 
@@ -1360,7 +1491,10 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 		RB_SimpleSurfaceSetup( drawSurf );
 
-		GL_Color( 1, 1, 0 );
+		// immediate mode draws never commit uniforms themselves
+		RB_BindImmediateColorShader();
+
+		glColor3f( 1, 1, 0 );
 		glBegin( GL_LINES );
 
 		for ( j = 0; j < tri->numVerts; j++ ) {
@@ -1402,8 +1536,6 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		return;
 	}
 
-	globalImages->BindNull();
-
 	GL_State( GLS_DEPTHFUNC_ALWAYS );
 
 	for ( i = 0; i < numDrawSurfs; i++ ) {
@@ -1418,8 +1550,12 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		RB_SimpleSurfaceSetup( drawSurf );
 
+		// line colors go through the COLOR0 attribute with the vertex
+		// color program
+		RB_BindImmediateColorShader();
+
 		// draw non-shared edges in yellow
-		GL_Color( 1, 1, 0 );
+		glColor3f( 1, 1, 0 );
 		glBegin( GL_LINES );
 
 		for ( j = 0; j < tri->numIndexes; j+= 3 ) {
@@ -1462,7 +1598,7 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		// is the dangling edge
 		danglePlane = tri->numIndexes / 3;
 
-		GL_Color( 1, 0, 0 );
+		glColor3f( 1, 0, 0 );
 
 		glBegin( GL_LINES );
 		for ( j = 0; j < tri->numSilEdges; j++ ) {
@@ -1559,8 +1695,11 @@ static void RB_ShowPortals() {
 	// all portals are expressed in world coordinates
 	RB_SimpleWorldSetup();
 
-	globalImages->BindNull();
-	renderProgManager.BindShader_Color();
+	// ShowPortals colors each portal through the compatibility glColor
+	// entry points, which only reach a shader through the vertex color
+	// program
+	RB_BindImmediateColorShader();
+
 	GL_State( GLS_DEPTHFUNC_ALWAYS );
 
 	((idRenderWorldLocal *)backEnd.viewDef->renderWorld)->ShowPortals();
@@ -1673,9 +1812,10 @@ RB_DrawText
 ================
 */
 static void RB_DrawText( const char *text, const idVec3 &origin, float scale, const idVec4 &color, const idMat3 &viewAxis, const int align ) {
-	renderProgManager.BindShader_Color();
-
-
+	// immediate mode draws never run RB_DrawElementsWithCounters, so
+	// bind the vertex color program and commit the uniforms here; the
+	// per text color goes through the COLOR0 attribute
+	RB_BindImmediateColorShader();
 
 	int i, j, len, num, index, charIndex, line;
 	float textLen = 1.0f, spacing = 1.0f;
@@ -1761,8 +1901,6 @@ void RB_ShowDebugText() {
 
 	// all lines are expressed in world coordinates
 	RB_SimpleWorldSetup();
-
-	globalImages->BindNull();
 
 	width = r_debugLineWidth.GetInteger();
 	if ( width < 1 ) {
@@ -1868,7 +2006,9 @@ void RB_ShowDebugLines() {
 	// all lines are expressed in world coordinates
 	RB_SimpleWorldSetup();
 
-	globalImages->BindNull();
+	// line colors go through the COLOR0 attribute with the vertex color
+	// program
+	RB_BindImmediateColorShader();
 
 	width = r_debugLineWidth.GetInteger();
 	if ( width < 1 ) {
@@ -1984,9 +2124,9 @@ void RB_ShowDebugPolygons() {
 	// all lines are expressed in world coordinates
 	RB_SimpleWorldSetup();
 
-	globalImages->BindNull();
-
-	glDisable( GL_TEXTURE_2D );
+	// polygon colors go through the COLOR0 attribute with the vertex
+	// color program
+	RB_BindImmediateColorShader();
 
 	if ( r_debugPolygonFilled.GetBool() ) {
 		GL_State( GLS_POLYGON_OFFSET | GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK );
@@ -2165,20 +2305,9 @@ void RB_TestGamma() {
 		}
 	}
 
-	glLoadIdentity();
-
-	glMatrixMode( GL_PROJECTION );
-	GL_State( GLS_DEPTHFUNC_ALWAYS );
-	GL_Color( 1, 1, 1 );
-	glPushMatrix();
-	glLoadIdentity(); 
-	glDisable( GL_TEXTURE_2D );
-	glOrtho( 0, 1, 0, 1, -1, 1 );
-	glRasterPos2f( 0.01f, 0.01f );
-	glDrawPixels( G_WIDTH, G_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, image );
-	glPopMatrix();
-	glEnable( GL_TEXTURE_2D );
-	glMatrixMode( GL_MODELVIEW );
+	// draw the gamma ramps over the view; the raster path never reaches
+	// the active fragment shader
+	RB_DrawReadbackFullScreen( &image[0][0][0], G_WIDTH, G_HEIGHT );
 }
 
 
@@ -2215,19 +2344,8 @@ static void RB_TestGammaBias() {
 		}
 	}
 
-	glLoadIdentity();
-	glMatrixMode( GL_PROJECTION );
-	GL_State( GLS_DEPTHFUNC_ALWAYS );
-	GL_Color( 1, 1, 1 );
-	glPushMatrix();
-	glLoadIdentity(); 
-	glDisable( GL_TEXTURE_2D );
-	glOrtho( 0, 1, 0, 1, -1, 1 );
-	glRasterPos2f( 0.01f, 0.01f );
-	glDrawPixels( G_WIDTH, G_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, image );
-	glPopMatrix();
-	glEnable( GL_TEXTURE_2D );
-	glMatrixMode( GL_MODELVIEW );
+	// draw the bias ramps over the view
+	RB_DrawReadbackFullScreen( &image[0][0][0], G_WIDTH, G_HEIGHT );
 }
 
 /*
@@ -2400,161 +2518,3 @@ void RB_DrawExpandedTriangles( const srfTriangles_t *tri, const float radius, co
 
 			point = p[k] + dir[k] * radius;
 			glVertex3f( point[0], point[1], point[2] );
-		}
-
-		glEnd();
-	}
-}
-
-/*
-================
-RB_ShowTrace
-
-Debug visualization
-
-FIXME: not thread safe!
-================
-*/
-void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
-	int						i;
-	const srfTriangles_t	*tri;
-	const drawSurf_t		*surf;
-	idVec3					start, end;
-	idVec3					localStart, localEnd;
-	localTrace_t			hit;
-	float					radius;
-
-	if ( r_showTrace.GetInteger() == 0 ) {
-		return;
-	}
-
-	if ( r_showTrace.GetInteger() == 2 ) {
-		radius = 5.0f;
-	} else {
-		radius = 0.0f;
-	}
-
-	// determine the points of the trace
-	start = backEnd.viewDef->renderView.vieworg;
-	end = start + 4000 * backEnd.viewDef->renderView.viewaxis[0];
-
-	// check and draw the surfaces
-	globalImages->whiteImage->Bind();
-
-	renderProgManager.BindShader_Color();
-
-	// find how many are ambient
-	for ( i = 0; i < numDrawSurfs; i++ ) {
-		surf = drawSurfs[i];
-		tri = surf->frontEndGeo;
-
-		if ( tri == NULL || tri->verts == NULL ) {
-			continue;
-		}
-
-		// transform the points into local space
-		R_GlobalPointToLocal( surf->space->modelMatrix, start, localStart );
-		R_GlobalPointToLocal( surf->space->modelMatrix, end, localEnd );
-
-		// check the bounding box
-		if ( !tri->bounds.Expand( radius ).LineIntersection( localStart, localEnd ) ) {
-			continue;
-		}
-
-		RB_SetMVP( surf->space->mvp );
-
-		// highlight the surface
-		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
-
-		GL_Color( 1, 0, 0, 0.25 );
-		RB_DrawElementsWithCounters( surf );
-
-		// draw the bounding box
-		GL_State( GLS_DEPTHFUNC_ALWAYS );
-
-		GL_Color( 1, 1, 1, 1 );
-		RB_DrawBounds( tri->bounds );
-
-		if ( radius != 0.0f ) {
-			// draw the expanded triangles
-			GL_Color( 0.5f, 0.5f, 1.0f, 1.0f );
-			RB_DrawExpandedTriangles( tri, radius, localStart );
-		}
-
-		// check the exact surfaces
-		hit = R_LocalTrace( localStart, localEnd, radius, tri );
-		if ( hit.fraction < 1.0 ) {
-			GL_Color( 1, 1, 1, 1 );
-			RB_DrawBounds( idBounds( hit.point ).Expand( 1 ) );
-		}
-	}
-}
-
-/*
-=================
-RB_RenderDebugTools
-=================
-*/
-void RB_RenderDebugTools( drawSurf_t **drawSurfs, int numDrawSurfs ) {
-	// don't do much if this was a 2D rendering
-	if ( !backEnd.viewDef->viewEntitys ) {
-		RB_TestImage();
-		RB_ShowLines();
-		return;
-	}
-
-	renderLog.OpenMainBlock( MRB_DRAW_DEBUG_TOOLS );
-	RENDERLOG_PRINTF( "---------- RB_RenderDebugTools ----------\n" );
-
-	GL_State( GLS_DEFAULT );
-
-	GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
-				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
-				backEnd.viewDef->scissor.x2 + 1 - backEnd.viewDef->scissor.x1,
-				backEnd.viewDef->scissor.y2 + 1 - backEnd.viewDef->scissor.y1 );
-	backEnd.currentScissor = backEnd.viewDef->scissor;
-
-	RB_ShowLightCount();
-	RB_ShowTexturePolarity( drawSurfs, numDrawSurfs );
-	RB_ShowTangentSpace( drawSurfs, numDrawSurfs );
-	RB_ShowVertexColor( drawSurfs, numDrawSurfs );
-	RB_ShowTris( drawSurfs, numDrawSurfs );
-	RB_ShowUnsmoothedTangents( drawSurfs, numDrawSurfs );
-	RB_ShowSurfaceInfo( drawSurfs, numDrawSurfs );
-	RB_ShowEdges( drawSurfs, numDrawSurfs );
-	RB_ShowNormals( drawSurfs, numDrawSurfs );
-	RB_ShowViewEntitys( backEnd.viewDef->viewEntitys );
-	RB_ShowLights();
-	RB_ShowTextureVectors( drawSurfs, numDrawSurfs );
-	RB_ShowDominantTris( drawSurfs, numDrawSurfs );
-	if ( r_testGamma.GetInteger() > 0 ) {	// test here so stack check isn't so damn slow on debug builds
-		RB_TestGamma();
-	}
-	if ( r_testGammaBias.GetInteger() > 0 ) {
-		RB_TestGammaBias();
-	}
-	RB_TestImage();
-	RB_ShowPortals();
-	RB_ShowDepthBuffer();
-	RB_ShowIntensity();
-	RB_ShowCenterOfProjection();
-	RB_ShowLines();
-	RB_ShowDebugLines();
-	RB_ShowDebugText();
-	RB_ShowDebugPolygons();
-	RB_ShowTrace( drawSurfs, numDrawSurfs );
-
-	renderLog.CloseMainBlock();
-}
-
-/*
-=================
-RB_ShutdownDebugTools
-=================
-*/
-void RB_ShutdownDebugTools() {
-	for ( int i = 0; i < MAX_DEBUG_POLYGONS; i++ ) {
-		rb_debugPolygons[i].winding.Clear();
-	}
-}
-
