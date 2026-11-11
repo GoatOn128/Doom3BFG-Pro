@@ -139,9 +139,9 @@ viewEntity_t *R_SetEntityDefViewEntity( idRenderEntityCommitted *def ) {
 			&& !def->parms.weaponDepthHack && def->parms.modelDepthHack == 0.0f ) {
 		const idBounds & globalBounds = def->globalReferenceBounds;
 		const idVec3 & vieworg = tr.viewDef->renderView.vieworg;
-		if ( globalBounds.b[1][0] > globalBounds.b[0][0]
-				&& globalBounds.b[1][1] > globalBounds.b[0][1]
-				&& globalBounds.b[1][2] > globalBounds.b[0][2]
+		if ( globalBounds[1][0] > globalBounds[0][0]
+				&& globalBounds[1][1] > globalBounds[0][1]
+				&& globalBounds[1][2] > globalBounds[0][2]
 				&& !globalBounds.ContainsPoint( vieworg ) ) {
 			vModel->occlusionIndex = def->index;
 			idRenderMatrix::OffsetScaleForBounds( tr.viewDef->worldSpace.mvp, globalBounds, vModel->occlusionMVP );
