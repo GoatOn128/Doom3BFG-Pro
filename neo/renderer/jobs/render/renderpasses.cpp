@@ -40,11 +40,18 @@ idCVar r_skipInteractionFastPath( "r_skipInteractionFastPath", "1", CVAR_RENDERE
 idCVar r_shadowMapEnable( "r_shadowMapEnable", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "enable Tech 5 style depth-mapped shadows" );
 idCVar r_shadowMapSize( "r_shadowMapSize", "1024", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "Tech 5 shadow atlas size", 256, 4096 );
 idCVar r_shadowMapBias( "r_shadowMapBias", "0.0015", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "depth compare bias for shadow maps", 0.0f, 0.05f );
-idCVar r_shadowMapParallelExtent( "r_shadowMapParallelExtent", "1024", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "half-width of the view-centered parallel-light shadow map", 64.0f, 8192.0f );
+idCVar r_shadowMapParallelExtent( "r_shadowMapParallelExtent", "256", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "half-width of the view-centered parallel-light shadow map (Tech5 default coverage)", 64.0f, 8192.0f );
 idCVar r_shadowMapDebug( "r_shadowMapDebug", "0", CVAR_RENDERER | CVAR_BOOL, "print depth-atlas coverage for each shadowed light" );
 idCVar r_shadowMapSample( "r_shadowMapSample", "1", CVAR_RENDERER | CVAR_BOOL, "apply the shadow atlas while retaining atlas generation" );
 idCVar r_shadowMapDrawCasters( "r_shadowMapDrawCasters", "1", CVAR_RENDERER | CVAR_BOOL, "draw shadow casters into the depth atlas" );
 idCVar r_shadowMapMaxLights( "r_shadowMapMaxLights", "8", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "maximum shadow-mapped lights rendered per view", 0, 64 );
+idCVar r_sb_occluderFacing( "r_sb_occluderFacing", "0", CVAR_RENDERER | CVAR_INTEGER, "shadow caster facing: 0 = front faces, 1 = back faces, 2 = back faces with doubled offset followed by front faces", 0, 2 );
+idCVar r_sb_singleSide( "r_sb_singleSide", "-1", CVAR_RENDERER | CVAR_INTEGER, "only draw a single face (0-5) of point light shadow maps, -1 = all faces", -1, 5 );
+idCVar r_sb_polyOfsFactor( "r_sb_polyOfsFactor", "2", CVAR_RENDERER | CVAR_FLOAT, "polygon offset factor for point and spot light shadow casters" );
+idCVar r_sb_polyOfsUnits( "r_sb_polyOfsUnits", "2000", CVAR_RENDERER | CVAR_FLOAT, "polygon offset units for point and spot light shadow casters" );
+idCVar r_sb_parallelPolyOfsFactor( "r_sb_parallelPolyOfsFactor", "2", CVAR_RENDERER | CVAR_FLOAT, "polygon offset factor for parallel (sun) light shadow casters" );
+idCVar r_sb_parallelPolyOfsUnits( "r_sb_parallelPolyOfsUnits", "2000", CVAR_RENDERER | CVAR_FLOAT, "polygon offset units for parallel (sun) light shadow casters" );
+idCVar r_sb_maxCasters( "r_sb_maxCasters", "256", CVAR_RENDERER | CVAR_INTEGER, "maximum number of shadow casters drawn per light face", 16, 1024 );
 
 extern idCVar stereoRender_swapEyes;
 
@@ -252,19 +259,62 @@ static bool RB_EnsureShadowAtlas() {
 	return true;
 }
 
-static void RB_DrawShadowCasters( const drawSurf_t * surfs, const idRenderMatrix & shadowViewProjection ) {
+// Transform a model-space point to world space with the entity render matrix.
+static ID_INLINE idVec3 RB_TransformPoint( const idRenderMatrix & m, const idVec3 & p ) {
+	return idVec3(
+		p.x * m[0][0] + p.y * m[1][0] + p.z * m[2][0] + m[3][0],
+		p.x * m[0][1] + p.y * m[1][1] + p.z * m[2][1] + m[3][1],
+		p.x * m[0][2] + p.y * m[1][2] + p.z * m[2][2] + m[3][2] );
+}
+
+static void RB_DrawShadowCasters( const drawSurf_t * surfs, const idRenderMatrix & shadowViewProjection, const idVec3 & sortOrigin, const bool parallelLight ) {
 	// Match Tech 5's bounded shadow-caster work list.  Besides bounding worst-
 	// case cost, this prevents a malformed light chain from wedging the backend.
 	static const int MAX_SHADOW_CASTERS = 256;
-	int numConsidered = 0;
-	for ( const drawSurf_t * surf = surfs; surf != NULL && numConsidered < MAX_SHADOW_CASTERS; surf = surf->nextOnLight, numConsidered++ ) {
+	const int maxCasters = Min( r_sb_maxCasters.GetInteger(), MAX_SHADOW_CASTERS );
+
+	// Tech5's RB_RenderShadowBuffer sorts the caster chain so the nearest
+	// (most important) occluders land in the map when the work list
+	// overflows.  The chains are short, so a bounded insertion sort over a
+	// scratch list is cheaper than maintaining a second chain.
+	drawSurf_t * sorted[MAX_SHADOW_CASTERS];
+	float dists[MAX_SHADOW_CASTERS];
+	int numSorted = 0;
+	for ( drawSurf_t * surf = const_cast<drawSurf_t *>( surfs ); surf != NULL && numSorted < MAX_SHADOW_CASTERS; surf = surf->nextOnLight ) {
 		if ( surf->numIndexes == 0 || !vertexCache.CacheIsCurrent( surf->ambientCache ) || !vertexCache.CacheIsCurrent( surf->indexCache ) ) {
 			continue;
 		}
-		const idMaterial * shader = surf->material;
-		if ( shader == NULL || shader->Coverage() == MC_TRANSLUCENT ) {
-			continue;
+		if ( surf->frontEndGeo != NULL && surf->space != NULL ) {
+			const idVec3 center = RB_TransformPoint( surf->space->modelRenderMatrix, ( surf->frontEndGeo->bounds[0] + surf->frontEndGeo->bounds[1] ) * 0.5f );
+			dists[numSorted] = ( center - sortOrigin ).Length();
+		} else {
+			dists[numSorted] = 0.0f;
 		}
+		sorted[numSorted++] = surf;
+	}
+	// descending: nearest casters first
+	for ( int i = 1; i < numSorted; i++ ) {
+		drawSurf_t * sortSurf = sorted[i];
+		const float sortDist = dists[i];
+		int j = i - 1;
+		for ( ; j >= 0 && dists[j] < sortDist; j-- ) {
+			sorted[j + 1] = sorted[j];
+			dists[j + 1] = dists[j];
+		}
+		sorted[j + 1] = sortSurf;
+		dists[j + 1] = sortDist;
+	}
+
+	// Tech5 keeps separate polygon offsets for the sun/parallel shadow map
+	// and the point and spot shadow maps.
+	const float polyOfsFactor = parallelLight ? r_sb_parallelPolyOfsFactor.GetFloat() : r_sb_polyOfsFactor.GetFloat();
+	const float polyOfsUnits = parallelLight ? r_sb_parallelPolyOfsUnits.GetFloat() : r_sb_polyOfsUnits.GetFloat();
+	const int occluderFacing = r_sb_occluderFacing.GetInteger();
+
+	int numDrawn = 0;
+	for ( int i = 0; i < numSorted && numDrawn < maxCasters; i++ ) {
+		const drawSurf_t * surf = sorted[i];
+		const idMaterial * shader = surf->material;
 		idRenderMatrix mvp;
 		idRenderMatrix::Multiply( shadowViewProjection, surf->space->modelRenderMatrix, mvp );
 		// A surface linked to a point light usually belongs to only one cube
@@ -285,6 +335,7 @@ static void RB_DrawShadowCasters( const drawSurf_t * surfs, const idRenderMatrix
 				}
 				drewAlphaStage = true;
 				GL_State( GLS_COLORMASK | GLS_POLYGON_OFFSET | GLS_DEPTHFUNC_LESS );
+				GL_PolygonOffset( polyOfsFactor, polyOfsUnits );
 				idVec4 alphaTestValue( regs[pStage->alphaTestRegister] );
 				SetFragmentParm( RENDERPARM_ALPHA_TEST, alphaTestValue.ToFloatPtr() );
 				if ( surf->jointCache ) {
@@ -303,19 +354,42 @@ static void RB_DrawShadowCasters( const drawSurf_t * surfs, const idRenderMatrix
 			}
 			SetFragmentParm( RENDERPARM_ALPHA_TEST, vec4_zero.ToFloatPtr() );
 			if ( drewAlphaStage ) {
+				numDrawn++;
 				continue;
 			}
 		}
 
-		GL_State( GLS_COLORMASK | GLS_ALPHAMASK | GLS_POLYGON_OFFSET | GLS_DEPTHFUNC_LESS );
+		// Tech5's occluder facing options: front faces by default, back faces
+		// for cheaper silhouettes, or back faces pushed farther out followed
+		// by front faces so the two depth layers average out without leaking
+		// at silhouette edges.
+		if ( occluderFacing == 1 || occluderFacing == 2 ) {
+			if ( surf->jointCache ) {
+				renderProgManager.BindShader_DepthSkinned();
+			} else {
+				renderProgManager.BindShader_Depth();
+			}
+			GL_Cull( CT_BACK_SIDED );
+			GL_PolygonOffset( polyOfsFactor, polyOfsUnits * 2.0f );
+			RB_DrawElementsWithCounters( surf );
+			backEnd.pc.c_shadowElements++;
+			backEnd.pc.c_shadowIndexes += surf->numIndexes;
+			numDrawn++;
+			if ( occluderFacing == 1 ) {
+				continue;
+			}
+		}
 		if ( surf->jointCache ) {
 			renderProgManager.BindShader_DepthSkinned();
 		} else {
 			renderProgManager.BindShader_Depth();
 		}
+		GL_Cull( CT_FRONT_SIDED );
+		GL_PolygonOffset( polyOfsFactor, polyOfsUnits );
 		RB_DrawElementsWithCounters( surf );
 		backEnd.pc.c_shadowElements++;
 		backEnd.pc.c_shadowIndexes += surf->numIndexes;
+		numDrawn++;
 	}
 }
 
@@ -331,6 +405,7 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 
 	idRenderMatrix shadowMVP[6];
 	int numSides = 1;
+	int sideStart = 0;
 	int tileSize = lightShadowAtlasSize;
 	if ( vLight->shadowParallel ) {
 		idRenderMatrix viewTransform;
@@ -380,7 +455,14 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 		}
 		RB_WorldToShadowMap( projection, 0.5f, 0.0f, 0.0f, currentShadowProjection );
 		currentShadowType = 2.0f;
-		numSides = 6;
+		// Tech5's r_sb_singleSide limits point light shadow rendering to a
+		// single cube face for debugging and tuning.
+		if ( r_sb_singleSide.GetInteger() >= 0 && r_sb_singleSide.GetInteger() < 6 ) {
+			sideStart = r_sb_singleSide.GetInteger();
+			numSides = 1;
+		} else {
+			numSides = 6;
+		}
 		tileSize = lightShadowAtlasSize / 3;
 	} else {
 		const float targetLength = idMath::Sqrt( Max( vLight->shadowLightTarget.LengthSqr(), idMath::FLT_SMALLEST_NON_DENORMAL ) );
@@ -430,12 +512,14 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	static const int slotX[6] = { 0, 1, 0, 1, 0, 1 };
 	static const int slotY[6] = { 0, 0, 1, 1, 2, 2 };
 	if ( r_shadowMapDrawCasters.GetBool() ) {
+		const idVec3 & sortOrigin = vLight->shadowParallel ? vLight->shadowViewOrigin : vLight->shadowLightOrigin;
 		for ( int side = 0; side < numSides; side++ ) {
-			const int x = vLight->shadowPointLight ? slotX[side] * tileSize : 0;
-			const int y = vLight->shadowPointLight ? slotY[side] * tileSize : 0;
+			const int face = vLight->shadowPointLight ? sideStart + side : 0;
+			const int x = vLight->shadowPointLight ? slotX[face] * tileSize : 0;
+			const int y = vLight->shadowPointLight ? slotY[face] * tileSize : 0;
 			GL_ViewportAndScissor( x, y, tileSize, tileSize );
-			RB_DrawShadowCasters( vLight->globalShadows, shadowMVP[side] );
-			RB_DrawShadowCasters( vLight->localShadows, shadowMVP[side] );
+			RB_DrawShadowCasters( vLight->globalShadows, shadowMVP[face], sortOrigin, vLight->shadowParallel );
+			RB_DrawShadowCasters( vLight->localShadows, shadowMVP[face], sortOrigin, vLight->shadowParallel );
 		}
 	}
 	static bool reportedShadowAtlas = false;
