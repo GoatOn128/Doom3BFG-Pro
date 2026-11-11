@@ -1598,6 +1598,7 @@ void idRenderSystemLocal::Clear() {
 	currentColorNativeBytesOrder = 0xFFFFFFFF;
 	currentGLState = 0;
 	guiRecursionLevel = 0;
+	memset( &occlusionQueryState, 0, sizeof( occlusionQueryState ) );
 	guiModel = NULL;
 	memset( gammaTable, 0, sizeof( gammaTable ) );
 	takingScreenshot = false;
@@ -1941,6 +1942,9 @@ void idRenderSystemLocal::BeginLevelLoad() {
 	globalImages->BeginLevelLoad();
 	renderModelManager->BeginLevelLoad();
 
+	// entity indices get reused by the next map, drop any stale query results
+	memset( &occlusionQueryState, 0, sizeof( occlusionQueryState ) );
+
 	// Re-Initialize the Default Materials if needed. 
 	R_InitMaterials();
 }
@@ -2068,6 +2072,14 @@ idRenderSystemLocal::ShutdownOpenGL
 ========================
 */
 void idRenderSystemLocal::ShutdownOpenGL() {
+	// release the occlusion query objects
+	for ( int i = 0; i < MAX_OCCLUSION_QUERIES; i++ ) {
+		if ( occlusionQueryState.queryIds[i] != 0 ) {
+			GL_DeleteQueries( 1, &occlusionQueryState.queryIds[i] );
+		}
+	}
+	memset( &occlusionQueryState, 0, sizeof( occlusionQueryState ) );
+
 	// free the context and close the window
 	R_ShutdownFrameData();
 	RB_ShutdownShadowAtlas();
