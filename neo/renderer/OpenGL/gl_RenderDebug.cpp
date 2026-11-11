@@ -2518,3 +2518,178 @@ void RB_DrawExpandedTriangles( const srfTriangles_t *tri, const float radius, co
 
 			point = p[k] + dir[k] * radius;
 			glVertex3f( point[0], point[1], point[2] );
+		}
+
+		glEnd();
+	}
+}
+
+/*
+================
+RB_ShowTrace
+
+Debug visualization
+
+FIXME: not thread safe!
+================
+*/
+void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
+	int						i;
+	const srfTriangles_t	*tri;
+	const drawSurf_t		*surf;
+	idVec3					start, end;
+	idVec3					localStart, localEnd;
+	localTrace_t			hit;
+	float					radius;
+
+	if ( r_showTrace.GetInteger() == 0 ) {
+		return;
+	}
+
+	if ( r_showTrace.GetInteger() == 2 ) {
+		radius = 5.0f;
+	} else {
+		radius = 0.0f;
+	}
+
+	// determine the points of the trace
+	start = backEnd.viewDef->renderView.vieworg;
+	end = start + 4000 * backEnd.viewDef->renderView.viewaxis[0];
+
+	// check and draw the surfaces
+	globalImages->whiteImage->Bind();
+
+	// the skinned surfaces need a texture for the vertex color program
+	RB_SetVertexColorParms( SVC_MODULATE );
+
+	// find how many are ambient
+	for ( i = 0; i < numDrawSurfs; i++ ) {
+		surf = drawSurfs[i];
+		tri = surf->frontEndGeo;
+
+		if ( tri == NULL || tri->verts == NULL ) {
+			continue;
+		}
+
+		// transform the points into local space
+		R_GlobalPointToLocal( surf->space->modelMatrix, start, localStart );
+		R_GlobalPointToLocal( surf->space->modelMatrix, end, localEnd );
+
+		// check the bounding box
+		if ( !tri->bounds.Expand( radius ).LineIntersection( localStart, localEnd ) ) {
+			continue;
+		}
+
+		RB_SetMVP( surf->space->mvp );
+
+		// the immediate draws below never commit uniforms themselves
+		renderProgManager.CommitUniforms();
+
+		// highlight the surface
+		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
+
+		// the color program fails the joint verify on skinned surfaces
+		if ( surf->jointCache ) {
+			renderProgManager.BindShader_TextureVertexColorSkinned();
+		} else {
+			renderProgManager.BindShader_Color();
+		}
+
+		GL_Color( 1, 0, 0, 0.25 );
+		RB_DrawElementsWithCounters( surf );
+
+		// back to the color program for the immediate draws
+		renderProgManager.BindShader_Color();
+		renderProgManager.CommitUniforms();
+
+		// draw the bounding box
+		GL_State( GLS_DEPTHFUNC_ALWAYS );
+
+		GL_Color( 1, 1, 1, 1 );
+		renderProgManager.CommitUniforms();
+		RB_DrawBounds( tri->bounds );
+
+		if ( radius != 0.0f ) {
+			// draw the expanded triangles
+			GL_Color( 0.5f, 0.5f, 1.0f, 1.0f );
+			renderProgManager.CommitUniforms();
+			RB_DrawExpandedTriangles( tri, radius, localStart );
+		}
+
+		// check the exact surfaces
+		hit = R_LocalTrace( localStart, localEnd, radius, tri );
+		if ( hit.fraction < 1.0 ) {
+			GL_Color( 1, 1, 1, 1 );
+			renderProgManager.CommitUniforms();
+			RB_DrawBounds( idBounds( hit.point ).Expand( 1 ) );
+		}
+	}
+}
+
+/*
+=================
+RB_RenderDebugTools
+=================
+*/
+void RB_RenderDebugTools( drawSurf_t **drawSurfs, int numDrawSurfs ) {
+	// don't do much if this was a 2D rendering
+	if ( !backEnd.viewDef->viewEntitys ) {
+		RB_TestImage();
+		RB_ShowLines();
+		return;
+	}
+
+	renderLog.OpenMainBlock( MRB_DRAW_DEBUG_TOOLS );
+	RENDERLOG_PRINTF( "---------- RB_RenderDebugTools ----------\n" );
+
+	GL_State( GLS_DEFAULT );
+
+	GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
+				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
+				backEnd.viewDef->scissor.x2 + 1 - backEnd.viewDef->scissor.x1,
+				backEnd.viewDef->scissor.y2 + 1 - backEnd.viewDef->scissor.y1 );
+	backEnd.currentScissor = backEnd.viewDef->scissor;
+
+	RB_ShowLightCount();
+	RB_ShowTexturePolarity( drawSurfs, numDrawSurfs );
+	RB_ShowTangentSpace( drawSurfs, numDrawSurfs );
+	RB_ShowVertexColor( drawSurfs, numDrawSurfs );
+	RB_ShowTris( drawSurfs, numDrawSurfs );
+	RB_ShowUnsmoothedTangents( drawSurfs, numDrawSurfs );
+	RB_ShowSurfaceInfo( drawSurfs, numDrawSurfs );
+	RB_ShowEdges( drawSurfs, numDrawSurfs );
+	RB_ShowNormals( drawSurfs, numDrawSurfs );
+	RB_ShowViewEntitys( backEnd.viewDef->viewEntitys );
+	RB_ShowLights();
+	RB_ShowTextureVectors( drawSurfs, numDrawSurfs );
+	RB_ShowDominantTris( drawSurfs, numDrawSurfs );
+	if ( r_testGamma.GetInteger() > 0 ) {	// test here so stack check isn't so damn slow on debug builds
+		RB_TestGamma();
+	}
+	if ( r_testGammaBias.GetInteger() > 0 ) {
+		RB_TestGammaBias();
+	}
+	RB_TestImage();
+	RB_ShowPortals();
+	RB_ShowDepthBuffer();
+	RB_ShowIntensity();
+	RB_ShowCenterOfProjection();
+	RB_ShowLines();
+	RB_ShowDebugLines();
+	RB_ShowDebugText();
+	RB_ShowDebugPolygons();
+	RB_ShowTrace( drawSurfs, numDrawSurfs );
+
+	renderLog.CloseMainBlock();
+}
+
+/*
+=================
+RB_ShutdownDebugTools
+=================
+*/
+void RB_ShutdownDebugTools() {
+	for ( int i = 0; i < MAX_DEBUG_POLYGONS; i++ ) {
+		rb_debugPolygons[i].winding.Clear();
+	}
+}
