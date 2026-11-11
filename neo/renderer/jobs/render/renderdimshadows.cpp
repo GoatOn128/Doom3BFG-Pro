@@ -71,7 +71,7 @@ idCVar r_dimShadowResolution( "r_dimShadowResolution", "1024", CVAR_RENDERER | C
 idCVar r_dimShadowLixelScale( "r_dimShadowLixelScale", "1.0", CVAR_RENDERER | CVAR_FLOAT, "clip space to lixel scale factor, 0 disables the per caster resolution", 0.0f, 16.0f );
 idCVar r_dimShadowMaxLixelsPerUnit( "r_dimShadowMaxLixelsPerUnit", "8.0", CVAR_RENDERER | CVAR_FLOAT, "cap shadow map size to a factor of bounding box radius", 0.0f, 64.0f );
 idCVar r_dimShadowResolutionCap( "r_dimShadowResolutionCap", "2048", CVAR_RENDERER | CVAR_INTEGER, "cap dim shadow size", 64, 2048 );
-idCVar r_dimShadowHighQuality( "r_dimShadowHighQuality", "2", CVAR_RENDERER | CVAR_INTEGER, "2 = all casters use the high quality dithered PCF dim shadow draw, 0 = standard single tap, TNO r_dimShadowForceHighQuality minus the per model flags this engine lacks", 0, 2 );
+idCVar r_dimShadowHighQuality( "r_dimShadowHighQuality", "2", CVAR_RENDERER | CVAR_INTEGER, "TNO r_dimShadowForceHighQuality minus the per model flags this engine lacks: 2 = dithered 4x4 PCF, 1 = dithered 2x2 PCF, 0 = standard single tap, -1 = never use the higher quality draws", -1, 2 );
 idCVar r_dimShadowDensity( "r_dimShadowDensity", "0.75", CVAR_RENDERER | CVAR_FLOAT, "maximum darkness of the dim shadows", 0.0f, 1.0f );
 idCVar r_dimShadowBias( "r_dimShadowBias", "0.002", CVAR_RENDERER | CVAR_FLOAT, "normalized depth bias that keeps the caster itself lit", 0.0f, 0.1f );
 idCVar r_dimShadowMaxRange( "r_dimShadowMaxRange", "2200", CVAR_RENDERER | CVAR_FLOAT, "distance at which dim shadows are fully faded out", 0.0f, 10000.0f );
@@ -603,8 +603,13 @@ void RB_RenderDimShadows() {
 			screenRect.x2 - screenRect.x1 + 1, screenRect.y2 - screenRect.y1 + 1 );
 		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHFUNC_ALWAYS );
 		GL_Cull( CT_TWO_SIDED );
-		if ( r_dimShadowHighQuality.GetInteger() > 0 ) {
+		// TNO quality ladder: 2 = high, 1 = mid, 0 = standard, -1 never
+		// picks a higher quality program
+		const int shadowQuality = r_dimShadowHighQuality.GetInteger();
+		if ( shadowQuality >= 2 ) {
 			renderProgManager.BindShader_DimShadowDrawHighQuality();
+		} else if ( shadowQuality == 1 ) {
+			renderProgManager.BindShader_DimShadowDrawMidQuality();
 		} else {
 			renderProgManager.BindShader_DimShadowDraw();
 		}
