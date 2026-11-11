@@ -29,7 +29,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
 
-#include "glcore.h"
+#include "gl_api.h"
 
 GladGLContext rgl;
 
@@ -46,4 +46,16 @@ bool GLcore_Load() {
 void GLcore_Unload() {
 	GLim_Shutdown();
 	gladLoaderUnloadGLContext( &rgl );
+}
+
+/*
+========================
+glBindMultiTextureEXT
+
+As of 2011/09/16 the Intel drivers for "Sandy Bridge" and "Ivy Bridge" integrated graphics do not support this extension.
+========================
+*/
+void APIENTRY glBindMultiTextureEXT( GLenum texunit, GLenum target, GLuint texture ) {
+	glActiveTexture( texunit );
+	glBindTexture( target, texture );
 }

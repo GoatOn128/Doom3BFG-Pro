@@ -3,6 +3,7 @@
 
 #include "pageminlod.h"
 #include "../../Image.h"
+#include "../../GraphicsAPIWrapper.h"
 
 void UpdateMinLod_r( char * minLodTexture, int bytePitch,
 		const texturePage_t * pageArray, int16 pageNum, uint8 * pageFade,
@@ -41,11 +42,11 @@ void UpdatePageMinLodJob( const pageMinLodUpdate_t * parms ) {
 }
 
 void UploadPageMinLod( const pageMinLodUpdate_t * parms ) {
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER,
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK,
 		reinterpret_cast< GLuint >( const_cast< void * >( parms->pageMinLodPBO ) ) );
 	parms->pageMinLodImage->SubImageUpload( 0, 0, 0, 0,
 		parms->pageMinLodImageSize, parms->pageMinLodImageSize, NULL );
-	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_UNPACK, 0 );
 }
 
 REGISTER_PARALLEL_JOB( UpdatePageMinLodJob, "UpdatePageMinLodJob" );

@@ -186,17 +186,7 @@ idCVar stereoRender_enable( "stereoRender_enable", "0", CVAR_INTEGER | CVAR_ARCH
 idCVar stereoRender_swapEyes( "stereoRender_swapEyes", "0", CVAR_BOOL | CVAR_ARCHIVE, "reverse eye adjustments" );
 idCVar stereoRender_deGhost( "stereoRender_deGhost", "0.05", CVAR_FLOAT | CVAR_ARCHIVE, "subtract from opposite eye to reduce ghosting" );
 
-/*
-========================
-glBindMultiTextureEXT
 
-As of 2011/09/16 the Intel drivers for "Sandy Bridge" and "Ivy Bridge" integrated graphics do not support this extension.
-========================
-*/
-void APIENTRY glBindMultiTextureEXT( GLenum texunit, GLenum target, GLuint texture ) {
-	glActiveTexture( texunit );
-	glBindTexture( target, texture );
-}
 
 
 /*
@@ -269,7 +259,7 @@ static void R_CheckPortableExtensions() {
 	// GL_EXT_texture_filter_anisotropic
 	glConfig.anisotropicFilterAvailable = R_CheckExtension( "GL_EXT_texture_filter_anisotropic" );
 	if ( glConfig.anisotropicFilterAvailable ) {
-		glGetFloatv( GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &glConfig.maxTextureAnisotropy );
+		GL_GetFloatv( GET_MAX_TEXTURE_MAX_ANISOTROPY, &glConfig.maxTextureAnisotropy );
 		common->Printf( "   maxTextureAnisotropy: %f\n", glConfig.maxTextureAnisotropy );
 	} else {
 		glConfig.maxTextureAnisotropy = 1;
@@ -295,10 +285,10 @@ static void R_CheckPortableExtensions() {
 		// do not appear to work for the Intel HD 4000 graphics
 		( glConfig.vendor != VENDOR_INTEL || r_skipIntelWorkarounds.GetBool() );
 
-	glGetIntegerv( GL_MAX_TEXTURE_IMAGE_UNITS, (GLint *)&glConfig.maxTextureImageUnits );
+	GL_GetIntegerv( GET_MAX_TEXTURE_IMAGE_UNITS, (GLint *)&glConfig.maxTextureImageUnits );
 	glConfig.maxTextureCoords = glConfig.maxTextureImageUnits;
 
-	glGetIntegerv( GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint *)&glConfig.uniformBufferOffsetAlignment );
+	GL_GetIntegerv( GET_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint *)&glConfig.uniformBufferOffsetAlignment );
 	if ( glConfig.uniformBufferOffsetAlignment < 256 ) {
 		glConfig.uniformBufferOffsetAlignment = 256;
 	}
@@ -307,24 +297,21 @@ static void R_CheckPortableExtensions() {
 	glConfig.debugOutputAvailable = R_CheckExtension( "GL_ARB_debug_output" );
 	if ( glConfig.debugOutputAvailable ) {
 		if ( r_debugContext.GetInteger() >= 1 ) {
-			glDebugMessageCallbackARB( DebugCallback, NULL );
+			GL_DebugMessageCallback( DebugCallback, NULL );
 		}
 		if ( r_debugContext.GetInteger() >= 2 ) {
 			// force everything to happen in the main thread instead of in a separate driver thread
-			glEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
+			GL_Enable( CAP_DEBUG_OUTPUT_SYNCHRONOUS );
 		}
 		if ( r_debugContext.GetInteger() >= 3 ) {
 			// enable all the low priority messages
-			glDebugMessageControlARB( GL_DONT_CARE,
-							GL_DONT_CARE,
-							GL_DEBUG_SEVERITY_LOW_ARB,
-							0, NULL, true );
+			GL_DebugMessageControl( true );
 		}
 	}
 
 	// generate one global Vertex Array Object (VAO)
-	glGenVertexArrays( 1, &glConfig.global_vao );
-	glBindVertexArray( glConfig.global_vao );
+	GL_GenVertexArrays( 1, &glConfig.global_vao );
+	GL_BindVertexArray( glConfig.global_vao );
 }
 
 static bool r_initialized = false;
@@ -484,21 +471,21 @@ void R_InitOpenGL() {
 	Sys_InitInput();
 
 	// get our config strings
-	glConfig.vendor_string = (const char *)glGetString( GL_VENDOR );
-	glConfig.renderer_string = (const char *)glGetString( GL_RENDERER );
-	glConfig.version_string = (const char *)glGetString( GL_VERSION );
-	glConfig.shading_language_string = (const char *)glGetString( GL_SHADING_LANGUAGE_VERSION );
-	glConfig.extensions_string = (const char *)glGetString( GL_EXTENSIONS );
+	glConfig.vendor_string = (const char *)GL_GetString( STRING_VENDOR );
+	glConfig.renderer_string = (const char *)GL_GetString( STRING_RENDERER );
+	glConfig.version_string = (const char *)GL_GetString( STRING_VERSION );
+	glConfig.shading_language_string = (const char *)GL_GetString( STRING_SHADING_LANGUAGE_VERSION );
+	glConfig.extensions_string = (const char *)GL_GetString( STRING_EXTENSIONS );
 
 	if ( glConfig.extensions_string == NULL ) {
 		// As of OpenGL 3.2, glGetStringi is required to obtain the available extensions
 
 		// Build the extensions string
 		GLint numExtensions;
-		glGetIntegerv( GL_NUM_EXTENSIONS, &numExtensions );
+		GL_GetIntegerv( GET_NUM_EXTENSIONS, &numExtensions );
 		extensions_string.Clear();
 		for ( int i = 0; i < numExtensions; i++ ) {
-			extensions_string.Append( (const char*)glGetStringi( GL_EXTENSIONS, i ) );
+			extensions_string.Append( (const char*)GL_GetStringi( i ) );
 			// the now deprecated glGetString method usaed to create a single string with each extension separated by a space
 			if ( i < numExtensions - 1 ) {
 				extensions_string.Append( ' ' );
@@ -516,7 +503,7 @@ void R_InitOpenGL() {
 	
 	// OpenGL driver constants
 	GLint temp;
-	glGetIntegerv( GL_MAX_TEXTURE_SIZE, &temp );
+	GL_GetIntegerv( GET_MAX_TEXTURE_SIZE, &temp );
 	glConfig.maxTextureSize = temp;
 
 	// stubbed or broken drivers may have reported 0...
@@ -575,7 +562,7 @@ void GL_CheckErrors() {
 
 	// check for up to 10 errors pending
 	for ( i = 0 ; i < 10 ; i++ ) {
-		err = glGetError();
+		err = GL_GetError();
 		if ( err == GL_NO_ERROR ) {
 			return;
 		}
@@ -856,8 +843,8 @@ void R_ReadTiledPixels( int width, int height, byte *buffer, renderView_t *ref =
 				h = height - yo;
 			}
 
-			glReadBuffer( GL_FRONT );
-			glReadPixels( 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, temp ); 
+			GL_ReadBuffer( BUFFER_SELECT_FRONT );
+			GL_ReadPixels( 0, 0, w, h, PIXELFORMAT_RGB, temp ); 
 
 			int	row = ( w * 3 + 3 ) & ~3;		// OpenGL pads to dword boundaries
 
@@ -1074,7 +1061,7 @@ void R_StencilShot() {
 
 	idTempArray< byte > byteBuffer( pix );
 
-	glReadPixels( 0, 0, width, height, GL_STENCIL_INDEX , GL_UNSIGNED_BYTE, byteBuffer.Ptr() ); 
+	GL_ReadPixels( 0, 0, width, height, PIXELFORMAT_STENCIL_INDEX, byteBuffer.Ptr() ); 
 
 	for ( i = 0 ; i < pix ; i++ ) {
 		buffer[18+i*3] =
@@ -1479,9 +1466,9 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 	tr.viewDef = NULL;
 
 	// check for problems
-	int err = glGetError();
+	int err = GL_GetError();
 	if ( err != GL_NO_ERROR ) {
-		common->Printf( "glGetError() = 0x%x\n", err );
+		common->Printf( "GL_GetError() = 0x%x\n", err );
 	}
 #endif
 
@@ -2070,9 +2057,9 @@ void idRenderSystemLocal::InitOpenGL() {
 		// Reloading images here causes the rendertargets to get deleted. Figure out how to handle this properly on 360
 		globalImages->ReloadImages( true );
 		
-		int err = glGetError();
+		int err = GL_GetError();
 		if ( err != GL_NO_ERROR ) {
-			common->Printf( "glGetError() = 0x%x\n", err );
+			common->Printf( "GL_GetError() = 0x%x\n", err );
 		}
 	}
 }

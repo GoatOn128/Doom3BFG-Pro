@@ -1,6 +1,6 @@
 # Build digest
 
-commit: 8b04378764cb
+commit: 5c4181ad344d
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
@@ -80,7 +80,7 @@ warnings: 501 in 8 kinds
 - [3x] C4018
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtextureencoder.cpp(272,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(190,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1448,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1447,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [3x] C4644
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(636,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(641,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
@@ -138,8 +138,8 @@ warnings: 501 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
@@ -163,7 +163,7 @@ warnings: 501 in 8 kinds
 - [3x] C4018
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtextureencoder.cpp(272,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(190,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1448,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1447,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [3x] C4644
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(636,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(641,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]

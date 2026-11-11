@@ -112,16 +112,16 @@ void PC_BeginNamedEvent( const char *szName, ... ) {
 	if ( ++numPixLevels > 1 ) {
 		return;	// only get top level timing information
 	}
-	if ( !glGetQueryObjectui64v ) {
+	if ( !glConfig.timerQueryAvailable ) {
 		return;
 	}
 
 	GL_CheckErrors();
 	if ( timeQueryIds[0] == 0 ) {
-		glGenQueries( MAX_PIX_EVENTS, timeQueryIds );
+		GL_GenQueries( MAX_PIX_EVENTS, timeQueryIds );
 	}
-	glFinish();
-	glBeginQuery( GL_TIME_ELAPSED_EXT, timeQueryIds[numPixEvents] );
+	GL_Finish();
+	GL_BeginQuery( QUERY_TARGET_TIME_ELAPSED, timeQueryIds[numPixEvents] );
 	GL_CheckErrors();
 
 	pixEvent_t *ev = &pixEvents[numPixEvents++];
@@ -147,7 +147,7 @@ void PC_EndNamedEvent() {
 		// only do timing on top level events
 		return;
 	}
-	if ( !glGetQueryObjectui64v ) {
+	if ( !glConfig.timerQueryAvailable ) {
 		return;
 	}
 
@@ -155,7 +155,7 @@ void PC_EndNamedEvent() {
 	ev->cpuTime = Sys_Microseconds() - ev->cpuTime;
 
 	GL_CheckErrors();
-	glEndQuery( GL_TIME_ELAPSED_EXT );
+	GL_EndQuery( QUERY_TARGET_TIME_ELAPSED );
 	GL_CheckErrors();
 #endif
 }
@@ -179,7 +179,7 @@ void PC_EndFrame() {
 		pixEvent_t *ev = &pixEvents[i];
 
 		int64 gpuTime = 0;
-		glGetQueryObjectui64v( timeQueryIds[i], GL_QUERY_RESULT, (GLuint64EXT *)&gpuTime );
+		GL_GetQueryObjectui64v( timeQueryIds[i], (unsigned long long *)&gpuTime );
 		ev->gpuTime = gpuTime;
 
 		idLib::Printf( "%2d: %1.2f (GPU) %1.3f (CPU) = %s\n", i, ev->gpuTime / 1000000.0f, ev->cpuTime / 1000.0f, ev->name );

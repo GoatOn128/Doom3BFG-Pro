@@ -118,7 +118,7 @@ static void RB_FinishStageTexturing( const shaderStage_t * pStage, const drawSur
 
 void RB_ShutdownShadowAtlas() {
 	if ( lightShadowFBO != 0 ) {
-		glDeleteFramebuffers( 1, &lightShadowFBO );
+		GL_DeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 	}
 	lightShadowTextureObject = 0;
@@ -195,7 +195,7 @@ static bool RB_EnsureShadowAtlas() {
 		return true;
 	}
 	if ( lightShadowFBO != 0 ) {
-		glDeleteFramebuffers( 1, &lightShadowFBO );
+		GL_DeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 	}
 	lightShadowTextureObject = 0;
@@ -220,30 +220,30 @@ static bool RB_EnsureShadowAtlas() {
 	// actual active unit, so select unit 5 explicitly or these depth sampler
 	// parameters corrupt whichever ordinary color image is active on unit 0.
 	GLint previousActiveTexture = GL_TEXTURE0;
-	glGetIntegerv( GL_ACTIVE_TEXTURE, &previousActiveTexture );
-	glActiveTexture( GL_TEXTURE0 + 5 );
-	glBindTexture( GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject() );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL );
-	glActiveTexture( previousActiveTexture );
-	glGenFramebuffers( 1, &lightShadowFBO );
+	GL_GetIntegerv( GET_ACTIVE_TEXTURE, &previousActiveTexture );
+	GL_ActiveTexture( 5 );
+	GL_BindTexture( TEX_TARGET_2D, lightShadowAtlas->GetAPIObject() );
+	GL_TexParameteri( TEX_TARGET_2D, TEXPARAM_COMPARE_MODE, TEX_COMPARE_REF_TO_TEXTURE );
+	GL_TexParameteri( TEX_TARGET_2D, TEXPARAM_COMPARE_FUNC, TEX_COMPARE_LEQUAL );
+	GL_ActiveTexture( previousActiveTexture );
+	GL_GenFramebuffers( 1, &lightShadowFBO );
 	GLint previousFramebuffer = 0;
 	GLint previousDrawBuffer = GL_BACK;
 	GLint previousReadBuffer = GL_BACK;
-	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
-	glGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
-	glGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
-	glBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
-	glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightShadowAtlas->GetAPIObject(), 0 );
-	glDrawBuffer( GL_NONE );
-	glReadBuffer( GL_NONE );
-	const GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
-	glBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
-	glDrawBuffer( previousDrawBuffer );
-	glReadBuffer( previousReadBuffer );
-	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
-		common->Warning( "light shadow framebuffer incomplete: 0x%x", status );
-		glDeleteFramebuffers( 1, &lightShadowFBO );
+	GL_GetIntegerv( GET_FRAMEBUFFER_BINDING, &previousFramebuffer );
+	GL_GetIntegerv( GET_DRAW_BUFFER, &previousDrawBuffer );
+	GL_GetIntegerv( GET_READ_BUFFER, &previousReadBuffer );
+	GL_BindFramebuffer( lightShadowFBO );
+	GL_FramebufferTexture2D( ATTACHMENT_DEPTH, TEX_TARGET_2D, lightShadowAtlas->GetAPIObject(), 0 );
+	GL_DrawBuffer( BUFFER_SELECT_NONE );
+	GL_ReadBuffer( BUFFER_SELECT_NONE );
+	const bool status = GL_CheckFramebufferStatus();
+	GL_BindFramebuffer( previousFramebuffer );
+	GL_DrawBuffer( previousDrawBuffer );
+	GL_ReadBuffer( previousReadBuffer );
+	if ( !status ) {
+		common->Warning( "light shadow framebuffer incomplete" );
+		GL_DeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 		lightShadowTextureObject = 0;
 		return false;
@@ -409,12 +409,12 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	GLint previousReadBuffer = GL_BACK;
 	const int previousCullType = backEnd.glState.faceCulling;
 	const uint64 previousState = GL_GetCurrentState();
-	glGetIntegerv( GL_FRAMEBUFFER_BINDING, &previousFramebuffer );
-	glGetIntegerv( GL_VIEWPORT, previousViewport );
-	glGetIntegerv( GL_SCISSOR_BOX, previousScissor );
-	glGetIntegerv( GL_DRAW_BUFFER, &previousDrawBuffer );
-	glGetIntegerv( GL_READ_BUFFER, &previousReadBuffer );
-	glBindFramebuffer( GL_FRAMEBUFFER, lightShadowFBO );
+	GL_GetIntegerv( GET_FRAMEBUFFER_BINDING, &previousFramebuffer );
+	GL_GetIntegerv( GET_VIEWPORT, previousViewport );
+	GL_GetIntegerv( GET_SCISSOR_BOX, previousScissor );
+	GL_GetIntegerv( GET_DRAW_BUFFER, &previousDrawBuffer );
+	GL_GetIntegerv( GET_READ_BUFFER, &previousReadBuffer );
+	GL_BindFramebuffer( lightShadowFBO );
 	// glClear obeys the scissor test.  The previous light's screen-space
 	// scissor and depth write mask.  Interaction rendering leaves depth writes
 	// disabled, so establish the shadow depth state before clearing or the
@@ -424,8 +424,8 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 		GL_State( GLS_COLORMASK | GLS_ALPHAMASK | GLS_POLYGON_OFFSET | GLS_DEPTHFUNC_LESS );
 		GL_Cull( CT_TWO_SIDED );
 		GL_PolygonOffset( 1.0f, 2.0f );
-		glClearDepth( 1.0 );
-		glClear( GL_DEPTH_BUFFER_BIT );
+		GL_ClearDepth( 1.0 );
+		GL_Clear( false, true, false, 0, 0, 0, 0, 0 );
 	}
 	static const int slotX[6] = { 0, 1, 0, 1, 0, 1 };
 	static const int slotY[6] = { 0, 0, 1, 1, 2, 2 };
@@ -441,7 +441,7 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	static bool reportedShadowAtlas = false;
 	if ( r_shadowMapDebug.GetBool() && !reportedShadowAtlas ) {
 		idTempArray<float> depth( lightShadowAtlasSize * lightShadowAtlasSize );
-		glReadPixels( 0, 0, lightShadowAtlasSize, lightShadowAtlasSize, GL_DEPTH_COMPONENT, GL_FLOAT, depth.Ptr() );
+		GL_ReadPixels( 0, 0, lightShadowAtlasSize, lightShadowAtlasSize, PIXELFORMAT_DEPTH_FLOAT, depth.Ptr() );
 		float minimum = 1.0f;
 		float maximum = 0.0f;
 		int written = 0;
@@ -468,9 +468,9 @@ static bool RB_RenderShadowMap( const viewLight_t * vLight ) {
 	}
 	renderProgManager.Unbind();
 	GL_Cull( previousCullType );
-	glBindFramebuffer( GL_FRAMEBUFFER, previousFramebuffer );
-	glDrawBuffer( previousDrawBuffer );
-	glReadBuffer( previousReadBuffer );
+	GL_BindFramebuffer( previousFramebuffer );
+	GL_DrawBuffer( previousDrawBuffer );
+	GL_ReadBuffer( previousReadBuffer );
 	GL_State( previousState );
 	GL_Viewport( previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3] );
 	GL_Scissor( previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3] );
@@ -563,40 +563,40 @@ void RB_DrawElementsWithCounters( const drawSurf_t *surf ) {
 		assert( ( jointBuffer.GetOffset() & ( glConfig.uniformBufferOffsetAlignment - 1 ) ) == 0 );
 
 		const GLuint ubo = reinterpret_cast< GLuint >( jointBuffer.GetAPIObject() );
-		glBindBufferRange( GL_UNIFORM_BUFFER, 0, ubo, jointBuffer.GetOffset(), jointBuffer.GetNumJoints() * sizeof( idJointMat ) );
+		GL_BindBufferRange( BUFFER_TARGET_UNIFORM, 0, ubo, jointBuffer.GetOffset(), jointBuffer.GetNumJoints() * sizeof( idJointMat ) );
 	}
 
 	renderProgManager.CommitUniforms();
 
 	if ( backEnd.glState.currentIndexBuffer != (GLuint)indexBuffer->GetAPIObject() || !r_useStateCaching.GetBool() ) {
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, (GLuint)indexBuffer->GetAPIObject() );
+		GL_BindBuffer( BUFFER_TARGET_ELEMENT, (GLuint)indexBuffer->GetAPIObject() );
 		backEnd.glState.currentIndexBuffer = (GLuint)indexBuffer->GetAPIObject();
 	}
 
 	if ( ( backEnd.glState.vertexLayout != LAYOUT_DRAW_VERT ) || ( backEnd.glState.currentVertexBuffer != (GLuint)vertexBuffer->GetAPIObject() ) || !r_useStateCaching.GetBool() ) {
-		glBindBuffer( GL_ARRAY_BUFFER, (GLuint)vertexBuffer->GetAPIObject() );
+		GL_BindBuffer( BUFFER_TARGET_ARRAY, (GLuint)vertexBuffer->GetAPIObject() );
 		backEnd.glState.currentVertexBuffer = (GLuint)vertexBuffer->GetAPIObject();
 
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_VERTEX );
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_NORMAL );
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR );
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR2 );
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_ST );
-		glEnableVertexAttribArray( PC_ATTRIB_INDEX_TANGENT );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_VERTEX );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_NORMAL );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_COLOR2 );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_ST );
+		GL_EnableVertexAttribArray( PC_ATTRIB_INDEX_TANGENT );
 
-		glVertexAttribPointer( PC_ATTRIB_INDEX_VERTEX, 3, GL_FLOAT, GL_FALSE, sizeof( idDrawVert ), (void *)( DRAWVERT_XYZ_OFFSET ) );
-		glVertexAttribPointer( PC_ATTRIB_INDEX_NORMAL, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_NORMAL_OFFSET ) );
-		glVertexAttribPointer( PC_ATTRIB_INDEX_COLOR, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR_OFFSET ) );
-		glVertexAttribPointer( PC_ATTRIB_INDEX_COLOR2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_COLOR2_OFFSET ) );
-		glVertexAttribPointer( PC_ATTRIB_INDEX_ST, 2, GL_HALF_FLOAT, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_ST_OFFSET ) );
-		glVertexAttribPointer( PC_ATTRIB_INDEX_TANGENT, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof( idDrawVert ), (void *)( DRAWVERT_TANGENT_OFFSET ) );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_VERTEX, 3, VERTEX_ATTRIB_FLOAT, false, sizeof( idDrawVert ), DRAWVERT_XYZ_OFFSET );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_NORMAL, 4, VERTEX_ATTRIB_UBYTE, true, sizeof( idDrawVert ), DRAWVERT_NORMAL_OFFSET );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_COLOR, 4, VERTEX_ATTRIB_UBYTE, true, sizeof( idDrawVert ), DRAWVERT_COLOR_OFFSET );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_COLOR2, 4, VERTEX_ATTRIB_UBYTE, true, sizeof( idDrawVert ), DRAWVERT_COLOR2_OFFSET );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_ST, 2, VERTEX_ATTRIB_HALF_FLOAT, true, sizeof( idDrawVert ), DRAWVERT_ST_OFFSET );
+		GL_VertexAttribPointer( PC_ATTRIB_INDEX_TANGENT, 4, VERTEX_ATTRIB_UBYTE, true, sizeof( idDrawVert ), DRAWVERT_TANGENT_OFFSET );
 
 		backEnd.glState.vertexLayout = LAYOUT_DRAW_VERT;
 	}
 	
-	glDrawElementsBaseVertex( GL_TRIANGLES, 
+	GL_DrawElementsBaseVertex( 
 							  r_singleTriangle.GetBool() ? 3 : surf->numIndexes,
-							  GL_INDEX_TYPE,
+							  
 							  (triIndex_t *)indexOffset,
 							  vertOffset / sizeof ( idDrawVert ) );
 							  
@@ -2038,7 +2038,7 @@ static int RB_DrawShaderPasses( const drawSurf_t * const * const drawSurfs, cons
 							// _currentRender feeds refraction surfaces; a stale
 							// per-unit binding cache would silently sample whatever
 							// last touched this unit, so always issue the real bind
-							glBindMultiTextureEXT( GL_TEXTURE0 + j, GL_TEXTURE_2D, image->GetAPIObject() );
+							GL_BindMultiTexture( j, TEX_TARGET_2D, image->GetAPIObject() );
 						}
 					}
 				}
@@ -2616,7 +2616,7 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	GL_Cull( CT_FRONT_SIDED );
 
 	// bind one global Vertex Array Object (VAO)
-	glBindVertexArray( glConfig.global_vao );
+	GL_BindVertexArray( glConfig.global_vao );
 
 	// Allocate persistent shadow resources before any view geometry is drawn.
 	// idImage allocation invalidates the renderer's texture binding caches, so
@@ -2795,9 +2795,9 @@ void RB_MotionBlur() {
 
 	// clear the alpha buffer and draw only the hands + weapon into it so
 	// we can avoid blurring them
-	glClearColor( 0, 0, 0, 1 );
+	GL_ClearColor( 0, 0, 0, 1 );
 	GL_State( GLS_COLORMASK | GLS_DEPTHMASK );
-	glClear( GL_COLOR_BUFFER_BIT );
+	GL_Clear( true, false, false, 0, 0, 0, 0, 1 );
 	GL_Color( 0, 0, 0, 0 );
 	GL_SelectTexture( 0 );
 	globalImages->blackImage->Bind();

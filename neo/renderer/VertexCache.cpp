@@ -324,15 +324,5 @@ void idVertexCache::BeginBackEnd() {
 	ClearGeoBufferSet( frameData[listNum] );
 
 
-#if 0
-	const int startBind = Sys_Milliseconds();
-	glBindBuffer( GL_ARRAY_BUFFER, (GLuint)frameData[drawListNum].vertexBuffer.GetAPIObject() );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, (GLuint)frameData[drawListNum].indexBuffer.GetAPIObject() );
-	const int endBind = Sys_Milliseconds();
-	if ( endBind - startBind > 1 ) {
-		idLib::Printf( "idVertexCache::bind took %i msec\n", endBind - startBind );
-	}
-#endif
-
 }
 
