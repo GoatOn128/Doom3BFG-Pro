@@ -13,7 +13,7 @@ idGlobalShadows & R_GetGlobalShadows() {
 }
 
 idGlobalShadows::idGlobalShadows() {
-	shadowMap = ( shadowMapCPU_t * )Mem_Alloc( sizeof( shadowMapCPU_t ), TAG_RENDERER );
+	shadowMap = ( shadowMapCPU_t * )Mem_Alloc( sizeof( shadowMapCPU_t ), TAG_RENDER );
 	shadowMap->width = 1024;
 	shadowMap->map = NULL;
 	shadowMap->mvp.Identity();
@@ -57,7 +57,7 @@ void idGlobalShadows::LoadGlobalShadows( const char * mapName ) {
 	idLib::Printf( "Loading globalShadows.\n" );
 	file->Read( &shadowMap->mvp, sizeof( shadowMap->mvp ) );
 	shadowMap->width = 1024;
-	shadowMap->map = ( uint16 * )Mem_Alloc( 0x200000, TAG_RENDERER );
+	shadowMap->map = ( uint16 * )Mem_Alloc( 0x200000, TAG_RENDER );
 	file->Read( shadowMap->map, 0x200000 );
 
 	shadowMap->coordinateBias = r_globalShadowsCoordinateBias.GetFloat();
