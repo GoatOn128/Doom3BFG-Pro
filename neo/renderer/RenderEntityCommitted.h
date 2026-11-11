@@ -14,6 +14,8 @@ public:
 
 	bool				IsDirectlyVisible() const;
 	void				PostCommit();
+	idVec3				GetLightingPoint() const;
+	float				GetLightingRadius() const;
 
 	renderEntity_t			parms;
 	float					modelMatrix[16];
@@ -38,3 +40,4 @@ public:
 };
 
 #endif
+

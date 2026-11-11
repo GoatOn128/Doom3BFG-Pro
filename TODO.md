@@ -110,3 +110,17 @@ compiler tools. The engine side of both loaders is ported; the compiler tools ar
 - .globalShadows2.bin: the global shadow depth map loaded by idGlobalShadows::LoadGlobalShadows
   (<map>.globalShadows2.bin, 64 byte light matrix plus 1024x1024 16 bit depth). Needs a tool
   that renders the map's static geometry from the sun into that depth map.
+
+## Committed model and light parms gaps
+
+TNO's idRenderModelParms carries per model fields this engine's renderEntity_t does not have:
+castDimShadows quality selection, modelFade, maxVisibleRange, fadeVisibilityOver, highlightColor,
+and localLightPositionOverride. The dim shadow and approximate lighting passes gate on cvars and
+bounds instead. Porting these means adding fields to renderEntity_t plus game side plumbing.
+
+The game facing approximate lighting query APIs exist now (idRenderWorld::
+ApproximateLightingForBounds and ApproximateAmbientForBounds, implemented on the committed world),
+so model code that Tech5 lights through approximateLighting_t (glass, transparency, tools) has a
+direct integration point. The committed debug layer (r_showDynamicLighting,
+r_showDynamicLightingSingleModel, r_showAmbientLighting) replaces TNO's ShowApproximateLighting
+and finally wires idAmbientLighting::DebugDrawAmbientLightingSamples into the debug tools.
