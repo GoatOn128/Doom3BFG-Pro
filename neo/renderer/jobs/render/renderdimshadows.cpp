@@ -407,6 +407,11 @@ void RB_RenderDimShadows() {
 		// per model prime light from the front end approximate lighting pass,
 		// falling back to the dominant parallel shadow light of the view
 		if ( vEntity->primeLightWeight > 0.0f ) {
+			// TNO: models whose accumulated approximate lighting is brighter
+			// than 0.95 cast no dim shadow at all
+			if ( vEntity->primeLightWeight > 0.95f ) {
+				continue;
+			}
 			casterDirs[numCasters] = vEntity->primeLightDir;
 		} else if ( haveFallback ) {
 			casterDirs[numCasters] = fallbackDir;
@@ -465,6 +470,11 @@ void RB_RenderDimShadows() {
 		float fade = density;
 		if ( dist > fadeStart ) {
 			fade *= 1.0f - ( dist - fadeStart ) / ( maxRange - fadeStart );
+		}
+		// TNO light fade: the brighter the model's accumulated approximate
+		// lighting, the fainter its dim shadow
+		if ( vEntity->primeLightWeight > 0.0f ) {
+			fade *= Max( 0.0f, 1.0f - vEntity->primeLightWeight );
 		}
 		if ( fade <= 0.0f ) {
 			continue;
