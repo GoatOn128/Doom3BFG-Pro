@@ -54,9 +54,10 @@ Per dim shadow caster:
    and compares depths, so only surfaces behind the caster relative to the
    light are darkened.
 
-The prime light is approximated with the dominant parallel shadow light of
-the view. TNO derives a per model prime direction from its approximate
-lighting pass, which this engine does not have yet.
+The prime light comes from a front end approximate lighting pass that
+accumulates the non shadowed lights of the view per model, TNO style.
+Models without a usable prime direction fall back to the dominant parallel
+shadow light of the view.
 
 ================================================================================================
 */
@@ -294,7 +295,8 @@ void RB_RenderDimShadows() {
 		return;
 	}
 
-	// the prime light is the dominant parallel shadow light of the view
+	// view level fallback prime light: the dominant parallel shadow light of
+	// the view, used for models without their own approximate lighting
 	const viewLight_t * primeLight = NULL;
 	float bestScore = 0.0f;
 	for ( const viewLight_t * vLight = backEnd.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
@@ -307,21 +309,22 @@ void RB_RenderDimShadows() {
 			primeLight = vLight;
 		}
 	}
-	if ( primeLight == NULL ) {
-		return;
-	}
-
 	// direction the prime light shines, same convention as the shadow map
 	// view which looks along -shadowLightCenter
-	idVec3 primeDir = -primeLight->shadowLightCenter;
-	if ( primeDir.Normalize() == 0.0f ) {
-		return;
+	idVec3 fallbackDir( 0.0f, 0.0f, 0.0f );
+	bool haveFallback = false;
+	if ( primeLight != NULL ) {
+		fallbackDir = -primeLight->shadowLightCenter;
+		if ( fallbackDir.Normalize() != 0.0f ) {
+			haveFallback = true;
+		}
 	}
 
 	// collect the casters first so the view depth copy only happens when a
 	// caster is actually present
 	const viewEntity_t * casters[MAX_DIM_SHADOW_CASTERS];
 	idBounds casterBounds[MAX_DIM_SHADOW_CASTERS];
+	idVec3 casterDirs[MAX_DIM_SHADOW_CASTERS];
 	int numCasters = 0;
 	for ( const viewEntity_t * vEntity = backEnd.viewDef->viewEntitys; vEntity != NULL && numCasters < MAX_DIM_SHADOW_CASTERS; vEntity = vEntity->next ) {
 		if ( vEntity->isGuiSurface || vEntity->weaponDepthHack ) {
@@ -350,6 +353,15 @@ void RB_RenderDimShadows() {
 		// the world model and other very large geometry are not dim shadow
 		// casters, TNO gates them out with entity flags this engine lacks
 		if ( ( worldBounds[1] - worldBounds[0] ).Length() > r_dimShadowMaxModelSize.GetFloat() ) {
+			continue;
+		}
+		// per model prime light from the front end approximate lighting pass,
+		// falling back to the dominant parallel shadow light of the view
+		if ( vEntity->primeLightWeight > 0.0f ) {
+			casterDirs[numCasters] = vEntity->primeLightDir;
+		} else if ( haveFallback ) {
+			casterDirs[numCasters] = fallbackDir;
+		} else {
 			continue;
 		}
 		casters[numCasters] = vEntity;
@@ -383,8 +395,6 @@ void RB_RenderDimShadows() {
 	const float fadeStart = Min( r_dimShadowFadeStart.GetFloat(), maxRange );
 	const float density = r_dimShadowDensity.GetFloat();
 	const float bias = r_dimShadowBias.GetFloat();
-	const idVec3 extrude = primeDir * r_dimShadowExtrude.GetFloat();
-
 	// clip space [-1,1] to depth texture [0,1]
 	static const idRenderMatrix windowBias( 0.5f, 0.0f, 0.0f, 0.5f,
 		0.0f, 0.5f, 0.0f, 0.5f,
@@ -412,6 +422,7 @@ void RB_RenderDimShadows() {
 		}
 
 		// extrude the caster bounds along the light travel direction
+		const idVec3 extrude = casterDirs[i] * r_dimShadowExtrude.GetFloat();
 		idBounds extrudedBounds;
 		for ( int a = 0; a < 3; a++ ) {
 			extrudedBounds[0][a] = Min( worldBounds[0][a], worldBounds[0][a] + extrude[a] ) - 1.0f;
@@ -426,7 +437,7 @@ void RB_RenderDimShadows() {
 		// light space view and orthographic projection over the extruded
 		// bounds
 		idRenderMatrix lightView;
-		RB_DimShadowViewMatrix( primeDir, boundsCenter, lightView );
+		RB_DimShadowViewMatrix( casterDirs[i], boundsCenter, lightView );
 		idBounds lightSpaceBounds;
 		lightSpaceBounds.Clear();
 		for ( int c = 0; c < 8; c++ ) {
