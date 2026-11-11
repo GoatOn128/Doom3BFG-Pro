@@ -1,0 +1,116 @@
+/*
+===========================================================================
+
+Doom 3 BFG Edition GPL Source Code
+Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+
+This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
+
+Doom 3 BFG Edition Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Doom 3 BFG Edition Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Doom 3 BFG Edition Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the Doom 3 BFG Edition Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the Doom 3 BFG Edition Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
+
+renderprog dimshadowdrawmidquality {
+	hlsl_vp {
+
+		struct VS_IN {
+			float4 position : POSITION;
+		};
+
+		struct VS_OUT {
+			float4 position : POSITION;
+		};
+
+		void main( VS_IN vertex, out VS_OUT result ) {
+			result.position.x = dot4( vertex.position, rpMVPmatrixX );
+			result.position.y = dot4( vertex.position, rpMVPmatrixY );
+			result.position.z = dot4( vertex.position, rpMVPmatrixZ );
+			result.position.w = dot4( vertex.position, rpMVPmatrixW );
+		}
+	}
+	hlsl_fp {
+
+		uniform sampler2D samp0 : register(s0); // view depth copy
+		uniform sampler2DShadow samp1 : register(s1); // dim shadow depth target
+
+		struct PS_IN {
+			half4 position : VPOS;
+		};
+
+		struct PS_OUT {
+			half4 color : COLOR;
+		};
+
+		void main( PS_IN fragment, out PS_OUT result ) {
+			// window pixel to normalized view uv, the origin is in zw
+			float2 viewUV = ( fragment.position.xy - rpWindowCoord.zw ) * rpWindowCoord.xy;
+
+			// rebuild the clip space position of the pixel from the depth
+			// copy and unproject it back to world space
+			float4 clipPos;
+			clipPos.x = viewUV.x * 2.0 - 1.0;
+			clipPos.y = viewUV.y * 2.0 - 1.0;
+			clipPos.z = tex2D( samp0, viewUV ).x * 2.0 - 1.0;
+			clipPos.w = 1.0;
+
+			float4 worldPos;
+			worldPos.x = dot4( clipPos, rpShadowMatrixX );
+			worldPos.y = dot4( clipPos, rpShadowMatrixY );
+			worldPos.z = dot4( clipPos, rpShadowMatrixZ );
+			worldPos.w = dot4( clipPos, rpShadowMatrixW );
+			worldPos.xyz /= worldPos.w;
+
+			// project the world position into the dim shadow target
+			float4 shadowCoord;
+			shadowCoord.x = dot4( worldPos, rpShadowProjectionX );
+			shadowCoord.y = dot4( worldPos, rpShadowProjectionY );
+			shadowCoord.z = dot4( worldPos, rpShadowProjectionZ );
+			shadowCoord.w = dot4( worldPos, rpShadowProjectionW );
+			shadowCoord.xyz /= shadowCoord.w;
+
+			// only pixels inside the caster projection can be shadowed
+			float inside = step( 0.0, shadowCoord.x ) * step( shadowCoord.x, 1.0 ) *
+				step( 0.0, shadowCoord.y ) * step( shadowCoord.y, 1.0 ) *
+				step( 0.0, shadowCoord.z ) * step( shadowCoord.z, 1.0 );
+
+			// depth bias keeps the caster itself lit
+			shadowCoord.z -= rpShadowParams.z;
+
+			// dithered 2x2 PCF over the caster sub-square, quarter the taps
+			// of the high quality draw, the pattern offset comes from an
+			// interleaved gradient noise hash of the window position
+			float texel = rpShadowParams.w;
+			float2 dither;
+			dither.x = frac( 52.9829189 * frac( fragment.position.x * 0.06711056 + fragment.position.y * 0.00583715 ) );
+			dither.y = frac( 52.9829189 * frac( fragment.position.x * 0.21132487 + fragment.position.y * 0.12743128 ) );
+			float2 tapUV = shadowCoord.xy * rpShadowParams.y + 0.5 * ( 1.0 - rpShadowParams.y ) + ( dither - 0.5 ) * texel;
+			// dithered 2x2 PCF over one target texel quadrant per tap
+			float shadow = 0.0;
+			shadow += tex2D( samp1, float3( tapUV + float2( -1.5, -1.5 ) * texel, shadowCoord.z ) ).x;
+			shadow += tex2D( samp1, float3( tapUV + float2( -0.5, -1.5 ) * texel, shadowCoord.z ) ).x;
+			shadow += tex2D( samp1, float3( tapUV + float2( -1.5, -0.5 ) * texel, shadowCoord.z ) ).x;
+			shadow += tex2D( samp1, float3( tapUV + float2( -0.5, -0.5 ) * texel, shadowCoord.z ) ).x;
+			shadow *= 1.0 / 4.0;
+			shadow = lerp( 1.0, shadow, inside );
+
+			half fade = rpShadowParams.x;
+			result.color = half4( 0.0, 0.0, 0.0, ( 1.0 - shadow ) * fade );
+		}
+	}
+}
