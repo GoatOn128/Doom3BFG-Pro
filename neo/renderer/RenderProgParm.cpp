@@ -96,7 +96,7 @@ static const char * const s_renderParmNames[RENDERPROG_NUM_BUILTIN_PARMS] = {
 	"rpShadowProjectionY",			// c58
 	"rpShadowProjectionZ",			// c59
 	"rpShadowProjectionW",			// c60
-	"rpShadowParams"				// c61
+	"rpShadowParams",				// c61
 	"rpParallelLightSliceScale",	// c62
 };
 
@@ -144,7 +144,8 @@ const idRenderProgParm * idRenderProgParmState::FindParmByName( const char * nam
 	}
 	EnsureBuilt();
 	for ( int index = 0; index < parms.Num(); index++ ) {
-		if ( idStr::Icmp( parms[index].GetName(), name ) == 0 ) {
+		const char * parmName = parms[index].GetName();
+		if ( parmName != nullptr && idStr::Icmp( parmName, name ) == 0 ) {
 			return &parms[index];
 		}
 	}
