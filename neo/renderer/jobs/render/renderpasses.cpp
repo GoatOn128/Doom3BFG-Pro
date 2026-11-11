@@ -241,8 +241,8 @@ static bool RB_EnsureShadowAtlas() {
 	GL_BindFramebuffer( previousFramebuffer );
 	GL_DrawBuffer( previousDrawBuffer );
 	GL_ReadBuffer( previousReadBuffer );
-	if ( status != GL_FRAMEBUFFER_COMPLETE ) {
-		common->Warning( "light shadow framebuffer incomplete: 0x%x", status );
+	if ( !status ) {
+		common->Warning( "light shadow framebuffer incomplete" );
 		GL_DeleteFramebuffers( 1, &lightShadowFBO );
 		lightShadowFBO = 0;
 		lightShadowTextureObject = 0;
