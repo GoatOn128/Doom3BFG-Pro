@@ -35,6 +35,23 @@ If you have questions concerning this license or the applicable additional terms
 // view down, which is still correct, just conservative
 const int MAX_PORTAL_PLANES	= 20;
 
+extern idCVar r_occlusionQuery;
+
+// TNO style occlusion culling decision: the entity is skipped when the last
+// completed bounds query reported no visible samples. Results that are still
+// in flight or too old never cull, so entities that left the view are not
+// stuck culled and lagging GPUs just lose the optimization.
+static bool EntityIsOcclusionCulled( int entityIndex ) {
+	const occlusionQueryState_t & occlusion = occlusionQueryState;
+	if ( occlusion.queryIds[entityIndex] == 0 || occlusion.pending[entityIndex] ) {
+		return false;
+	}
+	if ( occlusion.results[entityIndex] != 0 ) {
+		return false;
+	}
+	return ( tr.frameCount - occlusion.queryFrames[entityIndex] ) <= 2;
+}
+
 struct portalStack_t {
 	const portal_t *		p;
 	const portalStack_t *	next;
@@ -111,6 +128,25 @@ viewEntity_t *R_SetEntityDefViewEntity( idRenderEntityCommitted *def ) {
 	tr.viewDef->viewEntitys = vModel;
 
 	def->viewEntity = vModel;
+
+	// TNO style occlusion culling: prepare a bounds query for this entity.
+	// Entities containing the viewpoint, degenerate bounds and depth hacked
+	// geometry are always visible, so they get no query.
+	vModel->occlusionIndex = -1;
+	vModel->occlusionQueryOnly = false;
+	if ( r_occlusionQuery.GetBool() && glConfig.occlusionQueryAvailable
+			&& def->index >= 0 && def->index < MAX_OCCLUSION_QUERIES
+			&& !def->parms.weaponDepthHack && def->parms.modelDepthHack == 0.0f ) {
+		const idBounds & globalBounds = def->globalReferenceBounds;
+		const idVec3 & vieworg = tr.viewDef->renderView.vieworg;
+		if ( globalBounds.b[1][0] > globalBounds.b[0][0]
+				&& globalBounds.b[1][1] > globalBounds.b[0][1]
+				&& globalBounds.b[1][2] > globalBounds.b[0][2]
+				&& !globalBounds.ContainsPoint( vieworg ) ) {
+			vModel->occlusionIndex = def->index;
+			idRenderMatrix::OffsetScaleForBounds( tr.viewDef->worldSpace.mvp, globalBounds, vModel->occlusionMVP );
+		}
+	}
 
 	return vModel;
 }
@@ -232,6 +268,16 @@ void idRenderWorldLocal::AddAreaViewEntities( int areaNum, const portalStack_t *
 		}
 
 		viewEntity_t * vEnt = R_SetEntityDefViewEntity( entity );
+
+		// TNO style occlusion culling: the entity was fully hidden behind the
+		// scene depth last frame. Keep the viewEntity so the bounds query keeps
+		// running, but draw nothing.
+		if ( vEnt->occlusionIndex >= 0 && EntityIsOcclusionCulled( entity->index ) ) {
+			if ( vEnt->scissorRect.IsEmpty() ) {
+				vEnt->occlusionQueryOnly = true;
+			}
+			continue;
+		}
 
 		// possibly expand the scissor rect
 		vEnt->scissorRect.Union( ps->rect );

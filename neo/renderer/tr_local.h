@@ -228,6 +228,11 @@ struct viewEntity_t {
 	// be linked to the lights or added to the drawsurf list in a serial code section
 	drawSurf_t *			drawSurfs;
 
+	// TNO style occlusion culling, filled in by the front end portal walk
+	int					occlusionIndex;			// entity index for the bounds query, -1 = skip
+	bool				occlusionQueryOnly;		// only run the bounds query, draw nothing
+	idRenderMatrix		occlusionMVP;			// unit cube to eye clip for the bounds query
+
 };
 
 
@@ -1184,5 +1189,24 @@ void RB_ShutdownDebugTools();
 #include "RenderWorld_local.h"
 #include "GuiModel.h"
 #include "VertexCache.h"
+
+/*
+=============================================================
+
+OCCLUSION QUERIES
+
+=============================================================
+*/
+
+// TNO style GPU occlusion culling state, shared between the front end
+// portal walk and the back end occlusion pass, indexed by entity index
+struct occlusionQueryState_t {
+	unsigned int	queryIds[MAX_OCCLUSION_QUERIES];	// GL query object per entity index, 0 = none
+	unsigned int	results[MAX_OCCLUSION_QUERIES];		// last completed sample count
+	int				queryFrames[MAX_OCCLUSION_QUERIES];	// frame the running query was issued
+	bool			pending[MAX_OCCLUSION_QUERIES];		// query issued but result not read yet
+};
+
+extern occlusionQueryState_t	occlusionQueryState;
 
 #endif /* !__TR_LOCAL_H__ */

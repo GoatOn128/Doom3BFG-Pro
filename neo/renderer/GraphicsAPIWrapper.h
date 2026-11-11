@@ -212,14 +212,18 @@ void			GL_Enable( wrapperCap_t cap );
 void			GL_Disable( wrapperCap_t cap );
 bool			GL_IsEnabled( wrapperCap_t cap );
 
-// Timer queries.
+// Timer and occlusion queries.
 enum wrapperQueryTarget_t {
-	QUERY_TARGET_TIME_ELAPSED
+	QUERY_TARGET_TIME_ELAPSED,
+	QUERY_TARGET_SAMPLES_PASSED
 };
 void			GL_GenQueries( int count, unsigned int * ids );
+void			GL_DeleteQueries( int count, const unsigned int * ids );
 void			GL_BeginQuery( wrapperQueryTarget_t target, unsigned int id );
 void			GL_EndQuery( wrapperQueryTarget_t target );
 void			GL_GetQueryObjectui64v( unsigned int id, unsigned long long * params );
+void			GL_GetQueryObjectuiv( unsigned int id, unsigned int * params );
+bool			GL_QueryResultAvailable( unsigned int id );
 
 // Texture binding. Units are zero based; GL_GetIntegerv( GET_ACTIVE_TEXTURE )
 // returns the zero based unit so it can be restored with GL_ActiveTexture.

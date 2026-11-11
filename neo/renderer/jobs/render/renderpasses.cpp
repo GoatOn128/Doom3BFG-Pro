@@ -54,6 +54,10 @@ idCVar r_sb_parallelPolyOfsUnits( "r_sb_parallelPolyOfsUnits", "2000", CVAR_REND
 idCVar r_sb_maxCasters( "r_sb_maxCasters", "256", CVAR_RENDERER | CVAR_INTEGER, "maximum number of shadow casters drawn per light face", 16, 1024 );
 idCVar r_sb_sliceStep( "r_sb_sliceStep", "512", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "initial ortho half-extent of the first parallel light shadow slice", 64.0f, 4096.0f );
 idCVar r_sb_sliceRampScale( "r_sb_sliceRampScale", "2", CVAR_RENDERER | CVAR_FLOAT, "larger values perform a faster lerp between parallel light shadow slices", 1.0f, 8.0f );
+idCVar r_occlusionQuery( "r_occlusionQuery", "1", CVAR_RENDERER | CVAR_BOOL, "TNO style GPU occlusion culling of world models" );
+
+// TNO style GPU occlusion culling state, shared with the front end portal walk
+occlusionQueryState_t	occlusionQueryState;
 
 extern idCVar stereoRender_swapEyes;
 
@@ -2684,6 +2688,69 @@ BACKEND COMMANDS
 */
 
 /*
+========================
+RB_RunOcclusionQueries
+
+TNO style occlusion culling: draw the bounds of every entity in the view
+with a samples-passed query around it, testing against the depth buffer
+that was just filled. The front end portal walk consumes the results on a
+later frame and skips entities whose box failed the depth test.
+========================
+*/
+static void RB_RunOcclusionQueries() {
+	if ( !r_occlusionQuery.GetBool() || !glConfig.occlusionQueryAvailable ) {
+		return;
+	}
+	// subviews share the query objects with the main view, only run there
+	if ( backEnd.viewDef->isSubview || backEnd.viewDef->viewEntitys == NULL ) {
+		return;
+	}
+
+	renderLog.OpenBlock( "RB_RunOcclusionQueries" );
+
+	// collect results that became available, never stall the GPU:
+	// a query that is not ready yet keeps its previous result
+	for ( int i = 0; i < MAX_OCCLUSION_QUERIES; i++ ) {
+		if ( occlusionQueryState.pending[i] && GL_QueryResultAvailable( occlusionQueryState.queryIds[i] ) ) {
+			GL_GetQueryObjectuiv( occlusionQueryState.queryIds[i], &occlusionQueryState.results[i] );
+			occlusionQueryState.pending[i] = false;
+		}
+	}
+
+	// draw the bounds boxes depth only, no color or depth writes
+	GL_State( GLS_DEPTHFUNC_LESS | GLS_DEPTHMASK | GLS_COLORMASK | GLS_ALPHAMASK );
+	GL_Cull( CT_TWO_SIDED );
+	renderProgManager.BindShader_Depth();
+
+	for ( const viewEntity_t * vEntity = backEnd.viewDef->viewEntitys; vEntity != NULL; vEntity = vEntity->next ) {
+		const int index = vEntity->occlusionIndex;
+		if ( index < 0 || index >= MAX_OCCLUSION_QUERIES ) {
+			continue;
+		}
+		unsigned int & queryId = occlusionQueryState.queryIds[index];
+		if ( queryId == 0 ) {
+			GL_GenQueries( 1, &queryId );
+		}
+		if ( occlusionQueryState.pending[index] ) {
+			// previous query still in flight, keep the old result this frame
+			continue;
+		}
+		RB_SetMVP( vEntity->occlusionMVP );
+		GL_BeginQuery( QUERY_TARGET_SAMPLES_PASSED, queryId );
+		RB_DrawElementsWithCounters( &backEnd.zeroOneCubeSurface );
+		GL_EndQuery( QUERY_TARGET_SAMPLES_PASSED );
+		occlusionQueryState.pending[index] = true;
+		occlusionQueryState.queryFrames[index] = tr.frameCount;
+	}
+
+	// restore the state the following passes expect
+	GL_Cull( CT_FRONT_SIDED );
+	GL_State( GLS_DEFAULT );
+
+	renderLog.CloseBlock();
+}
+
+/*
 ==================
 RB_DrawViewInternal
 ==================
@@ -2793,6 +2860,14 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 	// fill the depth buffer and clear color buffer to black except on subviews
 	//-------------------------------------------------
 	RB_FillDepthBufferFast( drawSurfs, numDrawSurfs );
+
+	//-------------------------------------------------
+	// TNO style occlusion queries against the filled depth buffer,
+	// main view only so the query objects are never reused in a frame
+	//-------------------------------------------------
+	if ( stereoEye == 0 ) {
+		RB_RunOcclusionQueries();
+	}
 
 	//-------------------------------------------------
 	// main light renderer
