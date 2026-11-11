@@ -11,5 +11,6 @@ ID_INLINE bool R_CullModelBoundsToLight( const idRenderLightCommitted * light, c
 
 void R_AddLights();
 void R_OptimizeViewLightsList();
+void R_ApproximateLighting();
 
 #endif

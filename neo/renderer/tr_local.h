@@ -233,6 +233,10 @@ struct viewEntity_t {
 	bool				occlusionQueryOnly;		// only run the bounds query, draw nothing
 	idRenderMatrix		occlusionMVP;			// unit cube to eye clip for the bounds query
 
+	// TNO style approximate lighting: per model prime light direction and
+	// weight for the dim shadow pass, filled in by the front end
+	idVec3				primeLightDir;
+	float				primeLightWeight;
 };
 
 
