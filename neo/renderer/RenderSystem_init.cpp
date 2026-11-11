@@ -1399,13 +1399,9 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 		return;
 	}
 
-	// set the mode without re-initializing the context
-	R_SetNewMode( false );
-
-#if 0
 	bool full = true;
 	bool forceWindow = false;
-	for ( int i = 1 ; i < args.Argc() ; i++ ) {
+	for ( int i = 1; i < args.Argc(); i++ ) {
 		if ( idStr::Icmp( args.Argv( i ), "partial" ) == 0 ) {
 			full = false;
 			continue;
@@ -1425,14 +1421,12 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 	// free any current world interaction surfaces and vertex caches
 	R_FreeDerivedData();
 
-	// make sure the defered frees are actually freed
+	// make sure the deferred frees are actually freed
 	R_ToggleSmpFrame();
 	R_ToggleSmpFrame();
 
 	// free the vertex caches so they will be regenerated again
 	vertexCache.PurgeAll();
-
-	// sound and input are tied to the window we are about to destroy
 
 	if ( full ) {
 		// free all of our texture numbers
@@ -1463,8 +1457,6 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 		GLimp_SetScreenParms( parms );
 	}
 
-
-
 	// make sure the regeneration doesn't use anything no longer valid
 	tr.viewCount++;
 	tr.viewDef = NULL;
@@ -1474,8 +1466,6 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 	if ( err != GL_NO_ERROR ) {
 		common->Printf( "GL_GetError() = 0x%x\n", err );
 	}
-#endif
-
 }
 
 /*
@@ -2054,6 +2044,10 @@ idRenderSystemLocal::InitOpenGL
 ========================
 */
 void idRenderSystemLocal::InitOpenGL() {
+	// register the renderer console commands before the GL context exists,
+	// so vid_restart is usable even when initialization fails
+	R_InitCommands();
+
 	// if OpenGL isn't started, start it now
 	if ( !R_IsInitialized() ) {
 		R_InitOpenGL();
