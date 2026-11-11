@@ -153,6 +153,7 @@ void idRenderProgManager::Init() {
 		{ BUILTIN_BINK_GUI, "bink_gui.vfp" },
 		{ BUILTIN_STEREO_INTERLACE, "stereoInterlace.vfp" },
 		{ BUILTIN_MOTION_BLUR, "motionBlur.vfp" },
+		{ BUILTIN_DIM_SHADOW_DRAW, "dimshadowdraw.rp" },
 	};
 	int numBuiltins = sizeof( builtins ) / sizeof( builtins[0] );
 
