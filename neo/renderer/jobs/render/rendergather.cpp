@@ -526,6 +526,7 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 	vEntity->castDimShadows = renderEntity->castDimShadows;
 	vEntity->groupMasterIndex = renderEntity->groupMasterIndex;
 	vEntity->modelDepthSort = renderEntity->modelDepthSort;
+	vEntity->modelViewport = renderEntity->modelViewport;
 	vEntity->skipMotionBlur = renderEntity->skipMotionBlur;
 
 	memcpy( vEntity->modelMatrix, entityDef->modelMatrix, sizeof( vEntity->modelMatrix ) );
@@ -648,6 +649,12 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 			baseDrawSurf->frontEndGeo = tri;
 			baseDrawSurf->space = vEntity;
 			baseDrawSurf->scissorRect = vEntity->scissorRect;
+			// TNO per model viewport: clamp the entity scissor to the model
+			// viewport when the game set one, all zero keeps the entity scissor
+			if ( vEntity->modelViewport.x1 != 0 || vEntity->modelViewport.y1 != 0 ||
+					vEntity->modelViewport.x2 != 0 || vEntity->modelViewport.y2 != 0 ) {
+				baseDrawSurf->scissorRect.Intersect( vEntity->modelViewport );
+			}
 			baseDrawSurf->extraGLState = 0;
 
 			R_SetupDrawSurfShader( baseDrawSurf, shader, renderEntity );

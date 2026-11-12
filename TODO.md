@@ -94,9 +94,13 @@ Real engine work, contained, no content dependency.
    the class into the existing draw surf sort, surfaces that already sort translucent or later
    keep their own sort so alpha on the same model still blends in order. The depth key part of
    the reference pipeline belongs with the depth prepass item below.
-5. Per model viewport. TNO's idRenderModelParms carries an idScreenRect viewport per model. This
-   engine has per view and per light scissors; per model scissoring touches
-   R_LinkDrawSurfToView and the back end scissor state.
+5. Per model viewport. Done: renderEntity_t::modelViewport carries the TNO idScreenRect and
+   viewEntity_t threads it to the front end. The entity scissor is intersected with the model
+   viewport when the game set one (all zero keeps the entity scissor) before the draw surfs
+   link to the view, so the existing per draw surf scissor state in the back end applies it
+   unchanged. The surviving reference extracts store the viewport on idRenderModelParms but
+   show no consumer beyond the view level viewport, so the engine applies it as a scissor
+   clamp; a projection level per model viewport has no reference semantics to match.
 6. Virtual texture pageupdate job. The engine has pageminlod, pagesort and transcode but not
    TNO's pageupdate scheduling; residency updates currently go through the preloader path.
 7. Depth prepass (renderdepth, rendersortdepth). TNO runs a dedicated depth job that the sorted

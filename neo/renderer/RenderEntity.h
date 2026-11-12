@@ -1,6 +1,8 @@
 #ifndef __RENDERENTITY_H__
 #define __RENDERENTITY_H__
 
+#include "ScreenRect.h"
+
 struct renderView_s;
 struct renderEntity_s;
 class idMaterial;
@@ -92,6 +94,7 @@ typedef struct renderEntity_s {
 	int						groupMasterIndex;		// TNO model group master: own index for a master, 0 = not grouped
 	dimShadow_t				castDimShadows;
 	modelDepthSort_t		modelDepthSort;			// TNO per model depth sort class, NORMAL keeps the material sort
+	idScreenRect			modelViewport;			// TNO idRenderModelParms::viewport, all zero = no override
 	float					modelFade;				// game driven model fade, no render path consumes it yet
 	float					maxVisibleRange;		// 0 = unlimited, else the model is culled past this distance
 	float					fadeVisibilityOver;		// extra range past maxVisibleRange before the hard cull
