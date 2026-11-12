@@ -118,6 +118,16 @@ castDimShadows quality selection, modelFade, maxVisibleRange, fadeVisibilityOver
 and localLightPositionOverride. The dim shadow and approximate lighting passes gate on cvars and
 bounds instead. Porting these means adding fields to renderEntity_t plus game side plumbing.
 
+Ported: renderEntity_t now carries castDimShadows (DIMSHADOW_DEFAULT keeps the old cvar driven
+behavior), modelFade, maxVisibleRange, fadeVisibilityOver, highlightColor and
+localLightPositionOverride, and renderLight_t carries lightClass, maxVisibleRange and
+fadeVisibilityOver. Wired so far: castDimShadows gates and quality selects the dim shadow casters,
+maxVisibleRange and fadeVisibilityOver hard cull models and lights past their range in the portal
+walk, localLightPositionOverride moves the committed lighting sample point, lightClass keeps
+dynamic only lights out of the approximate lighting queries and prelight only lights out of the
+view. The gradual model fade and the highlight render path do not exist yet, so modelFade and
+highlightColor are stored for game plumbing until those paths are ported.
+
 The game facing approximate lighting query APIs exist now (idRenderWorld::
 ApproximateLightingForBounds and ApproximateAmbientForBounds, implemented on the committed world),
 so model code that Tech5 lights through approximateLighting_t (glass, transparency, tools) has a

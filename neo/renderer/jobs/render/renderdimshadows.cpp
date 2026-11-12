@@ -379,6 +379,10 @@ void RB_RenderDimShadows() {
 		if ( vEntity->isGuiSurface || vEntity->weaponDepthHack ) {
 			continue;
 		}
+		// per model dim shadow selection, the game can turn a caster off
+		if ( vEntity->castDimShadows == DIMSHADOW_OFF ) {
+			continue;
+		}
 		idBounds worldBounds;
 		worldBounds.Clear();
 		int numSurfs = 0;
@@ -634,7 +638,11 @@ void RB_RenderDimShadows() {
 		GL_Cull( CT_TWO_SIDED );
 		// TNO quality ladder: 2 = high, 1 = mid, 0 = standard, -1 never
 		// picks a higher quality program
-		const int shadowQuality = r_dimShadowHighQuality.GetInteger();
+		// per model high quality selection, a -1 cvar still means never
+		int shadowQuality = r_dimShadowHighQuality.GetInteger();
+		if ( vEntity->castDimShadows == DIMSHADOW_HIGH_QUALITY && shadowQuality >= 0 ) {
+			shadowQuality = 2;
+		}
 		if ( shadowQuality >= 2 ) {
 			renderProgManager.BindShader_DimShadowDrawHighQuality();
 		} else if ( shadowQuality == 1 ) {
