@@ -131,8 +131,8 @@ idCVar r_flareSize( "r_flareSize", "1", CVAR_RENDERER | CVAR_FLOAT, "scale the f
 idCVar r_useScissor( "r_useScissor", "1", CVAR_RENDERER | CVAR_BOOL, "scissor clip as portals and lights are processed" );
 idCVar r_useLightDepthBounds( "r_useLightDepthBounds", "1", CVAR_RENDERER | CVAR_BOOL, "use depth bounds test on lights to reduce both shadow and interaction fill" );
 
-idCVar r_screenFraction( "r_screenFraction", "100", CVAR_RENDERER | CVAR_INTEGER, "for testing fill rate, the resolution of the entire screen can be changed" );
-idCVar r_renderFraction( "r_renderFraction", "100", CVAR_RENDERER | CVAR_INTEGER, "fraction of the window resolution used for the 3D view, stepped by sizeUp and sizeDown" );
+idCVar r_screenFraction( "r_screenFraction", "100", CVAR_RENDERER | CVAR_INTEGER, "percentage of the window rendered as a centered full resolution 3D view, quake 1 style viewport shrink, stepped by sizeUp and sizeDown" );
+idCVar r_renderFraction( "r_renderFraction", "100", CVAR_RENDERER | CVAR_INTEGER, "fraction of the window resolution used for the 3D view, resolution scaling only" );
 idCVar r_usePortals( "r_usePortals", "1", CVAR_RENDERER | CVAR_BOOL, " 1 = use portals to perform area culling, otherwise draw everything" );
 idCVar r_singleLight( "r_singleLight", "-1", CVAR_RENDERER | CVAR_INTEGER, "suppress all but one light" );
 idCVar r_singleEntity( "r_singleEntity", "-1", CVAR_RENDERER | CVAR_INTEGER, "suppress all but one entity" );
@@ -1495,10 +1495,10 @@ Keybinding command
 =================
 */
 static void R_SizeUp_f( const idCmdArgs &args ) {
-	if ( r_renderFraction.GetInteger() + 10 > 100 ) {
-		r_renderFraction.SetInteger( 100 );
+	if ( r_screenFraction.GetInteger() + 10 > 100 ) {
+		r_screenFraction.SetInteger( 100 );
 	} else {
-		r_renderFraction.SetInteger( r_renderFraction.GetInteger() + 10 );
+		r_screenFraction.SetInteger( r_screenFraction.GetInteger() + 10 );
 	}
 }
 
@@ -1511,10 +1511,10 @@ Keybinding command
 =================
 */
 static void R_SizeDown_f( const idCmdArgs &args ) {
-	if ( r_renderFraction.GetInteger() - 10 < 10 ) {
-		r_renderFraction.SetInteger( 10 );
+	if ( r_screenFraction.GetInteger() - 10 < 10 ) {
+		r_screenFraction.SetInteger( 10 );
 	} else {
-		r_renderFraction.SetInteger( r_renderFraction.GetInteger() - 10 );
+		r_screenFraction.SetInteger( r_screenFraction.GetInteger() - 10 );
 	}
 }
 
