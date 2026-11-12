@@ -79,6 +79,8 @@ idCVar r_dimShadowFadeStart( "r_dimShadowFadeStart", "1800", CVAR_RENDERER | CVA
 idCVar r_dimShadowExtrude( "r_dimShadowExtrude", "1000", CVAR_RENDERER | CVAR_FLOAT, "how far caster bounds are extruded along the light direction", 16.0f, 8192.0f );
 idCVar r_dimShadowMaxModels( "r_dimShadowMaxModels", "8", CVAR_RENDERER | CVAR_INTEGER, "maximum number of dim shadow casters per view", 0, 32 );
 idCVar r_dimShadowMaxModelSize( "r_dimShadowMaxModelSize", "600", CVAR_RENDERER | CVAR_FLOAT, "skip casters whose bounds diagonal is larger than this", 0.0f, 100000.0f );
+idCVar r_dimShadowDepthBounds( "r_dimShadowDepthBounds", "1", CVAR_RENDERER | CVAR_BOOL, "reject dim shadow draw fragments outside the extruded bounds depth range with GL_EXT_depth_bounds_test" );
+idCVar r_dimShadowSingleModel( "r_dimShadowSingleModel", "-1", CVAR_RENDERER | CVAR_INTEGER, "debug filter: only this entity index casts a dim shadow, -1 = all", -1, 4096 );
 
 static const int MAX_DIM_SHADOW_CASTERS = 32;
 
@@ -383,6 +385,11 @@ void RB_RenderDimShadows() {
 		if ( vEntity->castDimShadows == DIMSHADOW_OFF ) {
 			continue;
 		}
+		// TNO singleDimShadow debug filter: limit the casters to exactly
+		// one model index
+		if ( r_dimShadowSingleModel.GetInteger() >= 0 && vEntity->entityDef->index != r_dimShadowSingleModel.GetInteger() ) {
+			continue;
+		}
 		idBounds worldBounds;
 		worldBounds.Clear();
 		int numSurfs = 0;
@@ -629,6 +636,35 @@ void RB_RenderDimShadows() {
 			RB_DrawElementsWithCounters( surf );
 		}
 
+		// fill rate culling around the screen space draw: reject fragments
+		// outside the extruded bounds depth range before the fragment shader
+		// runs, the same job the light depth bounds test does for the
+		// interactions. Projected depth range of the extruded bounds, the
+		// same projection RB_DimShadowScreenRect uses.
+		bool depthBoundsEnabled = false;
+		if ( r_dimShadowDepthBounds.GetBool() && glConfig.depthBoundsTestAvailable ) {
+			const idRenderMatrix & viewMvp = backEnd.viewDef->worldSpace.mvp;
+			float zmin = 1.0f;
+			float zmax = 0.0f;
+			for ( int c = 0; c < 8; c++ ) {
+				const idVec3 corner( ( c & 1 ) ? extrudedBounds[1].x : extrudedBounds[0].x,
+					( c & 2 ) ? extrudedBounds[1].y : extrudedBounds[0].y,
+					( c & 4 ) ? extrudedBounds[1].z : extrudedBounds[0].z );
+				const float cw = viewMvp[3][0] * corner.x + viewMvp[3][1] * corner.y + viewMvp[3][2] * corner.z + viewMvp[3][3];
+				const float w = ( cw >= 0.01f ) ? cw : 0.01f;
+				const float ndcZ = ( viewMvp[2][0] * corner.x + viewMvp[2][1] * corner.y + viewMvp[2][2] * corner.z + viewMvp[2][3] ) / w;
+				const float depth = ndcZ * 0.5f + 0.5f;
+				zmin = Min( zmin, depth );
+				zmax = Max( zmax, depth );
+			}
+			zmin = Max( zmin, 0.0f );
+			zmax = Min( zmax, 1.0f );
+			if ( zmin < zmax ) {
+				GL_DepthBoundsTest( zmin, zmax );
+				depthBoundsEnabled = true;
+			}
+		}
+
 		// blend the shadow factor over the caster screen region, the depth
 		// compare in the fragment program does the occlusion work
 		GL_BindFramebuffer( previousFramebuffer );
@@ -678,6 +714,10 @@ void RB_RenderDimShadows() {
 		RB_SetMVP( identity );
 		RB_DrawElementsWithCounters( &backEnd.unitSquareSurface );
 		numRendered++;
+
+		if ( depthBoundsEnabled ) {
+			GL_DepthBoundsTest( 0.0f, 0.0f );
+		}
 	}
 
 	renderProgManager.Unbind();

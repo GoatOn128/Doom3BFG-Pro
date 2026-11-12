@@ -23,6 +23,11 @@ Current state: Darklight already probes the extension into glConfig.depthBoundsT
 it for lights via r_useLightDepthBounds. The stage 10 inside gate on shadowCoord.z rejects the same
 fragments in-shader, functionally equivalent but it pays the fragment shader cost first.
 
+Ported: r_dimShadowDepthBounds wraps the screen space sample draw of each dim shadow caster
+with GL_DepthBoundsTest over the projected extruded bounds, gated on
+glConfig.depthBoundsTestAvailable. The occlusion query draw renders into the caster's own
+sub-viewport where depth bounds are meaningless, so only the sample draw is wrapped.
+
 Port plan if wanted: add a cvar similar to r_useLightDepthBounds, guard on
 glConfig.depthBoundsTestAvailable, wrap the two existing dim shadow draws with GL_DepthBoundsTest
 using the stage 10 extruded bounds. Small, self-contained, correctness-neutral.
@@ -87,6 +92,10 @@ collection is per view entity with no committed-model indirection.
 
 Port plan if ever wanted: an approximation where attachments inherit their owner's dim shadow via the
 entity hierarchy is possible but is a new feature decision, not a port.
+
+Ported debug filter: singleDimShadow exists as the r_dimShadowSingleModel cvar, which limits the
+dim shadow casters to exactly one entity index for debugging. renderEntity_t and viewEntity_t now
+carry groupMasterIndex for the r_showModelGroupMasters overlay and future slave chaining.
 
 ## Summary of GL requirements
 
