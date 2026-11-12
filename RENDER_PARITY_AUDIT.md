@@ -100,8 +100,19 @@ Real engine work, contained, no content dependency.
    unchanged. The surviving reference extracts store the viewport on idRenderModelParms but
    show no consumer beyond the view level viewport, so the engine applies it as a scissor
    clamp; a projection level per model viewport has no reference semantics to match.
-6. Virtual texture pageupdate job. The engine has pageminlod, pagesort and transcode but not
-   TNO's pageupdate scheduling; residency updates currently go through the preloader path.
+6. Virtual texture pageupdate job. Done: neo/renderer/jobs/pageupdate carries the TNO pageupdate
+   scheduling (pageUpdateType_t map and unmap updates, pageImagesUpdate_t batches,
+   UpdatePageMappings_PC, UpdatePageTables_PC, UpdatePageImagesJob, UploadPhysicalPages,
+   UploadPageMappings, UploadPageTables, UploadPageImages). The VT runtime frame update now
+   collects every residency change into a pageImagesUpdate_t batch and pushes it through
+   UploadPageImages once per frame, and the page table uploads only the dirty leaf region from
+   the shadow instead of the whole table. Deviations, documented against the decompiled
+   reference: this GL 3.3 core engine has no PBO mapped shadows and no AMD multi sub image
+   extension, so shadow writes stay on the CPU and uploads go through idImage::SubImageUpload;
+   the engine keeps its single level leaf page table with four byte entries, so the TNO mip
+   pyramid fill in UpdatePageTables_PC stays available but the runtime feeds the module a dirty
+   rectangle instead; the mappings image slot stays unused because the engine runtime has no
+   mappings image.
 7. Depth prepass (renderdepth, rendersortdepth). TNO runs a dedicated depth job that the sorted
    and post passes build on. This engine fills depth during the ambient draw. Contained but it
    touches every draw path.
