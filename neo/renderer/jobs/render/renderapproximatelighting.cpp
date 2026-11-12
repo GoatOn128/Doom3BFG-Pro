@@ -170,6 +170,10 @@ void R_ApproximateLighting() {
 			if ( vLight->globalShadows != NULL || vLight->localShadows != NULL ) {
 				continue;
 			}
+			// TNO blended only lights never feed the prime light
+			if ( vLight->lightDef != NULL && vLight->lightDef->parms.lightClass == LIGHT_BLENDED_ONLY ) {
+				continue;
+			}
 			const idMaterial * lightShader = vLight->lightShader;
 			if ( lightShader == NULL || lightShader->IsFogLight() || lightShader->IsBlendLight() ) {
 				continue;
@@ -219,6 +223,67 @@ void R_ApproximateLighting() {
 				}
 			}
 			accum += dir * weight;
+		}
+
+		// TNO private prime lights only feed the prime light accumulation,
+		// they are not drawn as view lights
+		if ( tr.primaryWorld != NULL && tr.primaryWorld->portalAreas != NULL ) {
+			int primeAreas[128];
+			const int numPrimeAreas = tr.primaryWorld->BoundsInAreas( globalBounds, primeAreas, 128 );
+			const idRenderLightCommitted * primeLights[64];
+			int numPrimeLights = 0;
+			for ( int i = 0; i < numPrimeAreas && numPrimeLights < 64; i++ ) {
+				const portalArea_t * area = &tr.primaryWorld->portalAreas[primeAreas[i]];
+				for ( const areaReference_t * ref = area->approxLightRefs.areaNext; ref != &area->approxLightRefs; ref = ref->areaNext ) {
+					if ( ref->light == NULL || ref->light->parms.lightClass != LIGHT_PRIVATE_PRIME || numPrimeLights >= 64 ) {
+						continue;
+					}
+					bool duplicate = false;
+					for ( int j = 0; j < numPrimeLights; j++ ) {
+						if ( primeLights[j] == ref->light ) {
+							duplicate = true;
+							break;
+						}
+					}
+					if ( !duplicate ) {
+						primeLights[numPrimeLights++] = ref->light;
+					}
+				}
+			}
+			for ( int i = 0; i < numPrimeLights; i++ ) {
+				const idRenderLightCommitted * light = primeLights[i];
+				const idMaterial * lightShader = light->lightShader;
+				if ( lightShader == NULL || lightShader->IsFogLight() || lightShader->IsBlendLight() ) {
+					continue;
+				}
+				float * lightRegs = (float *)_alloca16( lightShader->GetNumRegisters() * sizeof( float ) );
+				const float globalShaderParms[MAX_GLOBAL_SHADER_PARMS] = {};
+				lightShader->EvaluateRegisters( lightRegs, light->parms.shaderParms, globalShaderParms, tr.viewDef->renderView.time[0] * 0.001f, light->parms.referenceSound );
+				idVec3 color( 0.0f, 0.0f, 0.0f );
+				for ( int s = 0; s < lightShader->GetNumStages(); s++ ) {
+					const shaderStage_t * stage = lightShader->GetStage( s );
+					if ( lightRegs[stage->conditionRegister] == 0.0f ) {
+						continue;
+					}
+					color.x = lightRegs[stage->color.registers[0]];
+					color.y = lightRegs[stage->color.registers[1]];
+					color.z = lightRegs[stage->color.registers[2]];
+					break;
+				}
+				float weight = color.Length();
+				if ( weight <= 0.0f ) {
+					continue;
+				}
+				idVec3 dir = center - light->globalLightOrigin;
+				const float dist = dir.Normalize();
+				if ( dist <= 1.0f ) {
+					continue;
+				}
+				// smooth falloff over the light radius
+				const float radius = Max( ( light->globalLightBounds[1] - light->globalLightBounds[0] ).Length() * 0.5f, 1.0f );
+				weight *= radius * radius / ( radius * radius + dist * dist );
+				accum += dir * weight;
+			}
 		}
 
 		const float total = accum.Normalize();

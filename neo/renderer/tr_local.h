@@ -126,6 +126,20 @@ struct areaReference_t {
 	struct portalArea_s	*	area;					// so owners can find all the areas they are in
 };
 
+// TNO lightClass routing, verified against the decompiled renderworldcommitted.cpp
+// AddLightRefToArea: prelight only lights are draw lights in both TNO routing
+// branches, normal and dynamic only lights feed the approximate lighting list,
+// private prime lights stay out of the view and feed only the prime light
+// accumulation. TNO keeps a third private light list with combo map branches,
+// this engine has no combo maps and no per model private scoping so it folds
+// the private prime class into the approximate list instead.
+inline bool R_LightClassDrawsInView( lightClass_t lightClass ) {
+	return lightClass != LIGHT_PRIVATE_PRIME;
+}
+inline bool R_LightClassFeedsApproximateLighting( lightClass_t lightClass ) {
+	return lightClass == LIGHT_NORMAL || lightClass == LIGHT_DYNAMIC_ONLY || lightClass == LIGHT_PRIVATE_PRIME;
+}
+
 
 
 struct shadowOnlyEntity_t {
@@ -220,6 +234,8 @@ struct viewEntity_t {
 	float					modelDepthHack;
 	dimShadow_t				castDimShadows;			// per model dim shadow selection for the back end
 	int						groupMasterIndex;		// TNO model group master for the debug overlay and future dim shadow chaining
+	modelDepthSort_t			modelDepthSort;		// TNO per model depth sort class for the sort pass
+	idScreenRect			modelViewport;			// TNO per model viewport clamp, all zero = none
 		
 	float					modelMatrix[16];		// local coords to global coords
 	idRenderMatrix			modelRenderMatrix;	// row-major local-to-global snapshot for renderer jobs

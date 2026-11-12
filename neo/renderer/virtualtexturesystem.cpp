@@ -7,6 +7,7 @@
 #include "renderdestination.h"
 #include "jobs/transcode/image/barehdp/barehdp.h"
 #include "jobs/transcode/image/barehdp/jxrlibencoderbridge.h"
+#include "jobs/pageupdate/pageupdate.h"
 #include "../framework/File.h"
 #include "../framework/FileSystem.h"
 #include "../framework/CmdSystem.h"
@@ -943,7 +944,12 @@ void idVirtualTextureSystem::UpdateRuntime() {
 	GL_ActiveTexture( 9 );
 
 	const int uploadBudget = r_virtualTextureUploadBudget.GetInteger();
-	bool pageTableChanged = false;
+	// TNO style page update batch: physical page uploads and the dirty page
+	// table region are collected here and pushed through the pageupdate
+	// module once after the loop
+	idList< pageImagesUpdate_t > frameUpdates;
+	int tableDirtyMinX = 0x7fffffff, tableDirtyMinY = 0x7fffffff;
+	int tableDirtyMaxX = 0, tableDirtyMaxY = 0;
 	for ( int uploaded = 0; uploaded < uploadBudget; ) {
 		vtRuntimePageJob_t * job = runtimePageWorker->PopCompleted();
 		if ( job == NULL ) { break; }
@@ -999,6 +1005,12 @@ void idVirtualTextureSystem::UpdateRuntime() {
 			if ( evictedPage >= 0 ) {
 				runtimePageToSlot[evictedPage] = -1;
 				RefreshPageTableRegion( evictedPage );
+				const vtRuntimeDiskPage_t & evictedRef = runtimePages[evictedPage];
+				const int evictedRegion = 1 << evictedRef.level;
+				tableDirtyMinX = Min( tableDirtyMinX, evictedRef.x * evictedRegion );
+				tableDirtyMinY = Min( tableDirtyMinY, evictedRef.y * evictedRegion );
+				tableDirtyMaxX = Max( tableDirtyMaxX, Min( vts[PAGESOURCE_VMTR].header.pagesWide, ( evictedRef.x + 1 ) * evictedRegion ) );
+				tableDirtyMaxY = Max( tableDirtyMaxY, Min( vts[PAGESOURCE_VMTR].header.pagesWide, ( evictedRef.y + 1 ) * evictedRegion ) );
 				++runtimeEvictions;
 			}
 		}
@@ -1007,12 +1019,20 @@ void idVirtualTextureSystem::UpdateRuntime() {
 		const int physicalX = ( slot % VT_CACHE_PAGES_WIDE ) * VT_PAGE_TEXELS;
 		const int physicalY = ( slot / VT_CACHE_PAGES_WIDE ) * VT_PAGE_TEXELS;
 		idPhysicalPages & pool = physicalPagesPool[PHYSICAL_PAGES_POOL_VMTR];
-		pool.physicalPagesImage0->SubImageUpload( 0, physicalX, physicalY, 0,
-			VT_PAGE_TEXELS, VT_PAGE_TEXELS, job->planes.Ptr() );
-		pool.physicalPagesImage1->SubImageUpload( 0, physicalX, physicalY, 0,
-			VT_PAGE_TEXELS, VT_PAGE_TEXELS, job->planes.Ptr() + planeBytes );
-		pool.physicalPagesImage2->SubImageUpload( 0, physicalX, physicalY, 0,
-			VT_PAGE_TEXELS, VT_PAGE_TEXELS, job->planes.Ptr() + planeBytes * 2 );
+
+		// queue the physical page planes into the TNO style page update batch,
+		// the pageupdate module uploads them after the loop
+		pageImagesUpdate_t & update = frameUpdates.Alloc();
+		memset( &update, 0, sizeof( update ) );
+		update.type = PAGE_UPDATE_MAP_PHYSICAL_PAGE;
+		update.physX = physicalX;
+		update.physY = physicalY;
+		update.pageTexels = VT_PAGE_TEXELS;
+		update.pageData = job->planes.Ptr();
+		update.pagePlaneBytes = planeBytes;
+		update.physicalPagesImage0 = pool.physicalPagesImage0;
+		update.physicalPagesImage1 = pool.physicalPagesImage1;
+		update.physicalPagesImage2 = pool.physicalPagesImage2;
 		runtimeSlotToPage[slot] = job->pageIndex;
 		runtimeSlotLastUsed[slot] = runtimePageLastVisible[job->pageIndex] > 0
 			? runtimePageLastVisible[job->pageIndex] : runtimeFrame;
@@ -1020,16 +1040,46 @@ void idVirtualTextureSystem::UpdateRuntime() {
 			Max( 0, vts[PAGESOURCE_VMTR].header.numLevels - 3 ) ? 1 : 0;
 		runtimePageToSlot[job->pageIndex] = slot;
 		RefreshPageTableRegion( job->pageIndex );
+		{
+			const vtRuntimeDiskPage_t & mappedRef = runtimePages[job->pageIndex];
+			const int mappedRegion = 1 << mappedRef.level;
+			tableDirtyMinX = Min( tableDirtyMinX, mappedRef.x * mappedRegion );
+			tableDirtyMinY = Min( tableDirtyMinY, mappedRef.y * mappedRegion );
+			tableDirtyMaxX = Max( tableDirtyMaxX, Min( vts[PAGESOURCE_VMTR].header.pagesWide, ( mappedRef.x + 1 ) * mappedRegion ) );
+			tableDirtyMaxY = Max( tableDirtyMaxY, Min( vts[PAGESOURCE_VMTR].header.pagesWide, ( mappedRef.y + 1 ) * mappedRegion ) );
+		}
 		++runtimeUploads;
 		++uploaded;
-		pageTableChanged = true;
 		if ( runtimeUploads == 1 ) {
 			idLib::Printf( "VT runtime: worker decoded first page mip %i (%i,%i), uploaded to slot %i\n",
 				job->pageLevel, job->pageX, job->pageY, slot );
 		}
 		delete job;
 	}
-	if ( pageTableChanged ) { UploadPageTable(); }
+	// push the batched page updates through the TNO style pageupdate module:
+	// only the dirty page table region is uploaded from the shadow
+	const idVirtualTexture & vt = vts[PAGESOURCE_VMTR];
+	if ( tableDirtyMinX < tableDirtyMaxX && tableDirtyMinY < tableDirtyMaxY &&
+			vt.pageTableImage != NULL && runtimePageTableShadow.Num() > 0 ) {
+		pageImagesUpdate_t & tableUpdate = frameUpdates.Alloc();
+		memset( &tableUpdate, 0, sizeof( tableUpdate ) );
+		tableUpdate.type = PAGE_UPDATE_MAP_PRT;
+		tableUpdate.pageTableImage = vt.pageTableImage;
+		tableUpdate.pageTableImageInfo[0].bits = runtimePageTableShadow.Ptr();
+		tableUpdate.pageTableImageInfo[0].bytePitch = vt.header.pagesWide * 4;
+		tableUpdate.tableMinX = tableDirtyMinX;
+		tableUpdate.tableMinY = tableDirtyMinY;
+		tableUpdate.tableMaxX = tableDirtyMaxX;
+		tableUpdate.tableMaxY = tableDirtyMaxY;
+	}
+	if ( frameUpdates.Num() > 0 ) {
+		pageImagesUpdateParms_t updateParms;
+		memset( &updateParms, 0, sizeof( updateParms ) );
+		updateParms.updates = frameUpdates.Ptr();
+		updateParms.numUpdates = frameUpdates.Num();
+		UploadPageImages( &updateParms, NULL );
+		InvalidateTextureBindingCache();
+	}
 	GL_ActiveTexture( previousActiveTexture );
 }
 

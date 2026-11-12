@@ -239,6 +239,53 @@ void R_SetupDrawSurfShader( drawSurf_t * drawSurf, const idMaterial * shader, co
 	drawSurf->material = shader;
 	drawSurf->sort = shader->GetSort();
 
+	// TNO modelDepthSort: a non normal per model class moves the whole model
+	// into the matching sort band. Materials that already sort translucent or
+	// later keep their own sort so alpha surfaces on the same model still
+	// blend in their own order.
+	switch ( renderEntity->modelDepthSort ) {
+		case MODEL_DEPTH_SORT_PORTAL_INSIDE:
+		case MODEL_DEPTH_SORT_PORTAL_PLANE:
+			// portal geometry draws with the subview band, before everything opaque
+			if ( drawSurf->sort > (float)SS_SUBVIEW ) {
+				drawSurf->sort = (float)SS_SUBVIEW;
+			}
+			break;
+		case MODEL_DEPTH_SORT_VIEW_HEAD:
+		case MODEL_DEPTH_SORT_VIEW_BODY:
+			// first person view models draw after subviews and guis, before the world
+			if ( drawSurf->sort > (float)SS_BAD + 0.5f ) {
+				drawSurf->sort = (float)SS_BAD + 0.5f;
+			}
+			break;
+		case MODEL_DEPTH_SORT_SCENE_MODEL:
+			// TNO promotes models near the camera to scene models, draw them just
+			// before the ordinary opaque geometry
+			if ( drawSurf->sort > (float)SS_OPAQUE - 0.5f ) {
+				drawSurf->sort = (float)SS_OPAQUE - 0.5f;
+			}
+			break;
+		case MODEL_DEPTH_SORT_AFTER_WORLD:
+			// right after the opaque world, before the decal band
+			if ( drawSurf->sort < (float)SS_DECAL ) {
+				drawSurf->sort = (float)SS_OPAQUE + 0.5f;
+			}
+			break;
+		case MODEL_DEPTH_SORT_SKY:
+			// sky geometry draws in the portal sky band
+			drawSurf->sort = (float)SS_PORTAL_SKY;
+			break;
+		case MODEL_DEPTH_SORT_TRANSPARENT:
+			// forced to the far end of the translucent range, the sort pass orders
+			// the rest by depth
+			if ( drawSurf->sort < (float)SS_CLOSE + 0.5f ) {
+				drawSurf->sort = (float)SS_CLOSE + 0.5f;
+			}
+			break;
+		default:
+			break;
+	}
+
 	// process the shader expressions for conditionals / color / texcoords
 	const float	*constRegs = shader->ConstantRegisters();
 	if ( likely( constRegs != NULL ) ) {
@@ -478,6 +525,8 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 	vEntity->weaponDepthHack = renderEntity->weaponDepthHack;
 	vEntity->castDimShadows = renderEntity->castDimShadows;
 	vEntity->groupMasterIndex = renderEntity->groupMasterIndex;
+	vEntity->modelDepthSort = renderEntity->modelDepthSort;
+	vEntity->modelViewport = renderEntity->modelViewport;
 	vEntity->skipMotionBlur = renderEntity->skipMotionBlur;
 
 	memcpy( vEntity->modelMatrix, entityDef->modelMatrix, sizeof( vEntity->modelMatrix ) );
@@ -600,6 +649,12 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 			baseDrawSurf->frontEndGeo = tri;
 			baseDrawSurf->space = vEntity;
 			baseDrawSurf->scissorRect = vEntity->scissorRect;
+			// TNO per model viewport: clamp the entity scissor to the model
+			// viewport when the game set one, all zero keeps the entity scissor
+			if ( vEntity->modelViewport.x1 != 0 || vEntity->modelViewport.y1 != 0 ||
+					vEntity->modelViewport.x2 != 0 || vEntity->modelViewport.y2 != 0 ) {
+				baseDrawSurf->scissorRect.Intersect( vEntity->modelViewport );
+			}
 			baseDrawSurf->extraGLState = 0;
 
 			R_SetupDrawSurfShader( baseDrawSurf, shader, renderEntity );

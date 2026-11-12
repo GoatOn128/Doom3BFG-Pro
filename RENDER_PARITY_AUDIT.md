@@ -74,21 +74,65 @@ Real engine work, contained, no content dependency.
    lights out of the approximate lighting queries, prelight only lights out of the view). TNO
    also splits area references into draw and approximate lighting lists and routes the slowlight,
    private prime and blended only classes through them. Faithful routing means restructuring the
-   committed area reference lists.
-4. modelDepthSort. TNO's per model depth sort enum (portal inside and plane, view head and body,
-   scene, after world, sky, transparent) drives the sort pipeline. This engine sorts by material
-   sort values; per model overrides touch the draw surf sort and the sort pass.
-5. Per model viewport. TNO's idRenderModelParms carries an idScreenRect viewport per model. This
-   engine has per view and per light scissors; per model scissoring touches
-   R_LinkDrawSurfToView and the back end scissor state.
-6. Virtual texture pageupdate job. The engine has pageminlod, pagesort and transcode but not
-   TNO's pageupdate scheduling; residency updates currently go through the preloader path.
-7. Depth prepass (renderdepth, rendersortdepth). TNO runs a dedicated depth job that the sorted
-   and post passes build on. This engine fills depth during the ambient draw. Contained but it
-   touches every draw path.
-8. Fog job parity check. TNO implements fog lights in a dedicated renderfog job. This engine
-   draws fog lights through the interaction path inherited from BFG. Verify visual parity before
-   considering a port; it may already be equivalent.
+   committed area reference lists. Done and corrected against the decompiled renderworldcommitted.cpp
+   AddLightRefToArea: prelight only lights are draw lights in both TNO routing branches and now
+   draw as view lights, dynamic only lights join normal lights in the approximate lighting list
+   and its bounds query, private prime lights stay out of the view and feed only the prime light
+   accumulation, blended only lights never feed it. TNO also keeps a third private light list
+   with combo map routing branches; this engine has no combo maps and no per model private light
+   scoping, so private dynamic lights stay out of the approximate queries and the limitation is
+   documented here instead.
+4. Per model depth sort (modelDepthSort). Done: renderEntity_t::modelDepthSort carries the TNO
+   modelDepthSort_t class (portal inside and plane, view head and body, scene, after world, sky,
+   transparent) and viewEntity_t threads it to the front end. R_SetupDrawSurfShader applies the
+   class as a draw surf sort override: portal classes clamp into the subview band, view models
+   draw after guis and before the world, scene models just before ordinary opaque geometry,
+   after world just after it, sky into the portal sky band and transparent to the far end of the
+   translucent range. Deviation: TNO composes a per model 64 bit sort key (depth, area sequence,
+   class) inside its jobified sort pipeline; this engine keeps the material sort pass and folds
+   the class into the existing draw surf sort, surfaces that already sort translucent or later
+   keep their own sort so alpha on the same model still blends in order. The depth key part of
+   the reference pipeline belongs with the depth prepass item below.
+5. Per model viewport. Done: renderEntity_t::modelViewport carries the TNO idScreenRect and
+   viewEntity_t threads it to the front end. The entity scissor is intersected with the model
+   viewport when the game set one (all zero keeps the entity scissor) before the draw surfs
+   link to the view, so the existing per draw surf scissor state in the back end applies it
+   unchanged. The surviving reference extracts store the viewport on idRenderModelParms but
+   show no consumer beyond the view level viewport, so the engine applies it as a scissor
+   clamp; a projection level per model viewport has no reference semantics to match.
+6. Virtual texture pageupdate job. Done: neo/renderer/jobs/pageupdate carries the TNO pageupdate
+   scheduling (pageUpdateType_t map and unmap updates, pageImagesUpdate_t batches,
+   UpdatePageMappings_PC, UpdatePageTables_PC, UpdatePageImagesJob, UploadPhysicalPages,
+   UploadPageMappings, UploadPageTables, UploadPageImages). The VT runtime frame update now
+   collects every residency change into a pageImagesUpdate_t batch and pushes it through
+   UploadPageImages once per frame, and the page table uploads only the dirty leaf region from
+   the shadow instead of the whole table. Deviations, documented against the decompiled
+   reference: this GL 3.3 core engine has no PBO mapped shadows and no AMD multi sub image
+   extension, so shadow writes stay on the CPU and uploads go through idImage::SubImageUpload;
+   the engine keeps its single level leaf page table with four byte entries, so the TNO mip
+   pyramid fill in UpdatePageTables_PC stays available but the runtime feeds the module a dirty
+   rectangle instead; the mappings image slot stays unused because the engine runtime has no
+   mappings image.
+7. Depth prepass (renderdepth, rendersortdepth). Done as a parity check: this engine already runs
+   a dedicated depth fill pass, RB_FillDepthBufferFast with the GL_StartDepthPass /
+   GL_FinishDepthPass hooks, before the occlusion queries, dim shadows, interactions and shader
+   passes, with subview guard surfaces, depth only opaque draws and deferred perforated draws.
+   That is the same front to back role the TNO renderdepth job plays before its sorted and post
+   passes; the earlier claim that this engine only fills depth during the ambient draw was wrong.
+   What remains TNO specific is architecture or blocked elsewhere: the doPreZMask scheduling that
+   splits the PreZ draw across jobified passes, rendersortdepth model range sorting and the
+   depthKey composition it feeds (front end jobification, see the note below), and the
+   progPreZSecondary, progPreZWound and progPreZAlpha program buckets, which need the stMap
+   secondary bucket, the wound system and the model fade path listed under large effort.
+8. Fog job parity check. Done as a parity check: the surviving renderfog.cpp reference is not a
+   per light fog volume pass, it draws a single fullscreen unit square with progGlobalFog, a
+   screen space global fog program whose shader and parm block contents are not among the
+   surviving extracts. This engine keeps the BFG per fog light path, RB_FogAllLights and
+   RB_FogPass: each fog light draws its interaction surfaces with fog plane texgen plus its
+   frustum bounding cube with depthfunc less, and blend lights likewise. These are different
+   techniques, not equivalent implementations, and the reference program needed for a faithful
+   port does not exist in the extracts. Keeping the engine path; revisiting this needs the
+   progGlobalFog program semantics and a runnable visual comparison.
 
 Note: the reference jobifies the whole front end (renderwalkbsp, rendercull, renderdrawsurf,
 renderstate, rendersort, setupmodelmvp, parmstate). This engine keeps the classic BFG front end

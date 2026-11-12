@@ -30,6 +30,7 @@ public:
 	int						viewCount;
 	viewLight_t *			viewLight;
 	areaReference_t *		references;
+	areaReference_t *		approxReferences;	// TNO split: approximate lighting area references
 	bool					needsReferences;
 	doublePortal_s *		foggedPortals;
 	bool					needsPostCommit;
