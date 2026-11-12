@@ -83,9 +83,17 @@ Real engine work, contained, no content dependency.
    with combo map routing branches; this engine has no combo maps and no per model private light
    scoping, so private dynamic lights stay out of the approximate queries and the limitation is
    documented here instead.
-4. modelDepthSort. TNO's per model depth sort enum (portal inside and plane, view head and body,
-   scene, after world, sky, transparent) drives the sort pipeline. This engine sorts by material
-   sort values; per model overrides touch the draw surf sort and the sort pass.
+4. Per model depth sort (modelDepthSort). Done: renderEntity_t::modelDepthSort carries the TNO
+   modelDepthSort_t class (portal inside and plane, view head and body, scene, after world, sky,
+   transparent) and viewEntity_t threads it to the front end. R_SetupDrawSurfShader applies the
+   class as a draw surf sort override: portal classes clamp into the subview band, view models
+   draw after guis and before the world, scene models just before ordinary opaque geometry,
+   after world just after it, sky into the portal sky band and transparent to the far end of the
+   translucent range. Deviation: TNO composes a per model 64 bit sort key (depth, area sequence,
+   class) inside its jobified sort pipeline; this engine keeps the material sort pass and folds
+   the class into the existing draw surf sort, surfaces that already sort translucent or later
+   keep their own sort so alpha on the same model still blends in order. The depth key part of
+   the reference pipeline belongs with the depth prepass item below.
 5. Per model viewport. TNO's idRenderModelParms carries an idScreenRect viewport per model. This
    engine has per view and per light scissors; per model scissoring touches
    R_LinkDrawSurfToView and the back end scissor state.
