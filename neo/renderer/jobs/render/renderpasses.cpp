@@ -2270,6 +2270,18 @@ static void RB_ClearVoidColor() {
 	if ( backEnd.viewDef->isSubview || backEnd.viewDef->viewEntitys == NULL ) {
 		return;
 	}
+	if ( r_screenFraction.GetInteger() != 100 ) {
+		// quake 1 style viewport shrink: wipe the whole window so the
+		// borders around the centered view show neither subview scratch
+		// areas nor the previous frame, then restore the view scissor
+		GL_Scissor( 0, 0, renderSystem->GetWidth(), renderSystem->GetHeight() );
+		GL_Clear( true, false, false, 0, 0.13f, 0.14f, 0.15f, 1.0f );
+		GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
+				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
+				backEnd.viewDef->scissor.x2 + 1 - backEnd.viewDef->scissor.x1,
+				backEnd.viewDef->scissor.y2 + 1 - backEnd.viewDef->scissor.y1 );
+		return;
+	}
 	GL_Clear( true, false, false, 0, 0.13f, 0.14f, 0.15f, 1.0f );
 }
 
@@ -2708,6 +2720,12 @@ RB_PostProcess
 */
 extern idCVar rs_enable;
 void RB_PostProcess( const void * data ) {
+
+	// quake 1 style viewport shrink displays the centered view directly;
+	// upscaling it over the borders would defeat the smaller viewport
+	if ( r_screenFraction.GetInteger() != 100 ) {
+		return;
+	}
 
 	// only do the post process step if resolution scaling is enabled. Prevents the unnecessary copying of the framebuffer and
 	// corresponding full screen quad pass.
