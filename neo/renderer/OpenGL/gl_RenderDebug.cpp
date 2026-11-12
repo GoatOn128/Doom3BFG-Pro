@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../../idlib/precompiled.h"
 
 #include "../tr_local.h"
+#include "../Model_local.h"	// idRenderModelStatic::jointsInverted
 #include "../simplex.h"	// line font definition
 
 idCVar r_showCenterOfProjection( "r_showCenterOfProjection", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a cross to show the center of projection" );
@@ -235,23 +236,24 @@ static void RB_ImmediateMVP( const idRenderMatrix & mvp ) {
 RB_DebugSurfaceVerts
 
 The per vertex debug tools read frontEndGeo, which is the rest pose for
-animated models; the real pose is skinned on the GPU through the joint
-cache. For skinned surfaces return a CPU skinned copy of the verts so
-the tools follow the animated pose. Returns the rest pose verts otherwise.
+animated models; the real pose is skinned on the GPU. For skinned
+surfaces return a CPU skinned copy of the verts, using the same
+jointsInverted list as the GPU and CPU skinning paths, so the tools
+follow the animated pose. Returns the rest pose verts otherwise.
 ====================
 */
 static idDrawVert * rb_debugSkinnedVerts = NULL;
 static int rb_debugSkinnedMaxVerts = 0;
 
-static const idDrawVert * RB_DebugSurfaceVerts( const drawSurf_t * drawSurf, const srfTriangles_t * tri ) {
+static const idDrawVert * RB_DebugSurfaceVerts( const srfTriangles_t * tri ) {
 	if ( tri == NULL || tri->verts == NULL ) {
 		return NULL;
 	}
-	if ( drawSurf->jointCache == 0 || drawSurf->space == NULL || drawSurf->space->entityDef == NULL ) {
-		return tri->verts;
-	}
-	const renderEntity_t & parms = drawSurf->space->entityDef->parms;
-	if ( parms.joints == NULL || parms.numJoints <= 0 ) {
+	// use the same inverted joints as the GPU skinning path and the other
+	// CPU skinning call sites; the game side joint array is a different
+	// matrix format and gives garbage transforms here
+	const idJointMat * joints = ( tri->staticModelWithJoints != NULL && r_useGPUSkinning.GetBool() ) ? tri->staticModelWithJoints->jointsInverted : NULL;
+	if ( joints == NULL ) {
 		return tri->verts;
 	}
 	if ( rb_debugSkinnedMaxVerts < tri->numVerts ) {
@@ -263,7 +265,7 @@ static const idDrawVert * RB_DebugSurfaceVerts( const drawSurf_t * drawSurf, con
 		rb_debugSkinnedVerts = (idDrawVert *)R_StaticAlloc( rb_debugSkinnedMaxVerts * sizeof( rb_debugSkinnedVerts[0] ), TAG_RENDER_TOOLS );
 	}
 	for ( int i = 0; i < tri->numVerts; i++ ) {
-		rb_debugSkinnedVerts[i] = idDrawVert::GetSkinnedDrawVert( tri->verts[i], parms.joints );
+		rb_debugSkinnedVerts[i] = idDrawVert::GetSkinnedDrawVert( tri->verts[i], joints );
 	}
 	return rb_debugSkinnedVerts;
 }
@@ -1090,7 +1092,7 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
 		tri = drawSurf->frontEndGeo;
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1173,7 +1175,7 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1226,7 +1228,7 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1285,7 +1287,7 @@ static void RB_ShowVertexColor( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1347,7 +1349,7 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1380,7 +1382,7 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		for ( i = 0; i < numDrawSurfs; i++ ) {
 			drawSurf = drawSurfs[i];
 			tri = drawSurf->frontEndGeo;
-			const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+			const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 			if ( verts == NULL ) {
 				continue;
 			}
@@ -1488,7 +1490,7 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		const srfTriangles_t * tri = drawSurf->frontEndGeo;
 
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1594,7 +1596,7 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
@@ -1655,7 +1657,7 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		idDrawVert *ac = (idDrawVert *)RB_DebugSurfaceVerts( drawSurf, tri );
+		idDrawVert *ac = (idDrawVert *)RB_DebugSurfaceVerts( tri );
 		if ( ac == NULL ) {
 			continue;
 		}
@@ -2685,7 +2687,7 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		surf = drawSurfs[i];
 		tri = surf->frontEndGeo;
 
-		const idDrawVert * verts = RB_DebugSurfaceVerts( surf, tri );
+		const idDrawVert * verts = RB_DebugSurfaceVerts( tri );
 		if ( verts == NULL ) {
 			continue;
 		}
