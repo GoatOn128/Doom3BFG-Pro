@@ -17,6 +17,7 @@ idRenderLightCommitted::idRenderLightCommitted() {
 	viewCount = 0;
 	viewLight = NULL;
 	references = NULL;
+	approxReferences = NULL;
 	needsReferences = false;
 	foggedPortals = NULL;
 	needsPostCommit = false;

@@ -1425,27 +1425,58 @@ idRenderWorldLocal::AddLightRefToArea
 ===================
 */
 void idRenderWorldLocal::AddLightRefToArea( idRenderLightCommitted *light, portalArea_t *area ) {
-	areaReference_t	*lref;
+	// TNO lightClass routing: a light joins the draw list, the approximate
+	// lighting list, or both, depending on its class
+	if ( R_LightClassDrawsInView( light->parms.lightClass ) ) {
+		areaReference_t	*lref;
 
-	for ( lref = light->references; lref != NULL; lref = lref->ownerNext ) {
-		if ( lref->area == area ) {
-			return;
+		for ( lref = light->references; lref != NULL; lref = lref->ownerNext ) {
+			if ( lref->area == area ) {
+				break;
+			}
+		}
+
+		if ( lref == NULL ) {
+			// add a lightref to this area
+			lref = areaReferenceAllocator.Alloc();
+			lref->light = light;
+			lref->area = area;
+			lref->ownerNext = light->references;
+			light->references = lref;
+			tr.pc.c_lightReferences++;
+
+			// doubly linked list so we can free them easily later
+			area->lightRefs.areaNext->areaPrev = lref;
+			lref->areaNext = area->lightRefs.areaNext;
+			lref->areaPrev = &area->lightRefs;
+			area->lightRefs.areaNext = lref;
 		}
 	}
 
-	// add a lightref to this area
-	lref = areaReferenceAllocator.Alloc();
-	lref->light = light;
-	lref->area = area;
-	lref->ownerNext = light->references;
-	light->references = lref;
-	tr.pc.c_lightReferences++;
+	if ( R_LightClassFeedsApproximateLighting( light->parms.lightClass ) ) {
+		areaReference_t	*lref;
 
-	// doubly linked list so we can free them easily later
-	area->lightRefs.areaNext->areaPrev = lref;
-	lref->areaNext = area->lightRefs.areaNext;
-	lref->areaPrev = &area->lightRefs;
-	area->lightRefs.areaNext = lref;
+		for ( lref = light->approxReferences; lref != NULL; lref = lref->ownerNext ) {
+			if ( lref->area == area ) {
+				break;
+			}
+		}
+
+		if ( lref == NULL ) {
+			lref = areaReferenceAllocator.Alloc();
+			lref->light = light;
+			lref->area = area;
+			lref->ownerNext = light->approxReferences;
+			light->approxReferences = lref;
+			tr.pc.c_lightReferences++;
+
+			// doubly linked list so we can free them easily later
+			area->approxLightRefs.areaNext->areaPrev = lref;
+			lref->areaNext = area->approxLightRefs.areaNext;
+			lref->areaPrev = &area->approxLightRefs;
+			area->approxLightRefs.areaNext = lref;
+		}
+	}
 }
 
 

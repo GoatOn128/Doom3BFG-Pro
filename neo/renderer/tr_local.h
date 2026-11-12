@@ -126,6 +126,14 @@ struct areaReference_t {
 	struct portalArea_s	*	area;					// so owners can find all the areas they are in
 };
 
+// TNO lightClass routing: which area reference lists a light joins
+inline bool R_LightClassDrawsInView( lightClass_t lightClass ) {
+	return lightClass != LIGHT_PRELIGHT_ONLY && lightClass != LIGHT_PRIVATE_PRIME;
+}
+inline bool R_LightClassFeedsApproximateLighting( lightClass_t lightClass ) {
+	return lightClass == LIGHT_NORMAL || lightClass == LIGHT_PRELIGHT_ONLY || lightClass == LIGHT_PRIVATE_PRIME;
+}
+
 
 
 struct shadowOnlyEntity_t {
