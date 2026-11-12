@@ -44,6 +44,7 @@ idCVar stereoRender_warpTargetFraction( "stereoRender_warpTargetFraction", "1.0"
 
 idCVar r_showSwapBuffers( "r_showSwapBuffers", "0", CVAR_BOOL, "Show timings from GL_BlockingSwapBuffers" ); 
 idCVar r_syncEveryFrame( "r_syncEveryFrame", "1", CVAR_BOOL, "Don't let the GPU buffer execution past swapbuffers" ); 
+idCVar r_captureFrames( "r_captureFrames", "0", CVAR_RENDERER | CVAR_BOOL, "TNO rendercapture: write every presented frame to screenshots/frameNNNNN.tga" );
 
 static int		swapIndex;		// 0 or 1 into renderSync
 static GLsync	renderSync[2];
@@ -492,6 +493,37 @@ void RB_StereoRenderExecuteBackEndCommands( const emptyCommand_t * const allCmds
 
 /*
 ====================
+RB_CaptureFrame
+
+TNO rendercapture: a readback of the current framebuffer plus a TGA
+file write, one numbered file per executed frame while r_captureFrames
+is on. Runs after the last view and post process command of the frame.
+====================
+*/
+static void RB_CaptureFrame() {
+	if ( !r_captureFrames.GetBool() ) {
+		return;
+	}
+	const int width = renderSystem->GetWidth();
+	const int height = renderSystem->GetHeight();
+	byte * pixels = (byte *)R_StaticAlloc( width * height * 4, TAG_RENDER_TOOLS );
+	// the pixel pack buffer may still be bound from regular rendering
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
+	glPixelStorei( GL_PACK_ALIGNMENT, 1 );
+	GL_ReadPixels( 0, 0, width, height, PIXELFORMAT_RGBA, pixels );
+	glPixelStorei( GL_PACK_ALIGNMENT, 4 );
+	static int lastFrameNumber = 0;
+	if ( lastFrameNumber > 99999 ) {
+		lastFrameNumber = 0;
+	}
+	const char * fileName = va( "screenshots/frame%05i.tga", ++lastFrameNumber );
+	// glReadPixels rows run bottom up, the TGA writer expects top down
+	R_WriteTGA( fileName, pixels, width, height, true );
+	R_StaticFree( pixels );
+}
+
+/*
+====================
 RB_ExecuteBackEndCommands
 
 This function will be called syncronously if running without
@@ -557,6 +589,8 @@ void RB_ExecuteBackEndCommands( const emptyCommand_t *cmds ) {
 			break;
 		}
 	}
+
+	RB_CaptureFrame();
 
 	RB_DrawFlickerBox();
 
