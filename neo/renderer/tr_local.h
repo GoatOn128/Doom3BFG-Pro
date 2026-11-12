@@ -219,6 +219,7 @@ struct viewEntity_t {
 	bool					weaponDepthHack;
 	float					modelDepthHack;
 	dimShadow_t				castDimShadows;			// per model dim shadow selection for the back end
+	int						groupMasterIndex;		// TNO model group master for the debug overlay and future dim shadow chaining
 		
 	float					modelMatrix[16];		// local coords to global coords
 	idRenderMatrix			modelRenderMatrix;	// row-major local-to-global snapshot for renderer jobs

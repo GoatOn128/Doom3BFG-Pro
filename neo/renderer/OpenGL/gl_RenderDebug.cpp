@@ -32,9 +32,16 @@ If you have questions concerning this license or the applicable additional terms
 #include "../tr_local.h"
 #include "../Model_local.h"	// idRenderModelStatic::jointsInverted
 #include "../simplex.h"	// line font definition
+#include "../virtualtexture.h"	// virtual texture runtime page cache state
 
 idCVar r_showCenterOfProjection( "r_showCenterOfProjection", "0", CVAR_RENDERER | CVAR_BOOL, "Draw a cross to show the center of projection" );
 idCVar r_showLines( "r_showLines", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = draw alternate horizontal lines, 2 = draw alternate vertical lines" );
+idCVar r_showPVS( "r_showPVS", "0", CVAR_RENDERER | CVAR_BOOL, "outline the screen rect of every portal area visible this frame" );
+idCVar r_showRuler( "r_showRuler", "0", CVAR_RENDERER | CVAR_BOOL, "draw a pixel ruler along the view edges" );
+idCVar r_showModelGroupMasters( "r_showModelGroupMasters", "0", CVAR_RENDERER | CVAR_BOOL, "outline models with a group master index and label them" );
+idCVar r_showVmtrChannel( "r_showVmtrChannel", "0", CVAR_RENDERER | CVAR_INTEGER, "1 = virtual texture page cache colored by mip level, 2 = colored by last use recency", 0, 2 );
+idCVar r_drawLoadedImages( "r_drawLoadedImages", "0", CVAR_RENDERER | CVAR_BOOL, "draw a grid of every loaded image" );
+idCVar r_drawLoadedImagesScale( "r_drawLoadedImagesScale", "0.05", CVAR_RENDERER | CVAR_FLOAT, "thumbnail cell size as a fraction of the view height", 0.01f, 1.0f );
 
 #define MAX_DEBUG_LINES			16384
 
@@ -2757,6 +2764,281 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 }
 
 /*
+================
+RB_ImmediateScreenOrtho
+
+Load an orthographic projection mapping pixel coordinates inside the
+current view viewport into clip space for the screen space debug draws.
+glBegin draws transform with the GLim matrix stacks, which are column
+major.
+================
+*/
+static void RB_ImmediateScreenOrtho() {
+	const idScreenRect & viewport = backEnd.viewDef->viewport;
+	const float w = (float)( viewport.x2 - viewport.x1 + 1 );
+	const float h = (float)( viewport.y2 - viewport.y1 + 1 );
+	float ortho[16] = { 0 };
+	ortho[0] = 2.0f / w;
+	ortho[5] = 2.0f / h;
+	ortho[10] = -1.0f;
+	ortho[12] = -1.0f;
+	ortho[13] = -1.0f;
+	ortho[15] = 1.0f;
+	glMatrixMode( GL_PROJECTION );
+	glLoadMatrixf( ortho );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+}
+
+/*
+================
+RB_ShowPVS
+
+Outline the screen rect of every portal area the view flooding reached
+this frame, one cycling color per area.
+================
+*/
+static void RB_ShowPVS() {
+	if ( !r_showPVS.GetBool() ) {
+		return;
+	}
+	idRenderWorldLocal * world = backEnd.viewDef->renderWorld;
+	if ( world == NULL || world->numPortalAreas <= 0 || world->areaScreenRect == NULL ) {
+		return;
+	}
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_POLYMODE_LINE );
+	RB_BindImmediateColorShader();
+	RB_ImmediateScreenOrtho();
+
+	static const float palette[8][3] = {
+		{ 0.0f, 1.0f, 0.0f }, { 0.0f, 0.5f, 1.0f }, { 1.0f, 0.5f, 0.0f }, { 1.0f, 0.0f, 1.0f },
+		{ 0.0f, 1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.3f, 0.3f }, { 0.5f, 0.5f, 1.0f } };
+
+	for ( int i = 0; i < world->numPortalAreas; i++ ) {
+		if ( world->portalAreas[i].viewCount != tr.viewCount ) {
+			continue;
+		}
+		const idScreenRect & rect = world->GetAreaScreenRect( i );
+		if ( rect.IsEmpty() ) {
+			continue;
+		}
+		glColor3f( palette[i & 7][0], palette[i & 7][1], palette[i & 7][2] );
+		glBegin( GL_LINE_LOOP );
+		glVertex2f( (float)rect.x1, (float)rect.y1 );
+		glVertex2f( (float)rect.x2 + 1.0f, (float)rect.y1 );
+		glVertex2f( (float)rect.x2 + 1.0f, (float)rect.y2 + 1.0f );
+		glVertex2f( (float)rect.x1, (float)rect.y2 + 1.0f );
+		glEnd();
+	}
+}
+
+/*
+================
+RB_ShowRuler
+
+Pixel ruler along the bottom and left edges of the view. Small ticks
+every 16 pixels, taller every 64, tallest every 256.
+================
+*/
+static void RB_ShowRuler() {
+	if ( !r_showRuler.GetBool() ) {
+		return;
+	}
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_POLYMODE_LINE );
+	RB_BindImmediateColorShader();
+	RB_ImmediateScreenOrtho();
+
+	const idScreenRect & viewport = backEnd.viewDef->viewport;
+	const int w = viewport.x2 - viewport.x1 + 1;
+	const int h = viewport.y2 - viewport.y1 + 1;
+
+	glColor3f( 0, 1, 0 );
+	glBegin( GL_LINES );
+	for ( int x = 0; x <= w; x += 16 ) {
+		const float len = ( x % 256 == 0 ) ? 24.0f : ( x % 64 == 0 ) ? 16.0f : 8.0f;
+		glVertex2f( (float)x, 0.0f );
+		glVertex2f( (float)x, len );
+	}
+	for ( int y = 0; y <= h; y += 16 ) {
+		const float len = ( y % 256 == 0 ) ? 24.0f : ( y % 64 == 0 ) ? 16.0f : 8.0f;
+		glVertex2f( 0.0f, (float)y );
+		glVertex2f( len, (float)y );
+	}
+	glEnd();
+}
+
+/*
+================
+RB_ShowModelGroupMasters
+
+Outline every visible model that carries a group master index and label
+it, TNO r_showModelGroupMasters. The master itself draws yellow, its
+members cyan. The index comes from renderEntity_t::groupMasterIndex,
+which the game side has to fill in.
+================
+*/
+static void RB_ShowModelGroupMasters() {
+	if ( !r_showModelGroupMasters.GetBool() ) {
+		return;
+	}
+
+	const int previousCullType = backEnd.glState.faceCulling;
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_POLYMODE_LINE );
+	GL_Cull( CT_TWO_SIDED );
+	RB_BindImmediateColorShader();
+
+	for ( const viewEntity_t * vModel = backEnd.viewDef->viewEntitys; vModel != NULL; vModel = vModel->next ) {
+		const idRenderEntityCommitted * edef = vModel->entityDef;
+		if ( edef == NULL || edef->parms.groupMasterIndex == 0 ) {
+			continue;
+		}
+		const bool isMaster = ( edef->parms.groupMasterIndex == edef->index );
+
+		RB_SetMVP( vModel->mvp );
+		RB_ImmediateMVP( vModel->mvp );
+
+		if ( isMaster ) {
+			glColor3f( 1, 1, 0 );
+		} else {
+			glColor3f( 0, 1, 1 );
+		}
+		RB_DrawBounds( edef->localReferenceBounds );
+
+		idVec3 corner;
+		R_LocalPointToGlobal( vModel->modelMatrix, edef->localReferenceBounds[1], corner );
+		const idVec4 color = isMaster ? idVec4( 1, 1, 0, 1 ) : idVec4( 0, 1, 1, 1 );
+		tr.primaryWorld->DrawText( va( "group %i", edef->parms.groupMasterIndex ), corner, 0.25f, color,
+			backEnd.viewDef->renderView.viewaxis );
+	}
+
+	GL_Cull( previousCullType );
+}
+
+/*
+================
+RB_ShowVmtrChannel
+
+Screen space visualization of the virtual texture runtime page cache,
+one cell per physical cache slot. 1 = colored by the mip level of the
+resident page, 2 = colored by how recently the slot was used.
+================
+*/
+static void RB_ShowVmtrChannel() {
+	if ( r_showVmtrChannel.GetInteger() == 0 || !virtualTextureSystem.runtimeReady ) {
+		return;
+	}
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_POLYMODE_LINE );
+	RB_BindImmediateColorShader();
+	RB_ImmediateScreenOrtho();
+
+	const idScreenRect & viewport = backEnd.viewDef->viewport;
+	const float viewWidth = (float)( viewport.x2 - viewport.x1 + 1 );
+	const float viewHeight = (float)( viewport.y2 - viewport.y1 + 1 );
+	const float cell = Min( viewWidth, viewHeight ) / (float)idVirtualTextureSystem::VT_CACHE_PAGES_WIDE;
+	const int frame = virtualTextureSystem.runtimeFrame;
+
+	for ( int slot = 0; slot < virtualTextureSystem.runtimeSlotToPage.Num(); slot++ ) {
+		const int page = virtualTextureSystem.runtimeSlotToPage[slot];
+		if ( page < 0 || page >= virtualTextureSystem.runtimePages.Num() ) {
+			continue;
+		}
+		const vtRuntimeDiskPage_t & diskPage = virtualTextureSystem.runtimePages[page];
+		const float x = (float)( slot % idVirtualTextureSystem::VT_CACHE_PAGES_WIDE ) * cell;
+		const float y = (float)( slot / idVirtualTextureSystem::VT_CACHE_PAGES_WIDE ) * cell;
+		float t;
+		if ( r_showVmtrChannel.GetInteger() == 2 ) {
+			t = 1.0f - Min( (float)( frame - virtualTextureSystem.runtimeSlotLastUsed[slot] ) / 64.0f, 1.0f );
+		} else {
+			t = 1.0f - Min( (float)diskPage.level / 8.0f, 1.0f );
+		}
+		glColor3f( t, 0.25f + 0.5f * t, 1.0f - t );
+		glBegin( GL_LINE_LOOP );
+		glVertex2f( x, y );
+		glVertex2f( x + cell, y );
+		glVertex2f( x + cell, y + cell );
+		glVertex2f( x, y + cell );
+		glEnd();
+	}
+
+	GL_State( GLS_DEFAULT );
+}
+
+/*
+================
+RB_DrawLoadedImages
+
+Grid of every currently loaded image, TNO r_drawLoadedImages. The cell
+size is a fraction of the view height set by r_drawLoadedImagesScale.
+================
+*/
+static void RB_DrawLoadedImages() {
+	if ( !r_drawLoadedImages.GetBool() ) {
+		return;
+	}
+
+	const int previousCullType = backEnd.glState.faceCulling;
+
+	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ZERO );
+	GL_Cull( CT_TWO_SIDED );
+
+	const idScreenRect & viewport = backEnd.viewDef->viewport;
+	const float viewWidth = (float)( viewport.x2 - viewport.x1 + 1 );
+	const float viewHeight = (float)( viewport.y2 - viewport.y1 + 1 );
+	const float cell = r_drawLoadedImagesScale.GetFloat() * viewHeight;
+	const int columns = Max( 1, (int)( viewWidth / cell ) );
+
+	const float texS[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const float texT[4] = { 0.0f, 1.0f, 0.0f, 0.0f };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_S, texS );
+	renderProgManager.SetRenderParm( RENDERPARM_TEXTUREMATRIX_T, texT );
+	const float texGenEnabled[4] = { 0, 0, 0, 0 };
+	renderProgManager.SetRenderParm( RENDERPARM_TEXGEN_0_ENABLED, texGenEnabled );
+	renderProgManager.BindShader_Texture();
+
+	int count = 0;
+	for ( int i = 0; i < globalImages->images.Num() && count < 4096; i++ ) {
+		idImage * image = globalImages->images[i];
+		if ( image == NULL || !image->IsLoaded() || image->GetAPIObject() == 0 ) {
+			continue;
+		}
+		const int column = count % columns;
+		const int row = count / columns;
+		count++;
+
+		// ortho projection of the cell through the render program MVP
+		// uniform, the same path RB_TestImage uses for its quad
+		const float x0 = (float)column * cell;
+		const float y0 = (float)row * cell;
+		float mvp[16] = { 0 };
+		mvp[0] = 2.0f * cell / viewWidth;
+		mvp[5] = 2.0f * cell / viewHeight;
+		mvp[10] = -1.0f;
+		mvp[12] = 2.0f * x0 / viewWidth - 1.0f;
+		mvp[13] = 2.0f * y0 / viewHeight - 1.0f;
+		mvp[15] = 1.0f;
+		float projMatrixTranspose[16];
+		R_MatrixTranspose( mvp, projMatrixTranspose );
+		renderProgManager.SetRenderParms( RENDERPARM_MVPMATRIX_X, projMatrixTranspose, 4 );
+
+		GL_SelectTexture( 0 );
+		image->Bind();
+		RB_DrawElementsWithCounters( &backEnd.testImageSurface );
+	}
+
+	GL_State( GLS_DEFAULT );
+	GL_Cull( previousCullType );
+}
+
+/*
+=================
+RB_RenderDebugTools
+=================
+*/
+/*
 =================
 RB_RenderDebugTools
 =================
@@ -2802,6 +3084,11 @@ void RB_RenderDebugTools( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	}
 	RB_TestImage();
 	RB_ShowPortals();
+	RB_ShowPVS();
+	RB_ShowRuler();
+	RB_ShowModelGroupMasters();
+	RB_ShowVmtrChannel();
+	RB_DrawLoadedImages();
 	RB_ShowDepthBuffer();
 	RB_ShowIntensity();
 	RB_ShowCenterOfProjection();
