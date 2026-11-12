@@ -260,6 +260,20 @@ void idRenderWorldLocal::AddAreaViewEntities( int areaNum, const portalStack_t *
 			}
 		}
 
+		// TNO maxVisibleRange: hard cull the model past its visible range,
+		// extended by fadeVisibilityOver. The gradual distance fade itself needs
+		// the model fade render path this engine does not have.
+		if ( entity->parms.maxVisibleRange > 0.0f
+				&& entity->globalReferenceBounds[1][0] > entity->globalReferenceBounds[0][0]
+				&& entity->globalReferenceBounds[1][1] > entity->globalReferenceBounds[0][1]
+				&& entity->globalReferenceBounds[1][2] > entity->globalReferenceBounds[0][2] ) {
+			const idVec3 center = ( entity->globalReferenceBounds[0] + entity->globalReferenceBounds[1] ) * 0.5f;
+			const float radius = entity->globalReferenceBounds.GetRadius( center );
+			const float range = entity->parms.maxVisibleRange + Max( entity->parms.fadeVisibilityOver, 0.0f );
+			if ( ( center - tr.viewDef->renderView.vieworg ).Length() > radius + range ) {
+				continue;
+			}
+		}
 		// cull reference bounds
 		if ( CullEntityByPortals( entity, ps ) ) {
 			// we are culled out through this portal chain, but it might
@@ -382,6 +396,18 @@ void idRenderWorldLocal::AddAreaViewLights( int areaNum, const portalStack_t *ps
 			continue;
 		}
 
+		// TNO maxVisibleRange for lights, same hard cull the models use
+		if ( light->parms.maxVisibleRange > 0.0f
+				&& light->globalLightBounds[1][0] > light->globalLightBounds[0][0]
+				&& light->globalLightBounds[1][1] > light->globalLightBounds[0][1]
+				&& light->globalLightBounds[1][2] > light->globalLightBounds[0][2] ) {
+			const idVec3 center = ( light->globalLightBounds[0] + light->globalLightBounds[1] ) * 0.5f;
+			const float radius = light->globalLightBounds.GetRadius( center );
+			const float range = light->parms.maxVisibleRange + Max( light->parms.fadeVisibilityOver, 0.0f );
+			if ( ( center - tr.viewDef->renderView.vieworg ).Length() > radius + range ) {
+				continue;
+			}
+		}
 		// cull frustum
 		if ( CullLightByPortals( light, ps ) ) {
 			// we are culled out through this portal chain, but it might
