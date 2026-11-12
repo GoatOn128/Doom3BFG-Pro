@@ -126,12 +126,18 @@ struct areaReference_t {
 	struct portalArea_s	*	area;					// so owners can find all the areas they are in
 };
 
-// TNO lightClass routing: which area reference lists a light joins
+// TNO lightClass routing, verified against the decompiled renderworldcommitted.cpp
+// AddLightRefToArea: prelight only lights are draw lights in both TNO routing
+// branches, normal and dynamic only lights feed the approximate lighting list,
+// private prime lights stay out of the view and feed only the prime light
+// accumulation. TNO keeps a third private light list with combo map branches,
+// this engine has no combo maps and no per model private scoping so it folds
+// the private prime class into the approximate list instead.
 inline bool R_LightClassDrawsInView( lightClass_t lightClass ) {
-	return lightClass != LIGHT_PRELIGHT_ONLY && lightClass != LIGHT_PRIVATE_PRIME;
+	return lightClass != LIGHT_PRIVATE_PRIME;
 }
 inline bool R_LightClassFeedsApproximateLighting( lightClass_t lightClass ) {
-	return lightClass == LIGHT_NORMAL || lightClass == LIGHT_PRELIGHT_ONLY || lightClass == LIGHT_PRIVATE_PRIME;
+	return lightClass == LIGHT_NORMAL || lightClass == LIGHT_DYNAMIC_ONLY || lightClass == LIGHT_PRIVATE_PRIME;
 }
 
 

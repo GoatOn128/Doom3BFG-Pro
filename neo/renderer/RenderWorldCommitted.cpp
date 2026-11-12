@@ -118,10 +118,9 @@ void idRenderWorldCommitted::ApproximateLightingForBounds( const idBounds & boun
 			if ( ref->light == NULL ) {
 				continue;
 			}
-			// TNO light class routing keeps dynamic only lights out of
-			// this list, the check stays as a safety net
-			if ( ref->light->parms.lightClass == LIGHT_DYNAMIC_ONLY
-					|| ref->light->parms.lightClass == LIGHT_PRIVATE_DYNAMIC_ONLY ) {
+			// private dynamic lights only feed the private light path, which
+			// has no engine equivalent, they never reach the approximate queries
+			if ( ref->light->parms.lightClass == LIGHT_PRIVATE_DYNAMIC_ONLY ) {
 				continue;
 			}
 			bool duplicate = false;

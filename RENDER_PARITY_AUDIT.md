@@ -74,9 +74,14 @@ Real engine work, contained, no content dependency.
    lights out of the approximate lighting queries, prelight only lights out of the view). TNO
    also splits area references into draw and approximate lighting lists and routes the slowlight,
    private prime and blended only classes through them. Faithful routing means restructuring the
-   committed area reference lists. Done: separate draw and approximate lighting area reference
-   lists with full lightClass routing, private prime lights feed only the prime light
-   accumulation, blended only lights never feed it.
+   committed area reference lists. Done and corrected against the decompiled renderworldcommitted.cpp
+   AddLightRefToArea: prelight only lights are draw lights in both TNO routing branches and now
+   draw as view lights, dynamic only lights join normal lights in the approximate lighting list
+   and its bounds query, private prime lights stay out of the view and feed only the prime light
+   accumulation, blended only lights never feed it. TNO also keeps a third private light list
+   with combo map routing branches; this engine has no combo maps and no per model private light
+   scoping, so private dynamic lights stay out of the approximate queries and the limitation is
+   documented here instead.
 4. modelDepthSort. TNO's per model depth sort enum (portal inside and plane, view head and body,
    scene, after world, sky, transparent) drives the sort pipeline. This engine sorts by material
    sort values; per model overrides touch the draw surf sort and the sort pass.
