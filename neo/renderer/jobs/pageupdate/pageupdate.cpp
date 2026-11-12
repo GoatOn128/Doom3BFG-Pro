@@ -11,11 +11,10 @@ this GL 3.3 core engine does not expose, so the shadow writes stay on
 the CPU and the uploads go through idImage::SubImageUpload.
 */
 
-void CopyImageRect( byte * destination, const byte * source, int numScanlines, int byteWidth, int bytePitch ) {
-	int offset = 0;
+// copy full rows between two buffers that may use different strides
+void CopyImageRect( byte * destination, int destinationPitch, const byte * source, int sourcePitch, int numScanlines, int byteWidth ) {
 	for ( int row = 0; row < numScanlines; ++row ) {
-		memcpy( destination + offset, source + offset, byteWidth );
-		offset += bytePitch;
+		memcpy( destination + row * destinationPitch, source + row * sourcePitch, byteWidth );
 	}
 }
 
@@ -122,9 +121,9 @@ void UploadPageTables( const pageImagesUpdateParms_t ** parms, int numParms ) {
 			}
 			idList< byte > staged;
 			staged.SetNum( width * height * 4 );
-			CopyImageRect( staged.Ptr(),
+			CopyImageRect( staged.Ptr(), width * 4,
 				info.bits + info.bytePitch * update.tableMinY + 4 * update.tableMinX,
-				height, width * 4, info.bytePitch );
+				info.bytePitch, height, width * 4 );
 			update.pageTableImage->SubImageUpload( 0, update.tableMinX, update.tableMinY, 0, width, height, staged.Ptr() );
 		}
 	}
