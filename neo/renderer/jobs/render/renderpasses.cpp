@@ -2625,8 +2625,6 @@ void RB_DrawView( const void *data, const int stereoEye ) {
 
 	backEnd.pc.c_surfaces += backEnd.viewDef->numDrawSurfs;
 
-	RB_ShowOverdraw();
-
 	// render the scene
 	RB_DrawViewInternal( cmd->viewDef, stereoEye );
 
@@ -2720,6 +2718,7 @@ void RB_PostProcess( const void * data ) {
 
 	renderLog.CloseBlock();
 }
+
 
 
 

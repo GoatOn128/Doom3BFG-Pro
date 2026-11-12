@@ -94,14 +94,12 @@ static void	RB_SetBuffer( const void *data ) {
 	// clear screen for debugging
 	// automatically enable this with several other debug tools
 	// that might leave unrendered portions of the screen
-	if ( r_clear.GetFloat() || idStr::Length( r_clear.GetString() ) != 1 || r_singleArea.GetBool() || r_showOverDraw.GetBool() ) {
+	if ( r_clear.GetFloat() || idStr::Length( r_clear.GetString() ) != 1 || r_singleArea.GetBool() ) {
 		float c[3];
 		if ( sscanf( r_clear.GetString(), "%f %f %f", &c[0], &c[1], &c[2] ) == 3 ) {
 			GL_Clear( true, false, false, 0, c[0], c[1], c[2], 1.0f );
 		} else if ( r_clear.GetInteger() == 2 ) {
 			GL_Clear( true, false, false, 0, 0.0f, 0.0f,  0.0f, 1.0f );
-		} else if ( r_showOverDraw.GetBool() ) {
-			GL_Clear( true, false, false, 0, 1.0f, 1.0f, 1.0f, 1.0f );
 		} else {
 			GL_Clear( true, false, false, 0, 0.4f, 0.0f, 0.25f, 1.0f );
 		}

@@ -89,12 +89,11 @@ void RB_SetVertexColorParms( stageVertexColor_t svc );
 ================
 RB_BindImmediateColorShader
 
-Immediate mode glBegin draws never go through RB_DrawElementsWithCounters,
-so nothing ever uploads the uniform values written by RB_SetMVP and
-GL_Color. Bind the vertex color program (its COLOR0 input picks up the
-compatibility glColor calls, which the plain color program ignores),
-point it at the white image, and commit the uniforms for the draws that
-follow.
+The glBegin draws below go through the GLim emulation layer, which draws
+with its own program and reads colors from glColor, so this engine side
+bind is not what makes them render. It only leaves clean texture and
+vertex color state behind for the engine program draws some tools mix
+in, and it is kept for that purpose.
 ================
 */
 static void RB_BindImmediateColorShader() {
@@ -136,10 +135,35 @@ static void RB_DrawReadbackFullScreen( const byte * rgba, int width, int height 
 	if ( readbackImage == NULL ) {
 		return;
 	}
+
+	// glReadPixels rows run bottom up but the readback quad maps the first
+	// image row to the top of the screen, so flip vertically before upload
+	byte * flipped = NULL;
+	if ( height > 1 ) {
+		flipped = (byte *)R_StaticAlloc( width * height * 4, TAG_RENDER_TOOLS );
+		const int rowBytes = width * 4;
+		for ( int y = 0; y < height; y++ ) {
+			memcpy( flipped + y * rowBytes, rgba + ( height - 1 - y ) * rowBytes, rowBytes );
+		}
+		rgba = flipped;
+	}
 	readbackImage->UploadScratch( rgba, width, height );
+	if ( flipped != NULL ) {
+		R_StaticFree( flipped );
+	}
 
 	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ZERO );
 	GL_Cull( CT_TWO_SIDED );
+
+	// draw over the whole window no matter what viewport or scissor the
+	// current view left behind
+	GLint previousViewport[4];
+	GLint previousScissor[4];
+	GL_GetIntegerv( GET_VIEWPORT, previousViewport );
+	GL_GetIntegerv( GET_SCISSOR_BOX, previousScissor );
+	GL_Viewport( 0, 0, glConfig.nativeScreenWidth, glConfig.nativeScreenHeight );
+	GL_Scissor( 0, 0, glConfig.nativeScreenWidth, glConfig.nativeScreenHeight );
+	backEnd.currentScissor.Clear();
 
 	const float texS[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 	const float texT[4] = { 0.0f, 1.0f, 0.0f, 0.0f };
@@ -177,6 +201,33 @@ static void RB_DrawReadbackFullScreen( const byte * rgba, int width, int height 
 	readbackImage->Bind();
 
 	RB_DrawElementsWithCounters( &backEnd.testImageSurface );
+
+	GL_Viewport( previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3] );
+	GL_Scissor( previousScissor[0], previousScissor[1], previousScissor[2], previousScissor[3] );
+	backEnd.currentScissor.Clear();
+}
+
+/*
+================
+RB_ImmediateMVP
+
+Load an engine MVP into the immediate mode projection stack. glBegin
+draws go through the GLim emulation layer, which transforms vertices
+with its own matrix stacks instead of the render program uniforms, and
+those stacks are column major, so transpose the row major engine matrix.
+================
+*/
+static void RB_ImmediateMVP( const idRenderMatrix & mvp ) {
+	float glimMatrix[16];
+	for ( int r = 0; r < 4; r++ ) {
+		for ( int c = 0; c < 4; c++ ) {
+			glimMatrix[c * 4 + r] = mvp[r][c];
+		}
+	}
+	glMatrixMode( GL_PROJECTION );
+	glLoadMatrixf( glimMatrix );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
 }
 
 /*
@@ -229,12 +280,10 @@ static void RB_SimpleSurfaceSetup( const drawSurf_t *drawSurf ) {
 		backEnd.currentSpace = drawSurf->space;
 	}
 
-	// the shader pipeline ignores the fixed function matrix loads,
-	// so make sure the color program is bound for the immediate mode draws
-	renderProgManager.BindShader_Color();
-
-	// immediate mode draws never commit uniforms themselves
-	renderProgManager.CommitUniforms();
+	// immediate mode draws transform with the GLim matrix stacks, not the
+	// render program uniforms, so load the surface MVP every time; another
+	// tool may have left a different projection loaded
+	RB_ImmediateMVP( drawSurf->space->mvp );
 
 	// change the scissor if needed
 	if ( !backEnd.currentScissor.Equals( drawSurf->scissorRect ) && r_useScissor.GetBool() ) {
@@ -256,12 +305,10 @@ static void RB_SimpleWorldSetup() {
 
 	RB_SetMVP( backEnd.viewDef->worldSpace.mvp );
 
-	// the shader pipeline ignores the fixed function matrix loads,
-	// so make sure the color program is bound for the immediate mode draws
-	renderProgManager.BindShader_Color();
-
-	// immediate mode draws never commit uniforms themselves
-	renderProgManager.CommitUniforms();
+	// immediate mode draws transform with the GLim matrix stacks, not the
+	// render program uniforms, so load the world MVP every time; another
+	// tool may have left a different projection loaded
+	RB_ImmediateMVP( backEnd.viewDef->worldSpace.mvp );
 
 	GL_Scissor( backEnd.viewDef->viewport.x1 + backEnd.viewDef->scissor.x1,
 				backEnd.viewDef->viewport.y1 + backEnd.viewDef->scissor.y1,
@@ -424,73 +471,59 @@ RB_ShowOverdraw
 ==================
 */
 void RB_ShowOverdraw() {
-	const idMaterial *	material;
-	int					i;
-	drawSurf_t * *		drawSurfs;
-	const drawSurf_t *	surf;
-	int					numDrawSurfs;
-	viewLight_t *		vLight;
-
 	if ( r_showOverDraw.GetInteger() == 0 ) {
 		return;
 	}
 
-	material = declManager->FindMaterial( "textures/common/overdrawtest", false );
-	if ( material == NULL ) {
-		return;
+	const int mode = r_showOverDraw.GetInteger();
+
+	// Draw the surfaces again with additive blending instead of swapping in
+	// a debug material. The material swap rendered everything black under
+	// the shader pipeline and depended on a debug material that may not
+	// exist in the game resources. Brightness now reads as overdraw weight.
+	GL_State( GLS_DEPTHFUNC_EQUAL | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE );
+	GL_Cull( CT_TWO_SIDED );
+	renderProgManager.BindShader_Color();
+
+	if ( mode == 1 || mode == 3 ) {
+		for ( int i = 0; i < backEnd.viewDef->numDrawSurfs; i++ ) {
+			const drawSurf_t * surf = backEnd.viewDef->drawSurfs[i];
+			if ( surf == NULL || surf->numIndexes == 0 || surf->space == NULL ) {
+				continue;
+			}
+			RB_SetMVP( surf->space->mvp );
+			float c = surf->numIndexes * ( 1.0f / 2048.0f );
+			if ( c > 1.0f ) {
+				c = 1.0f;
+			}
+			GL_Color( c, c, c );
+			renderProgManager.CommitUniforms();
+			RB_DrawElementsWithCounters( surf );
+		}
 	}
 
-	drawSurfs = backEnd.viewDef->drawSurfs;
-	numDrawSurfs = backEnd.viewDef->numDrawSurfs;
-
-	int interactions = 0;
-	for ( vLight = backEnd.viewDef->viewLights; vLight; vLight = vLight->next ) {
-		for ( surf = vLight->localInteractions; surf; surf = surf->nextOnLight ) {
-			interactions++;
-		}
-		for ( surf = vLight->globalInteractions; surf; surf = surf->nextOnLight ) {
-			interactions++;
+	if ( mode >= 2 ) {
+		for ( viewLight_t * vLight = backEnd.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
+			for ( int pass = 0; pass < 2; pass++ ) {
+				const drawSurf_t * surf = pass ? vLight->globalInteractions : vLight->localInteractions;
+				for ( ; surf != NULL; surf = surf->nextOnLight ) {
+					if ( surf->numIndexes == 0 || surf->space == NULL ) {
+						continue;
+					}
+					RB_SetMVP( surf->space->mvp );
+					float c = surf->numIndexes * ( 1.0f / 2048.0f );
+					if ( c > 1.0f ) {
+						c = 1.0f;
+					}
+					GL_Color( c, c, c );
+					renderProgManager.CommitUniforms();
+					RB_DrawElementsWithCounters( surf );
+				}
+			}
 		}
 	}
 
-	// FIXME: can't frame alloc from the renderer back-end
-	drawSurf_t **newDrawSurfs = (drawSurf_t **)R_FrameAlloc( numDrawSurfs + interactions * sizeof( newDrawSurfs[0] ), FRAME_ALLOC_DRAW_SURFACE_POINTER );
-
-	for ( i = 0; i < numDrawSurfs; i++ ) {
-		surf = drawSurfs[i];
-		if ( surf->material ) {
-			const_cast<drawSurf_t *>(surf)->material = material;
-		}
-		newDrawSurfs[i] = const_cast<drawSurf_t *>(surf);
-	}
-
-	for ( vLight = backEnd.viewDef->viewLights; vLight; vLight = vLight->next ) {
-		for ( surf = vLight->localInteractions; surf; surf = surf->nextOnLight ) {
-			const_cast<drawSurf_t *>(surf)->material = material;
-			newDrawSurfs[i++] = const_cast<drawSurf_t *>(surf);
-		}
-		for ( surf = vLight->globalInteractions; surf; surf = surf->nextOnLight ) {
-			const_cast<drawSurf_t *>(surf)->material = material;
-			newDrawSurfs[i++] = const_cast<drawSurf_t *>(surf);
-		}
-		vLight->localInteractions = NULL;
-		vLight->globalInteractions = NULL;
-	}
-
-	switch( r_showOverDraw.GetInteger() ) {
-		case 1: // geometry overdraw
-			const_cast<viewDef_t *>(backEnd.viewDef)->drawSurfs = newDrawSurfs;
-			const_cast<viewDef_t *>(backEnd.viewDef)->numDrawSurfs = numDrawSurfs;
-			break;
-		case 2: // light interaction overdraw
-			const_cast<viewDef_t *>(backEnd.viewDef)->drawSurfs = &newDrawSurfs[numDrawSurfs];
-			const_cast<viewDef_t *>(backEnd.viewDef)->numDrawSurfs = interactions;
-			break;
-		case 3: // geometry + light interaction overdraw
-			const_cast<viewDef_t *>(backEnd.viewDef)->drawSurfs = newDrawSurfs;
-			const_cast<viewDef_t *>(backEnd.viewDef)->numDrawSurfs += interactions;
-			break;
-	}
+	GL_State( GLS_DEFAULT );
 }
 
 /*
@@ -901,8 +934,6 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 
 	globalImages->BindNull();
 
-	renderProgManager.BindShader_Color();
-
 	GL_Color( 1, 1, 1 );
 	GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_POLYMODE_LINE );
 	GL_Cull( CT_TWO_SIDED );
@@ -912,9 +943,9 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 
 		RB_SetMVP( vModel->mvp );
 
-		// the bounds draws below are immediate mode and never commit
-		// uniforms themselves
-		renderProgManager.CommitUniforms();
+		// the bounds draws below are immediate mode and transform with the
+		// GLim matrix stacks
+		RB_ImmediateMVP( vModel->mvp );
 
 		const idRenderEntityCommitted * edef = vModel->entityDef;
 		if ( !edef ) {
@@ -931,8 +962,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 		} else {
 			color.Set( 0, 0, 1, 1 );
 		}
-		GL_Color( color[0], color[1], color[2] );
-		renderProgManager.CommitUniforms();
+		glColor3f( color[0], color[1], color[2] );
 		RB_DrawBounds( edef->localReferenceBounds );
 
 		// transform the upper bounds corner into global space
@@ -949,8 +979,7 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 
 		// draw the actual bounds in yellow if different
 		if ( r_showViewEntitys.GetInteger() >= 3 ) {
-			GL_Color( 1, 1, 0 );
-			renderProgManager.CommitUniforms();
+			glColor3f( 1, 1, 0 );
 			// FIXME: cannot instantiate a dynamic model from the renderer back-end
 			idRenderModel *model = R_EntityDefDynamicModel( vModel->entityDef );
 			if ( !model ) {
@@ -1632,22 +1661,16 @@ static void RB_ShowLights() {
 
 	GL_State( GLS_DEFAULT );
 
-	// we use the 'vLight->invProjectMVPMatrix'
-	glMatrixMode( GL_PROJECTION );
-	glLoadIdentity(); 
-
 	globalImages->BindNull();
 
 	renderProgManager.BindShader_Color();
 
 	GL_Cull( CT_TWO_SIDED );
 
-	common->Printf( "volumes: " );	// FIXME: not in back end!
+	// the per light common->Printf this tool used to do every frame in the
+	// back end is gone, it stalled the render thread
 
-	int count = 0;
 	for ( viewLight_t * vLight = backEnd.viewDef->viewLights; vLight != NULL; vLight = vLight->next ) {
-		count++;
-
 		// depth buffered planes
 		if ( r_showLights.GetInteger() >= 2 ) {
 			GL_State( GLS_DEPTHFUNC_ALWAYS | GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA | GLS_DEPTHMASK );
@@ -1667,17 +1690,9 @@ static void RB_ShowLights() {
 			RB_SetMVP( invProjectMVPMatrix );
 			RB_DrawElementsWithCounters( &backEnd.zeroOneCubeSurface );
 		}
-
-		common->Printf( "%i ", vLight->lightDef->index );
 	}
 
-	common->Printf( " = %i total\n", count );
-
-	// set back the default projection matrix
-	glMatrixMode( GL_PROJECTION );
-	glLoadMatrixf( backEnd.viewDef->projectionMatrix );
-	glMatrixMode( GL_MODELVIEW );
-	glLoadIdentity();
+	GL_State( GLS_DEFAULT );
 }
 
 /*
@@ -2582,8 +2597,8 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		RB_SetMVP( surf->space->mvp );
 
-		// the immediate draws below never commit uniforms themselves
-		renderProgManager.CommitUniforms();
+		// the immediate draws below transform with the GLim matrix stacks
+		RB_ImmediateMVP( surf->space->mvp );
 
 		// highlight the surface
 		GL_State( GLS_SRCBLEND_SRC_ALPHA | GLS_DSTBLEND_ONE_MINUS_SRC_ALPHA );
@@ -2598,29 +2613,23 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		GL_Color( 1, 0, 0, 0.25 );
 		RB_DrawElementsWithCounters( surf );
 
-		// back to the color program for the immediate draws
-		renderProgManager.BindShader_Color();
-		renderProgManager.CommitUniforms();
-
-		// draw the bounding box
+		// the bounds and expanded triangle draws are immediate mode, their
+		// colors go through glColor
 		GL_State( GLS_DEPTHFUNC_ALWAYS );
 
-		GL_Color( 1, 1, 1, 1 );
-		renderProgManager.CommitUniforms();
+		glColor4f( 1, 1, 1, 1 );
 		RB_DrawBounds( tri->bounds );
 
 		if ( radius != 0.0f ) {
 			// draw the expanded triangles
-			GL_Color( 0.5f, 0.5f, 1.0f, 1.0f );
-			renderProgManager.CommitUniforms();
+			glColor4f( 0.5f, 0.5f, 1.0f, 1.0f );
 			RB_DrawExpandedTriangles( tri, radius, localStart );
 		}
 
 		// check the exact surfaces
 		hit = R_LocalTrace( localStart, localEnd, radius, tri );
 		if ( hit.fraction < 1.0 ) {
-			GL_Color( 1, 1, 1, 1 );
-			renderProgManager.CommitUniforms();
+			glColor4f( 1, 1, 1, 1 );
 			RB_DrawBounds( idBounds( hit.point ).Expand( 1 ) );
 		}
 	}
@@ -2650,6 +2659,7 @@ void RB_RenderDebugTools( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 				backEnd.viewDef->scissor.y2 + 1 - backEnd.viewDef->scissor.y1 );
 	backEnd.currentScissor = backEnd.viewDef->scissor;
 
+	RB_ShowOverdraw();
 	RB_ShowLightCount();
 	RB_ShowTexturePolarity( drawSurfs, numDrawSurfs );
 	RB_ShowTangentSpace( drawSurfs, numDrawSurfs );
