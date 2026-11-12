@@ -1103,7 +1103,7 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j+=3 ) {
-			idDrawVert	*a, *b, *c;
+			const idDrawVert	*a, *b, *c;
 			float		d0[5], d1[5];
 			float		area;
 
@@ -1179,7 +1179,7 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 		}
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j+=3 ) {
-			idDrawVert	*a, *b, *c;
+			const idDrawVert	*a, *b, *c;
 
 			a = verts + tri->indexes[j];
 			b = verts + tri->indexes[j+1];
@@ -2694,8 +2694,8 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		// the animated pose instead of the rest pose bounds and triangles
 		srfTriangles_t skinnedTri;
 		if ( verts != tri->verts ) {
-			skinnedTri = *tri;
-			skinnedTri.verts = verts;
+			memcpy( &skinnedTri, tri, sizeof( skinnedTri ) );
+			skinnedTri.verts = const_cast<idDrawVert *>( verts );
 			idBounds skinnedBounds;
 			skinnedBounds.Clear();
 			for ( int v = 0; v < tri->numVerts; v++ ) {
