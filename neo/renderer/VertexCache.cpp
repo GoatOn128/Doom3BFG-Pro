@@ -131,7 +131,18 @@ void idVertexCache::Shutdown() {
 		frameData[i].vertexBuffer.FreeBufferObject();
 		frameData[i].indexBuffer.FreeBufferObject();
 		frameData[i].jointBuffer.FreeBufferObject();
+		frameData[i].mappedVertexBase = NULL;
+		frameData[i].mappedIndexBase = NULL;
+		frameData[i].mappedJointBase = NULL;
 	}
+	// the static set owns buffers too, free them so a following Init()
+	// does not re-allocate over live objects (vid_restart assert)
+	staticData.vertexBuffer.FreeBufferObject();
+	staticData.indexBuffer.FreeBufferObject();
+	staticData.jointBuffer.FreeBufferObject();
+	staticData.mappedVertexBase = NULL;
+	staticData.mappedIndexBase = NULL;
+	staticData.mappedJointBase = NULL;
 }
 
 /*

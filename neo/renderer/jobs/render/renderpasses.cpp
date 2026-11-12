@@ -2259,6 +2259,22 @@ static void RB_RunOcclusionQueries() {
 
 /*
 ==================
+RB_ClearVoidColor
+
+Clear the color buffer to the void color on 3D views so unrendered
+areas show a solid color instead of the previous frame. Subviews
+render underneath the current view and must not be cleared.
+==================
+*/
+static void RB_ClearVoidColor() {
+	if ( backEnd.viewDef->isSubview || backEnd.viewDef->viewEntitys == NULL ) {
+		return;
+	}
+	GL_Clear( true, false, false, 0, 0.13f, 0.14f, 0.15f, 1.0f );
+}
+
+/*
+==================
 RB_DrawViewInternal
 ==================
 */
@@ -2310,6 +2326,9 @@ void RB_DrawViewInternal( const viewDef_t * viewDef, const int stereoEye ) {
 
 	// SWF masks use 128 as their neutral stencil value.
 	GL_Clear( false, true, true, STENCIL_BASE_VALUE, 0.0f, 0.0f, 0.0f, 0.0f );
+
+	// unrendered areas show a solid void color instead of the previous frame
+	RB_ClearVoidColor();
 
 	// normal face culling
 	GL_Cull( CT_FRONT_SIDED );
@@ -2605,8 +2624,10 @@ void RB_DrawView( const void *data, const int stereoEye ) {
 	// when a SS_POST_PROCESS material is used
 	backEnd.currentRenderCopied = false;
 
-	// if there aren't any drawsurfs, do nothing
+	// if there aren't any drawsurfs, keep the screen from showing the
+	// previous frame and do nothing else
 	if ( !backEnd.viewDef->numDrawSurfs ) {
+		RB_ClearVoidColor();
 		return;
 	}
 
