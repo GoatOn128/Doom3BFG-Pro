@@ -231,6 +231,44 @@ static void RB_ImmediateMVP( const idRenderMatrix & mvp ) {
 }
 
 /*
+====================
+RB_DebugSurfaceVerts
+
+The per vertex debug tools read frontEndGeo, which is the rest pose for
+animated models; the real pose is skinned on the GPU through the joint
+cache. For skinned surfaces return a CPU skinned copy of the verts so
+the tools follow the animated pose. Returns the rest pose verts otherwise.
+====================
+*/
+static idDrawVert * rb_debugSkinnedVerts = NULL;
+static int rb_debugSkinnedMaxVerts = 0;
+
+static const idDrawVert * RB_DebugSurfaceVerts( const drawSurf_t * drawSurf, const srfTriangles_t * tri ) {
+	if ( tri == NULL || tri->verts == NULL ) {
+		return NULL;
+	}
+	if ( drawSurf->jointCache == 0 || drawSurf->space == NULL || drawSurf->space->entityDef == NULL ) {
+		return tri->verts;
+	}
+	const renderEntity_t & parms = drawSurf->space->entityDef->parms;
+	if ( parms.joints == NULL || parms.numJoints <= 0 ) {
+		return tri->verts;
+	}
+	if ( rb_debugSkinnedMaxVerts < tri->numVerts ) {
+		if ( rb_debugSkinnedVerts != NULL ) {
+			R_StaticFree( rb_debugSkinnedVerts );
+			rb_debugSkinnedVerts = NULL;
+		}
+		rb_debugSkinnedMaxVerts = tri->numVerts;
+		rb_debugSkinnedVerts = (idDrawVert *)R_StaticAlloc( rb_debugSkinnedMaxVerts * sizeof( rb_debugSkinnedVerts[0] ), TAG_RENDER_TOOLS );
+	}
+	for ( int i = 0; i < tri->numVerts; i++ ) {
+		rb_debugSkinnedVerts[i] = idDrawVert::GetSkinnedDrawVert( tri->verts[i], parms.joints );
+	}
+	return rb_debugSkinnedVerts;
+}
+
+/*
 ================
 RB_DrawBounds
 ================
@@ -1052,7 +1090,8 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 	for ( i = 0; i < numDrawSurfs; i++ ) {
 		drawSurf = drawSurfs[i];
 		tri = drawSurf->frontEndGeo;
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 
@@ -1068,9 +1107,9 @@ static void RB_ShowTexturePolarity( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			float		d0[5], d1[5];
 			float		area;
 
-			a = tri->verts + tri->indexes[j];
-			b = tri->verts + tri->indexes[j+1];
-			c = tri->verts + tri->indexes[j+2];
+			a = verts + tri->indexes[j];
+			b = verts + tri->indexes[j+1];
+			c = verts + tri->indexes[j+2];
 
 			const idVec2 aST = a->GetTexCoord();
 			const idVec2 bST = b->GetTexCoord();
@@ -1134,16 +1173,17 @@ static void RB_ShowUnsmoothedTangents( drawSurf_t **drawSurfs, int numDrawSurfs 
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j+=3 ) {
 			idDrawVert	*a, *b, *c;
 
-			a = tri->verts + tri->indexes[j];
-			b = tri->verts + tri->indexes[j+1];
-			c = tri->verts + tri->indexes[j+2];
+			a = verts + tri->indexes[j];
+			b = verts + tri->indexes[j+1];
+			c = verts + tri->indexes[j+2];
 
 			glVertex3fv( a->xyz.ToFloatPtr() );
 			glVertex3fv( b->xyz.ToFloatPtr() );
@@ -1186,14 +1226,15 @@ static void RB_ShowTangentSpace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j++ ) {
 			const idDrawVert *v;
 
-			v = &tri->verts[tri->indexes[j]];
+			v = &verts[tri->indexes[j]];
 
 			if ( r_showTangentSpace.GetInteger() == 1 ) {
 				const idVec3 vertexTangent = v->GetTangent();
@@ -1244,14 +1285,15 @@ static void RB_ShowVertexColor( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 		glBegin( GL_TRIANGLES );
 		for ( j = 0; j < tri->numIndexes; j++ ) {
 			const idDrawVert *v;
 
-			v = &tri->verts[tri->indexes[j]];
+			v = &verts[tri->indexes[j]];
 			glColor4ubv( v->color );
 			glVertex3fv( v->xyz.ToFloatPtr() );
 		}
@@ -1305,28 +1347,29 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		RB_BindImmediateColorShader();
 
 		tri = drawSurf->frontEndGeo;
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 
 		glBegin( GL_LINES );
 		for ( j = 0; j < tri->numVerts; j++ ) {
-			const idVec3 normal = tri->verts[j].GetNormal();
-			const idVec3 tangent = tri->verts[j].GetTangent();
-			const idVec3 bitangent = tri->verts[j].GetBiTangent();
+			const idVec3 normal = verts[j].GetNormal();
+			const idVec3 tangent = verts[j].GetTangent();
+			const idVec3 bitangent = verts[j].GetBiTangent();
 			glColor3f( 0, 0, 1 );
-			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
-			VectorMA( tri->verts[j].xyz, size, normal, end );
+			glVertex3fv( verts[j].xyz.ToFloatPtr() );
+			VectorMA( verts[j].xyz, size, normal, end );
 			glVertex3fv( end.ToFloatPtr() );
 
 			glColor3f( 1, 0, 0 );
-			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
-			VectorMA( tri->verts[j].xyz, size, tangent, end );
+			glVertex3fv( verts[j].xyz.ToFloatPtr() );
+			VectorMA( verts[j].xyz, size, tangent, end );
 			glVertex3fv( end.ToFloatPtr() );
 
 			glColor3f( 0, 1, 0 );
-			glVertex3fv( tri->verts[j].xyz.ToFloatPtr() );
-			VectorMA( tri->verts[j].xyz, size, bitangent, end );
+			glVertex3fv( verts[j].xyz.ToFloatPtr() );
+			VectorMA( verts[j].xyz, size, bitangent, end );
 			glVertex3fv( end.ToFloatPtr() );
 		}
 		glEnd();
@@ -1337,20 +1380,21 @@ static void RB_ShowNormals( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		for ( i = 0; i < numDrawSurfs; i++ ) {
 			drawSurf = drawSurfs[i];
 			tri = drawSurf->frontEndGeo;
-			if ( tri == NULL || tri->verts == NULL ) {
+			const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+			if ( verts == NULL ) {
 				continue;
 			}
 			
 			for ( j = 0; j < tri->numVerts; j++ ) {
-				const idVec3 normal = tri->verts[j].GetNormal();
-				const idVec3 tangent = tri->verts[j].GetTangent();
-				R_LocalPointToGlobal( drawSurf->space->modelMatrix, tri->verts[j].xyz + tangent + normal * 0.2f, pos );
+				const idVec3 normal = verts[j].GetNormal();
+				const idVec3 tangent = verts[j].GetTangent();
+				R_LocalPointToGlobal( drawSurf->space->modelMatrix, verts[j].xyz + tangent + normal * 0.2f, pos );
 				RB_DrawText( va( "%d", j ), pos, 0.01f, colorWhite, backEnd.viewDef->renderView.viewaxis, 1 );
 			}
 
 			for ( j = 0; j < tri->numIndexes; j += 3 ) {
-				const idVec3 normal = tri->verts[ tri->indexes[ j + 0 ] ].GetNormal();
-				R_LocalPointToGlobal( drawSurf->space->modelMatrix, ( tri->verts[ tri->indexes[ j + 0 ] ].xyz + tri->verts[ tri->indexes[ j + 1 ] ].xyz + tri->verts[ tri->indexes[ j + 2 ] ].xyz ) * ( 1.0f / 3.0f ) + normal * 0.2f, pos );
+				const idVec3 normal = verts[ tri->indexes[ j + 0 ] ].GetNormal();
+				R_LocalPointToGlobal( drawSurf->space->modelMatrix, ( verts[ tri->indexes[ j + 0 ] ].xyz + verts[ tri->indexes[ j + 1 ] ].xyz + verts[ tri->indexes[ j + 2 ] ].xyz ) * ( 1.0f / 3.0f ) + normal * 0.2f, pos );
 				RB_DrawText( va( "%d", j / 3 ), pos, 0.01f, colorCyan, backEnd.viewDef->renderView.viewaxis, 1 );
 			}
 		}
@@ -1444,7 +1488,8 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		const srfTriangles_t * tri = drawSurf->frontEndGeo;
 
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 
@@ -1462,9 +1507,9 @@ static void RB_ShowTextureVectors( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 			idVec3 temp;
 			idVec3 tangents[2];
 
-			const idDrawVert *a = &tri->verts[tri->indexes[j+0]];
-			const idDrawVert *b = &tri->verts[tri->indexes[j+1]];
-			const idDrawVert *c = &tri->verts[tri->indexes[j+2]];
+			const idDrawVert *a = &verts[tri->indexes[j+0]];
+			const idDrawVert *b = &verts[tri->indexes[j+1]];
+			const idDrawVert *c = &verts[tri->indexes[j+2]];
 
 			const idPlane plane( a->xyz, b->xyz, c->xyz );
 
@@ -1549,7 +1594,8 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( verts == NULL ) {
 			continue;
 		}
 		if ( !tri->dominantTris ) {
@@ -1569,9 +1615,9 @@ static void RB_ShowDominantTris( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 			// find the midpoint of the dominant tri
 
-			a = &tri->verts[j];
-			b = &tri->verts[tri->dominantTris[j].v2];
-			c = &tri->verts[tri->dominantTris[j].v3];
+			a = &verts[j];
+			b = &verts[tri->dominantTris[j].v2];
+			c = &verts[tri->dominantTris[j].v3];
 
 			mid = ( a->xyz + b->xyz + c->xyz ) * ( 1.0f / 3.0f );
 
@@ -1609,10 +1655,10 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 
 		tri = drawSurf->frontEndGeo;
 
-		if ( tri == NULL || tri->verts == NULL ) {
+		idDrawVert *ac = (idDrawVert *)RB_DebugSurfaceVerts( drawSurf, tri );
+		if ( ac == NULL ) {
 			continue;
 		}
-		idDrawVert *ac = (idDrawVert *)tri->verts;
 
 		if ( tri->numIndexes == 0 ) {
 			continue;
@@ -2639,8 +2685,24 @@ void RB_ShowTrace( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		surf = drawSurfs[i];
 		tri = surf->frontEndGeo;
 
-		if ( tri == NULL || tri->verts == NULL ) {
+		const idDrawVert * verts = RB_DebugSurfaceVerts( surf, tri );
+		if ( verts == NULL ) {
 			continue;
+		}
+
+		// trace and highlight the CPU skinned copy so the tool follows
+		// the animated pose instead of the rest pose bounds and triangles
+		srfTriangles_t skinnedTri;
+		if ( verts != tri->verts ) {
+			skinnedTri = *tri;
+			skinnedTri.verts = verts;
+			idBounds skinnedBounds;
+			skinnedBounds.Clear();
+			for ( int v = 0; v < tri->numVerts; v++ ) {
+				skinnedBounds.AddPoint( verts[v].xyz );
+			}
+			skinnedTri.bounds = skinnedBounds;
+			tri = &skinnedTri;
 		}
 
 		// transform the points into local space
@@ -2758,5 +2820,10 @@ RB_ShutdownDebugTools
 void RB_ShutdownDebugTools() {
 	for ( int i = 0; i < MAX_DEBUG_POLYGONS; i++ ) {
 		rb_debugPolygons[i].winding.Clear();
+	}
+	if ( rb_debugSkinnedVerts != NULL ) {
+		R_StaticFree( rb_debugSkinnedVerts );
+		rb_debugSkinnedVerts = NULL;
+		rb_debugSkinnedMaxVerts = 0;
 	}
 }
