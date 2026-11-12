@@ -49,6 +49,13 @@ can read.
 Port plan if wanted: extend renderocclusion to allocate and begin queries per view entity, thread the
 result into the dim shadow caster loop. Real engine work, zero new GL requirements.
 
+Ported: the dim shadow pass issues its own samples passed query around a depth only box draw of the
+extruded volume against the main view depth (r_dimShadowUseQuery, default on, needs
+glConfig.occlusionQueryAvailable). A caster whose previous query reported no samples and whose
+extruded volume does not reach near the camera (projected depth minimum >= 0.1) is skipped for that
+frame. Results in flight or older than two frames never cull, the same freshness rule the stage 3
+entity culling uses.
+
 ## Secondary bucket (blocked on data and vertex format)
 
 TNO routes a surface to progDimShadowCreateSecondary whenever surface->stMap is non-null, a
@@ -96,6 +103,11 @@ entity hierarchy is possible but is a new feature decision, not a port.
 Ported debug filter: singleDimShadow exists as the r_dimShadowSingleModel cvar, which limits the
 dim shadow casters to exactly one entity index for debugging. renderEntity_t and viewEntity_t now
 carry groupMasterIndex for the r_showModelGroupMasters overlay and future slave chaining.
+
+Ported chaining: view entities whose groupMasterIndex points at another entity in the view render
+into that master's dim shadow target with the master's light matrix (r_dimShadowGroupSlaves,
+default on). The caster bounds are the union of the master and its slaves so one target covers the
+whole group, and a slave whose master casts no dim shadow falls back to casting its own.
 
 ## Summary of GL requirements
 

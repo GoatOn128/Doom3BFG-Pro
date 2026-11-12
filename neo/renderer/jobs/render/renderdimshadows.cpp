@@ -63,6 +63,16 @@ Alpha tested casters render their active alpha test stages with the
 textured vertex color program so the mask holes show up in the depth
 target, matching the alpha bucket of the TNO dim shadow job.
 
+Occlusion gating: every caster issues a samples passed query around a
+depth only box of its extruded volume against the main view depth. A
+caster whose previous query found no samples and whose volume stays away
+from the near plane skips its dim shadow that frame, r_dimShadowUseQuery.
+
+Group chaining: view entities whose groupMasterIndex points at another
+entity in the view render into the master dim shadow target with the
+master light matrix, r_dimShadowGroupSlaves, so one target covers the
+whole group.
+
 ================================================================================================
 */
 
@@ -81,8 +91,33 @@ idCVar r_dimShadowMaxModels( "r_dimShadowMaxModels", "8", CVAR_RENDERER | CVAR_I
 idCVar r_dimShadowMaxModelSize( "r_dimShadowMaxModelSize", "600", CVAR_RENDERER | CVAR_FLOAT, "skip casters whose bounds diagonal is larger than this", 0.0f, 100000.0f );
 idCVar r_dimShadowDepthBounds( "r_dimShadowDepthBounds", "1", CVAR_RENDERER | CVAR_BOOL, "reject dim shadow draw fragments outside the extruded bounds depth range with GL_EXT_depth_bounds_test" );
 idCVar r_dimShadowSingleModel( "r_dimShadowSingleModel", "-1", CVAR_RENDERER | CVAR_INTEGER, "debug filter: only this entity index casts a dim shadow, -1 = all", -1, 4096 );
+idCVar r_dimShadowUseQuery( "r_dimShadowUseQuery", "1", CVAR_RENDERER | CVAR_BOOL, "skip dim shadows whose extruded volume failed the occlusion query the previous frame" );
+idCVar r_dimShadowGroupSlaves( "r_dimShadowGroupSlaves", "1", CVAR_RENDERER | CVAR_BOOL, "group slaves render into their group master dim shadow instead of casting their own" );
 
 static const int MAX_DIM_SHADOW_CASTERS = 32;
+static const int MAX_DIM_SHADOW_SLAVES = 8;
+
+// per caster occlusion query slots for the dim shadow volumes, keyed by
+// entity index, the TNO modelOcclusionQuery equivalent for this pass
+struct dimShadowQuerySlot_t {
+	int				entityIndex;	// only meaningful while queryId != 0
+	unsigned int	queryId;		// GL query object, 0 = free slot
+	unsigned int	result;			// last completed sample count
+	int				queryFrame;		// frame the running query was issued
+	bool			pending;		// query issued but result not read yet
+};
+static const int MAX_DIM_SHADOW_QUERY_SLOTS = 64;
+static dimShadowQuerySlot_t dimShadowQuerySlots[MAX_DIM_SHADOW_QUERY_SLOTS];
+
+// one dim shadow caster: the master view entity plus the group slaves that
+// render into the same shadow target with the master light matrix
+struct dimShadowCaster_t {
+	const viewEntity_t *	vEntity;
+	idBounds				worldBounds;
+	idVec3					dir;
+	const viewEntity_t *	slaves[MAX_DIM_SHADOW_SLAVES];
+	int						numSlaves;
+};
 
 static idImage * dimShadowDepthImage = NULL;
 static idImage * dimShadowViewDepthImage = NULL;
@@ -109,6 +144,12 @@ void RB_ShutdownDimShadows() {
 	dimShadowDepthImage = NULL;
 	dimShadowViewDepthImage = NULL;
 	dimShadowTargetSize = 0;
+	for ( int i = 0; i < MAX_DIM_SHADOW_QUERY_SLOTS; i++ ) {
+		if ( dimShadowQuerySlots[i].queryId != 0 ) {
+			GL_DeleteQueries( 1, &dimShadowQuerySlots[i].queryId );
+		}
+	}
+	memset( dimShadowQuerySlots, 0, sizeof( dimShadowQuerySlots ) );
 }
 
 /*
@@ -332,6 +373,137 @@ static float RB_DimShadowLODDistance( const idBounds & bounds, const idVec3 & ca
 
 /*
 ==================
+RB_DimShadowQuerySlot
+
+Query slot for one caster entity, keyed by entity index. Reuses a free
+slot when the entity has none yet, evicting the stalest completed query
+when the table runs full.
+==================
+*/
+static dimShadowQuerySlot_t * RB_DimShadowQuerySlot( int entityIndex ) {
+	dimShadowQuerySlot_t * freeSlot = NULL;
+	dimShadowQuerySlot_t * oldestSlot = NULL;
+	int oldestFrame = 0x7fffffff;
+	for ( int i = 0; i < MAX_DIM_SHADOW_QUERY_SLOTS; i++ ) {
+		dimShadowQuerySlot_t & slot = dimShadowQuerySlots[i];
+		if ( slot.queryId == 0 ) {
+			if ( freeSlot == NULL ) {
+				freeSlot = &slot;
+			}
+			continue;
+		}
+		if ( slot.entityIndex == entityIndex ) {
+			return &slot;
+		}
+		if ( !slot.pending && slot.queryFrame < oldestFrame ) {
+			oldestFrame = slot.queryFrame;
+			oldestSlot = &slot;
+		}
+	}
+	dimShadowQuerySlot_t * slot = ( freeSlot != NULL ) ? freeSlot : oldestSlot;
+	if ( slot == NULL ) {
+		return NULL;
+	}
+	slot->entityIndex = entityIndex;
+	slot->queryId = 0;
+	slot->result = 0;
+	slot->queryFrame = 0;
+	slot->pending = false;
+	return slot;
+}
+
+/*
+==================
+RB_DimShadowOcclusionCulled
+
+Reads the query result when it became available without stalling, then
+applies the TNO gate: skip the caster when the last completed query of
+the extruded volume reported no samples and the query is fresh. Results
+in flight or too old never cull.
+==================
+*/
+static bool RB_DimShadowOcclusionCulled( dimShadowQuerySlot_t * slot ) {
+	if ( slot == NULL || slot->queryId == 0 ) {
+		return false;
+	}
+	if ( slot->pending && GL_QueryResultAvailable( slot->queryId ) ) {
+		GL_GetQueryObjectuiv( slot->queryId, &slot->result );
+		slot->pending = false;
+	}
+	if ( slot->pending || slot->result != 0 ) {
+		return false;
+	}
+	return ( tr.frameCount - slot->queryFrame ) <= 2;
+}
+
+/*
+==================
+RB_DimShadowRenderCasterSurfs
+
+Depth only render of one caster entity surfaces into the shared target,
+used for the master and all of its group slaves.
+==================
+*/
+static void RB_DimShadowRenderCasterSurfs( const viewEntity_t * vEntity, const idRenderMatrix & viewProjection ) {
+	for ( const drawSurf_t * surf = vEntity->drawSurfs; surf != NULL; surf = surf->nextOnLight ) {
+		if ( surf->numIndexes == 0 || surf->material == NULL || surf->frontEndGeo == NULL || surf->material->Coverage() == MC_TRANSLUCENT ) {
+			continue;
+		}
+		if ( !vertexCache.CacheIsCurrent( surf->ambientCache ) || !vertexCache.CacheIsCurrent( surf->indexCache ) ) {
+			continue;
+		}
+		idRenderMatrix mvp;
+		idRenderMatrix::Multiply( viewProjection, surf->space->modelRenderMatrix, mvp );
+		if ( idRenderMatrix::CullBoundsToMVP( mvp, surf->frontEndGeo->bounds, false ) ) {
+			continue;
+		}
+		RB_SetMVP( mvp );
+
+		// alpha tested casters punch holes into the depth target with
+		// their alpha test stages, one draw per active stage, the same
+		// pattern the Tech 5 shadow map caster pass uses. Without an
+		// active alpha stage the surface casts a solid depth shadow.
+		bool drewAlphaStage = false;
+		if ( surf->material->Coverage() == MC_PERFORATED ) {
+			const float * regs = surf->shaderRegisters;
+			for ( int stage = 0; stage < surf->material->GetNumStages(); stage++ ) {
+				const shaderStage_t * pStage = surf->material->GetStage( stage );
+				if ( !pStage->hasAlphaTest || regs[pStage->conditionRegister] == 0.0f || regs[pStage->color.registers[3]] <= 0.0f ) {
+					continue;
+				}
+				drewAlphaStage = true;
+				const idVec4 alphaTestValue( regs[pStage->alphaTestRegister] );
+				renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, alphaTestValue.ToFloatPtr() );
+				if ( surf->jointCache ) {
+					renderProgManager.BindShader_TextureVertexColorSkinned();
+				} else {
+					renderProgManager.BindShader_TextureVertexColor();
+				}
+				// keep the vertex color out of the alpha mask
+				const float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+				const float one[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+				renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_MODULATE, zero );
+				renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_ADD, one );
+				GL_SelectTexture( 0 );
+				pStage->texture.image->Bind();
+				RB_DrawElementsWithCounters( surf );
+			}
+			renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, vec4_zero.ToFloatPtr() );
+		}
+		if ( drewAlphaStage ) {
+			continue;
+		}
+		if ( surf->jointCache ) {
+			renderProgManager.BindShader_DepthSkinned();
+		} else {
+			renderProgManager.BindShader_Depth();
+		}
+		RB_DrawElementsWithCounters( surf );
+	}
+}
+
+/*
+==================
 RB_RenderDimShadows
 
 Called from RB_DrawViewInternal after the depth buffer is filled and before
@@ -373,11 +545,15 @@ void RB_RenderDimShadows() {
 
 	// collect the casters first so the view depth copy only happens when a
 	// caster is actually present
-	const viewEntity_t * casters[MAX_DIM_SHADOW_CASTERS];
-	idBounds casterBounds[MAX_DIM_SHADOW_CASTERS];
-	idVec3 casterDirs[MAX_DIM_SHADOW_CASTERS];
+	dimShadowCaster_t casters[MAX_DIM_SHADOW_CASTERS];
 	int numCasters = 0;
-	for ( const viewEntity_t * vEntity = backEnd.viewDef->viewEntitys; vEntity != NULL && numCasters < MAX_DIM_SHADOW_CASTERS; vEntity = vEntity->next ) {
+	// group slaves wait here until their master caster shows up, the TNO
+	// dimShadowModelSlaves semantics on the view entity list
+	const viewEntity_t * pendingSlaves[MAX_DIM_SHADOW_CASTERS];
+	idBounds pendingSlaveBounds[MAX_DIM_SHADOW_CASTERS];
+	idVec3 pendingSlaveDirs[MAX_DIM_SHADOW_CASTERS];
+	int numPendingSlaves = 0;
+	for ( const viewEntity_t * vEntity = backEnd.viewDef->viewEntitys; vEntity != NULL; vEntity = vEntity->next ) {
 		if ( vEntity->isGuiSurface || vEntity->weaponDepthHack ) {
 			continue;
 		}
@@ -417,20 +593,64 @@ void RB_RenderDimShadows() {
 		}
 		// per model prime light from the front end approximate lighting pass,
 		// falling back to the dominant parallel shadow light of the view
+		idVec3 casterDir;
 		if ( vEntity->primeLightWeight > 0.0f ) {
 			// TNO: models whose accumulated approximate lighting is brighter
 			// than 0.95 cast no dim shadow at all
 			if ( vEntity->primeLightWeight > 0.95f ) {
 				continue;
 			}
-			casterDirs[numCasters] = vEntity->primeLightDir;
+			casterDir = vEntity->primeLightDir;
 		} else if ( haveFallback ) {
-			casterDirs[numCasters] = fallbackDir;
+			casterDir = fallbackDir;
 		} else {
 			continue;
 		}
-		casters[numCasters] = vEntity;
-		casterBounds[numCasters] = worldBounds;
+		// attachments, weapons and held items chain to their group master
+		if ( r_dimShadowGroupSlaves.GetBool()
+				&& vEntity->groupMasterIndex != 0
+				&& vEntity->groupMasterIndex != vEntity->entityDef->index ) {
+			if ( numPendingSlaves < MAX_DIM_SHADOW_CASTERS ) {
+				pendingSlaves[numPendingSlaves] = vEntity;
+				pendingSlaveBounds[numPendingSlaves] = worldBounds;
+				pendingSlaveDirs[numPendingSlaves] = casterDir;
+				numPendingSlaves++;
+			}
+			continue;
+		}
+		if ( numCasters >= MAX_DIM_SHADOW_CASTERS ) {
+			continue;
+		}
+		casters[numCasters].vEntity = vEntity;
+		casters[numCasters].worldBounds = worldBounds;
+		casters[numCasters].dir = casterDir;
+		casters[numCasters].numSlaves = 0;
+		numCasters++;
+	}
+	// one shadow target covers the whole group: union the slave bounds into
+	// the master caster, slaves without a caster master fall back to
+	// casting their own dim shadow
+	for ( int s = 0; s < numPendingSlaves; s++ ) {
+		dimShadowCaster_t * master = NULL;
+		for ( int c = 0; c < numCasters; c++ ) {
+			if ( casters[c].vEntity->entityDef->index == pendingSlaves[s]->groupMasterIndex ) {
+				master = &casters[c];
+				break;
+			}
+		}
+		if ( master != NULL && master->numSlaves < MAX_DIM_SHADOW_SLAVES ) {
+			master->worldBounds.AddPoint( pendingSlaveBounds[s][0] );
+			master->worldBounds.AddPoint( pendingSlaveBounds[s][1] );
+			master->slaves[master->numSlaves++] = pendingSlaves[s];
+			continue;
+		}
+		if ( numCasters >= MAX_DIM_SHADOW_CASTERS ) {
+			continue;
+		}
+		casters[numCasters].vEntity = pendingSlaves[s];
+		casters[numCasters].worldBounds = pendingSlaveBounds[s];
+		casters[numCasters].dir = pendingSlaveDirs[s];
+		casters[numCasters].numSlaves = 0;
 		numCasters++;
 	}
 	if ( numCasters == 0 ) {
@@ -470,8 +690,9 @@ void RB_RenderDimShadows() {
 
 	int numRendered = 0;
 	for ( int i = 0; i < numCasters; i++ ) {
-		const viewEntity_t * vEntity = casters[i];
-		const idBounds & worldBounds = casterBounds[i];
+		const dimShadowCaster_t & caster = casters[i];
+		const viewEntity_t * vEntity = caster.vEntity;
+		const idBounds & worldBounds = caster.worldBounds;
 
 		const idVec3 boundsCenter = ( worldBounds[0] + worldBounds[1] ) * 0.5f;
 		const float dist = ( boundsCenter - backEnd.viewDef->renderView.vieworg ).Length();
@@ -498,7 +719,7 @@ void RB_RenderDimShadows() {
 		if ( r_dimShadowLixelScale.GetFloat() > 0.0f ) {
 			const idVec3 boundsRadiusVector = worldBounds[1] - boundsCenter;
 			const float boundsRadius = idMath::Sqrt( Max( boundsRadiusVector.LengthSqr(), idMath::FLT_SMALLEST_NON_DENORMAL ) );
-			const float lodDistance = RB_DimShadowLODDistance( worldBounds, backEnd.viewDef->renderView.vieworg, casterDirs[i] );
+			const float lodDistance = RB_DimShadowLODDistance( worldBounds, backEnd.viewDef->renderView.vieworg, caster.dir );
 			const idRenderMatrix & projection = backEnd.viewDef->projectionRenderMatrix;
 			const float projectedSize = ( boundsRadius * projection[0][0] - lodDistance * projection[0][2] + projection[0][3] ) /
 				( boundsRadius * projection[3][0] - lodDistance * projection[3][2] + projection[3][3] );
@@ -515,7 +736,7 @@ void RB_RenderDimShadows() {
 		const float sampleOffset = 0.5f * ( 1.0f - sampleScale );
 
 		// extrude the caster bounds along the light travel direction
-		const idVec3 extrude = casterDirs[i] * r_dimShadowExtrude.GetFloat();
+		const idVec3 extrude = caster.dir * r_dimShadowExtrude.GetFloat();
 		idBounds extrudedBounds;
 		for ( int a = 0; a < 3; a++ ) {
 			extrudedBounds[0][a] = Min( worldBounds[0][a], worldBounds[0][a] + extrude[a] ) - 1.0f;
@@ -527,7 +748,7 @@ void RB_RenderDimShadows() {
 		// the depth bounds with a plane, clamping the projected box has the
 		// same effect through the inside gate of the draw programs.
 		const float modelHeight = worldBounds[1][2] - worldBounds[0][2];
-		if ( casterDirs[i].z < 0.0f ) {
+		if ( caster.dir.z < 0.0f ) {
 			float clipZ = worldBounds[0][2] - modelHeight;
 			if ( clipZ + 1.0f > worldBounds[0][2] ) {
 				clipZ = worldBounds[0][2] - 1.0f;
@@ -546,10 +767,62 @@ void RB_RenderDimShadows() {
 			continue;
 		}
 
+		// projected depth range of the extruded bounds through the view,
+		// the same projection RB_DimShadowScreenRect uses, shared by the
+		// occlusion gate and the depth bounds test of the screen space draw
+		float extrudedZmin = 1.0f;
+		float extrudedZmax = 0.0f;
+		{
+			const idRenderMatrix & viewMvp = backEnd.viewDef->worldSpace.mvp;
+			for ( int c = 0; c < 8; c++ ) {
+				const idVec3 corner( ( c & 1 ) ? extrudedBounds[1].x : extrudedBounds[0].x,
+					( c & 2 ) ? extrudedBounds[1].y : extrudedBounds[0].y,
+					( c & 4 ) ? extrudedBounds[1].z : extrudedBounds[0].z );
+				const float cw = viewMvp[3][0] * corner.x + viewMvp[3][1] * corner.y + viewMvp[3][2] * corner.z + viewMvp[3][3];
+				const float w = ( cw >= 0.01f ) ? cw : 0.01f;
+				const float ndcZ = ( viewMvp[2][0] * corner.x + viewMvp[2][1] * corner.y + viewMvp[2][2] * corner.z + viewMvp[2][3] ) / w;
+				const float depth = ndcZ * 0.5f + 0.5f;
+				extrudedZmin = Min( extrudedZmin, depth );
+				extrudedZmax = Max( extrudedZmax, depth );
+			}
+			extrudedZmin = Max( extrudedZmin, 0.0f );
+			extrudedZmax = Min( extrudedZmax, 1.0f );
+		}
+
+		// TNO dim shadow occlusion gate: the main framebuffer with the filled
+		// view depth is still bound here, so issue a fresh samples passed
+		// query around a depth only box draw of the extruded volume and skip
+		// the caster when the previous query found nothing and the volume
+		// does not reach near the camera
+		if ( r_dimShadowUseQuery.GetBool() && glConfig.occlusionQueryAvailable ) {
+			dimShadowQuerySlot_t * querySlot = RB_DimShadowQuerySlot( vEntity->entityDef->index );
+			if ( querySlot != NULL ) {
+				if ( querySlot->queryId == 0 ) {
+					GL_GenQueries( 1, &querySlot->queryId );
+				}
+				if ( !querySlot->pending ) {
+					idRenderMatrix occlusionMVP;
+					idRenderMatrix::OffsetScaleForBounds( backEnd.viewDef->worldSpace.mvp, extrudedBounds, occlusionMVP );
+					GL_State( GLS_DEPTHFUNC_LESS | GLS_DEPTHMASK | GLS_COLORMASK | GLS_ALPHAMASK );
+					GL_Cull( CT_TWO_SIDED );
+					renderProgManager.BindShader_Depth();
+					RB_SetMVP( occlusionMVP );
+					GL_BeginQuery( QUERY_TARGET_SAMPLES_PASSED, querySlot->queryId );
+					RB_DrawElementsWithCounters( &backEnd.zeroOneCubeSurface );
+					GL_EndQuery( QUERY_TARGET_SAMPLES_PASSED );
+					querySlot->pending = true;
+					querySlot->queryFrame = tr.frameCount;
+				}
+				if ( extrudedZmin >= 0.1f && RB_DimShadowOcclusionCulled( querySlot ) ) {
+					continue;
+				}
+			}
+		}
+
 		// light space view and orthographic projection over the extruded
 		// bounds
 		idRenderMatrix lightView;
-		RB_DimShadowViewMatrix( casterDirs[i], boundsCenter, lightView );
+		RB_DimShadowViewMatrix( caster.dir, boundsCenter, lightView );
 		idBounds lightSpaceBounds;
 		lightSpaceBounds.Clear();
 		for ( int c = 0; c < 8; c++ ) {
@@ -580,89 +853,22 @@ void RB_RenderDimShadows() {
 		GL_Cull( CT_TWO_SIDED );
 		GL_ClearDepth( 1.0 );
 		GL_Clear( false, true, false, 0, 0, 0, 0, 0 );
-		for ( const drawSurf_t * surf = vEntity->drawSurfs; surf != NULL; surf = surf->nextOnLight ) {
-			if ( surf->numIndexes == 0 || surf->material == NULL || surf->frontEndGeo == NULL || surf->material->Coverage() == MC_TRANSLUCENT ) {
-				continue;
-			}
-			if ( !vertexCache.CacheIsCurrent( surf->ambientCache ) || !vertexCache.CacheIsCurrent( surf->indexCache ) ) {
-				continue;
-			}
-			idRenderMatrix mvp;
-			idRenderMatrix::Multiply( viewProjection, surf->space->modelRenderMatrix, mvp );
-			if ( idRenderMatrix::CullBoundsToMVP( mvp, surf->frontEndGeo->bounds, false ) ) {
-				continue;
-			}
-			RB_SetMVP( mvp );
-
-			// alpha tested casters punch holes into the depth target with
-			// their alpha test stages, one draw per active stage, the same
-			// pattern the Tech 5 shadow map caster pass uses. Without an
-			// active alpha stage the surface casts a solid depth shadow.
-			bool drewAlphaStage = false;
-			if ( surf->material->Coverage() == MC_PERFORATED ) {
-				const float * regs = surf->shaderRegisters;
-				for ( int stage = 0; stage < surf->material->GetNumStages(); stage++ ) {
-					const shaderStage_t * pStage = surf->material->GetStage( stage );
-					if ( !pStage->hasAlphaTest || regs[pStage->conditionRegister] == 0.0f || regs[pStage->color.registers[3]] <= 0.0f ) {
-						continue;
-					}
-					drewAlphaStage = true;
-					const idVec4 alphaTestValue( regs[pStage->alphaTestRegister] );
-					renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, alphaTestValue.ToFloatPtr() );
-					if ( surf->jointCache ) {
-						renderProgManager.BindShader_TextureVertexColorSkinned();
-					} else {
-						renderProgManager.BindShader_TextureVertexColor();
-					}
-					// keep the vertex color out of the alpha mask
-					const float zero[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-					const float one[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-					renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_MODULATE, zero );
-					renderProgManager.SetUniformValue( RENDERPARM_VERTEXCOLOR_ADD, one );
-					GL_SelectTexture( 0 );
-					pStage->texture.image->Bind();
-					RB_DrawElementsWithCounters( surf );
-				}
-				renderProgManager.SetUniformValue( RENDERPARM_ALPHA_TEST, vec4_zero.ToFloatPtr() );
-			}
-			if ( drewAlphaStage ) {
-				continue;
-			}
-			if ( surf->jointCache ) {
-				renderProgManager.BindShader_DepthSkinned();
-			} else {
-				renderProgManager.BindShader_Depth();
-			}
-			RB_DrawElementsWithCounters( surf );
+		// depth only render of the master and its group slaves into the
+		// shared target
+		RB_DimShadowRenderCasterSurfs( vEntity, viewProjection );
+		for ( int s = 0; s < caster.numSlaves; s++ ) {
+			RB_DimShadowRenderCasterSurfs( caster.slaves[s], viewProjection );
 		}
 
 		// fill rate culling around the screen space draw: reject fragments
 		// outside the extruded bounds depth range before the fragment shader
 		// runs, the same job the light depth bounds test does for the
-		// interactions. Projected depth range of the extruded bounds, the
-		// same projection RB_DimShadowScreenRect uses.
+		// interactions. The projected range was computed for the occlusion
+		// gate above.
 		bool depthBoundsEnabled = false;
-		if ( r_dimShadowDepthBounds.GetBool() && glConfig.depthBoundsTestAvailable ) {
-			const idRenderMatrix & viewMvp = backEnd.viewDef->worldSpace.mvp;
-			float zmin = 1.0f;
-			float zmax = 0.0f;
-			for ( int c = 0; c < 8; c++ ) {
-				const idVec3 corner( ( c & 1 ) ? extrudedBounds[1].x : extrudedBounds[0].x,
-					( c & 2 ) ? extrudedBounds[1].y : extrudedBounds[0].y,
-					( c & 4 ) ? extrudedBounds[1].z : extrudedBounds[0].z );
-				const float cw = viewMvp[3][0] * corner.x + viewMvp[3][1] * corner.y + viewMvp[3][2] * corner.z + viewMvp[3][3];
-				const float w = ( cw >= 0.01f ) ? cw : 0.01f;
-				const float ndcZ = ( viewMvp[2][0] * corner.x + viewMvp[2][1] * corner.y + viewMvp[2][2] * corner.z + viewMvp[2][3] ) / w;
-				const float depth = ndcZ * 0.5f + 0.5f;
-				zmin = Min( zmin, depth );
-				zmax = Max( zmax, depth );
-			}
-			zmin = Max( zmin, 0.0f );
-			zmax = Min( zmax, 1.0f );
-			if ( zmin < zmax ) {
-				GL_DepthBoundsTest( zmin, zmax );
-				depthBoundsEnabled = true;
-			}
+		if ( r_dimShadowDepthBounds.GetBool() && glConfig.depthBoundsTestAvailable && extrudedZmin < extrudedZmax ) {
+			GL_DepthBoundsTest( extrudedZmin, extrudedZmax );
+			depthBoundsEnabled = true;
 		}
 
 		// blend the shadow factor over the caster screen region, the depth
