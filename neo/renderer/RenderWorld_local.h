@@ -64,6 +64,7 @@ typedef struct portalArea_s {
 	portal_t *		portals;		// never changes after load
 	areaReference_t	entityRefs;		// head/tail of doubly linked list, may change
 	areaReference_t	lightRefs;		// head/tail of doubly linked list, may change
+	areaReference_t	approxLightRefs;	// TNO split: lights that only feed approximate lighting
 } portalArea_t;
 
 

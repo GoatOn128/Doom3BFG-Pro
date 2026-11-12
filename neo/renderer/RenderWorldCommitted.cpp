@@ -114,12 +114,12 @@ void idRenderWorldCommitted::ApproximateLightingForBounds( const idBounds & boun
 	const int numAreas = world->BoundsInAreas( bounds, areas, 128 );
 	for ( int i = 0; i < numAreas && numLights < maxLights; i++ ) {
 		const portalArea_t * area = &world->portalAreas[areas[i]];
-		for ( const areaReference_t * ref = area->lightRefs.areaNext; ref != &area->lightRefs; ref = ref->areaNext ) {
+		for ( const areaReference_t * ref = area->approxLightRefs.areaNext; ref != &area->approxLightRefs; ref = ref->areaNext ) {
 			if ( ref->light == NULL ) {
 				continue;
 			}
-			// TNO light class: dynamic only lights never feed the
-			// approximate lighting queries
+			// TNO light class routing keeps dynamic only lights out of
+			// this list, the check stays as a safety net
 			if ( ref->light->parms.lightClass == LIGHT_DYNAMIC_ONLY
 					|| ref->light->parms.lightClass == LIGHT_PRIVATE_DYNAMIC_ONLY ) {
 				continue;

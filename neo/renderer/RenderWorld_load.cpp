@@ -63,6 +63,9 @@ void idRenderWorldLocal::FreeWorld() {
 		if ( area->entityRefs.areaNext != &area->entityRefs ) {
 			common->Error( "FreeWorld: unexpected remaining entityRefs" );
 		}
+		if ( area->approxLightRefs.areaNext != &area->approxLightRefs ) {
+			common->Error( "FreeWorld: unexpected remaining approxLightRefs" );
+		}
 	}
 
 	if ( portalAreas ) {
@@ -319,6 +322,8 @@ void idRenderWorldLocal::SetupAreaRefs() {
 		portalAreas[i].lightRefs.areaPrev = &portalAreas[i].lightRefs;
 		portalAreas[i].entityRefs.areaNext =
 		portalAreas[i].entityRefs.areaPrev = &portalAreas[i].entityRefs;
+		portalAreas[i].approxLightRefs.areaNext =
+		portalAreas[i].approxLightRefs.areaPrev = &portalAreas[i].approxLightRefs;
 	}
 }
 

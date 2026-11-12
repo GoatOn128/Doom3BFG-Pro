@@ -448,6 +448,19 @@ void R_FreeLightDefDerivedData( idRenderLightCommitted *ldef ) {
 		ldef->world->areaReferenceAllocator.Free( lref );
 	}
 	ldef->references = NULL;
+
+	// free all the approximate lighting references to the light
+	for ( areaReference_t * lref = ldef->approxReferences; lref != NULL; lref = nextRef ) {
+		nextRef = lref->ownerNext;
+
+		// unlink from the area
+		lref->areaNext->areaPrev = lref->areaPrev;
+		lref->areaPrev->areaNext = lref->areaNext;
+
+		// put it back on the free list for reuse
+		ldef->world->areaReferenceAllocator.Free( lref );
+	}
+	ldef->approxReferences = NULL;
 }
 
 /*

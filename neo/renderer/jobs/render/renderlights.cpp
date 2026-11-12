@@ -118,9 +118,9 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 		}
 	}
 
-	// TNO prelight only lights never draw as view lights, they only feed
-	// the approximate lighting through the area references
-	if ( light->parms.lightClass == LIGHT_PRELIGHT_ONLY ) {
+	// TNO prelight only and private prime lights never draw as view lights,
+	// they only feed the approximate lighting through the area references
+	if ( light->parms.lightClass == LIGHT_PRELIGHT_ONLY || light->parms.lightClass == LIGHT_PRIVATE_PRIME ) {
 		return;
 	}
 
