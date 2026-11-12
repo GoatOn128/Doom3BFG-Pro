@@ -71,6 +71,7 @@ typedef struct renderEntity_s {
 	int						xrayIndex;
 	// TNO idRenderModelParms gaps. Default values keep the previous behavior
 	// of the global cvars and bounds.
+	int						groupMasterIndex;		// TNO model group master: own index for a master, 0 = not grouped
 	dimShadow_t				castDimShadows;
 	float					modelFade;				// game driven model fade, no render path consumes it yet
 	float					maxVisibleRange;		// 0 = unlimited, else the model is culled past this distance
