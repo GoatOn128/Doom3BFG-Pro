@@ -788,8 +788,8 @@ extern idCVar r_skipShadows;				// disable shadows
 
 extern idCVar r_ignoreGLErrors;
 
-extern idCVar r_screenFraction;				// for testing fill rate, the resolution of the entire screen can be changed
-extern idCVar r_renderFraction;				// fraction of the window resolution used for the 3D view, stepped by sizeUp and sizeDown
+extern idCVar r_screenFraction;				// percentage of the window rendered as a centered full resolution 3D view, quake 1 style
+extern idCVar r_renderFraction;				// fraction of the window resolution used for the 3D view, resolution scaling only
 extern idCVar r_showUnsmoothedTangents;		// highlight geometry rendered with unsmoothed tangents
 extern idCVar r_showVertexColor;			// draws all triangles with the solid vertex color
 extern idCVar r_showUpdates;				// report entity and light updates and ref counts

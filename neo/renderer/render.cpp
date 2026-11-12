@@ -376,10 +376,17 @@ void idRender::RenderScene( idRenderWorldLocal * renderWorld, idRenderWorldCommi
 
 	int windowWidth = tr.GetWidth();
 	int windowHeight = tr.GetHeight();
-	tr.PerformResolutionScaling( windowWidth, windowHeight );
-	if ( r_renderFraction.GetInteger() != 100 ) {
-		windowWidth = ( windowWidth * r_renderFraction.GetInteger() ) / 100;
-		windowHeight = ( windowHeight * r_renderFraction.GetInteger() ) / 100;
+	if ( r_screenFraction.GetInteger() != 100 ) {
+		// quake 1 style viewport shrink: full resolution pixels in a
+		// smaller centered view, the resolution systems do not apply here
+		windowWidth = ( windowWidth * r_screenFraction.GetInteger() ) / 100;
+		windowHeight = ( windowHeight * r_screenFraction.GetInteger() ) / 100;
+	} else {
+		tr.PerformResolutionScaling( windowWidth, windowHeight );
+		if ( r_renderFraction.GetInteger() != 100 ) {
+			windowWidth = ( windowWidth * r_renderFraction.GetInteger() ) / 100;
+			windowHeight = ( windowHeight * r_renderFraction.GetInteger() ) / 100;
+		}
 	}
 	tr.CropRenderSize( windowWidth, windowHeight );
 	tr.GetCroppedViewport( &parms->viewport );
@@ -387,6 +394,16 @@ void idRender::RenderScene( idRenderWorldLocal * renderWorld, idRenderWorldCommi
 	parms->scissor.y1 = 0;
 	parms->scissor.x2 = parms->viewport.x2 - parms->viewport.x1;
 	parms->scissor.y2 = parms->viewport.y2 - parms->viewport.y1;
+	if ( r_screenFraction.GetInteger() != 100 ) {
+		// center the smaller view in the window; the scissor is
+		// viewport relative and follows on its own
+		const int offX = ( tr.GetWidth() - windowWidth ) / 2;
+		const int offY = ( tr.GetHeight() - windowHeight ) / 2;
+		parms->viewport.x1 += offX;
+		parms->viewport.y1 += offY;
+		parms->viewport.x2 += offX;
+		parms->viewport.y2 += offY;
+	}
 	parms->isSubview = false;
 	parms->initialViewAreaOrigin = renderView->vieworg;
 	parms->renderWorld = renderWorld;
