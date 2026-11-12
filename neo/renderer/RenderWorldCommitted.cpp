@@ -118,6 +118,12 @@ void idRenderWorldCommitted::ApproximateLightingForBounds( const idBounds & boun
 			if ( ref->light == NULL ) {
 				continue;
 			}
+			// TNO light class: dynamic only lights never feed the
+			// approximate lighting queries
+			if ( ref->light->parms.lightClass == LIGHT_DYNAMIC_ONLY
+					|| ref->light->parms.lightClass == LIGHT_PRIVATE_DYNAMIC_ONLY ) {
+				continue;
+			}
 			bool duplicate = false;
 			for ( int j = 0; j < numLights; j++ ) {
 				if ( lights[j] == ref->light ) {

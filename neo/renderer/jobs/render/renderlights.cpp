@@ -118,6 +118,12 @@ static void R_AddSingleLight( viewLight_t * vLight ) {
 		}
 	}
 
+	// TNO prelight only lights never draw as view lights, they only feed
+	// the approximate lighting through the area references
+	if ( light->parms.lightClass == LIGHT_PRELIGHT_ONLY ) {
+		return;
+	}
+
 	// evaluate the light shader registers
 	float * lightRegs = (float *)R_FrameAlloc( lightShader->GetNumRegisters() * sizeof( float ), FRAME_ALLOC_SHADER_REGISTER );
 	lightShader->EvaluateRegisters( lightRegs, light->parms.shaderParms, viewDef->renderView.shaderParms, 
