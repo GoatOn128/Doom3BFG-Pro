@@ -2259,6 +2259,22 @@ static void RB_RunOcclusionQueries() {
 
 /*
 ==================
+RB_ClearVoidColor
+
+Clear the color buffer to the void color on 3D views so unrendered
+areas show a solid color instead of the previous frame. Subviews
+render underneath the current view and must not be cleared.
+==================
+*/
+static void RB_ClearVoidColor() {
+	if ( backEnd.viewDef->isSubview || backEnd.viewDef->viewEntitys == NULL ) {
+		return;
+	}
+	GL_Clear( true, false, false, 0, 0.13f, 0.14f, 0.15f, 1.0f );
+}
+
+/*
+==================
 RB_DrawViewInternal
 ==================
 */
@@ -2588,22 +2604,6 @@ void RB_MotionBlur() {
 
 	RB_DrawElementsWithCounters( &backEnd.unitSquareSurface );
 	GL_CheckErrors();
-}
-
-/*
-==================
-RB_ClearVoidColor
-
-Clear the color buffer to the void color on 3D views so unrendered
-areas show a solid color instead of the previous frame. Subviews
-render underneath the current view and must not be cleared.
-==================
-*/
-static void RB_ClearVoidColor() {
-	if ( backEnd.viewDef->isSubview || backEnd.viewDef->viewEntitys == NULL ) {
-		return;
-	}
-	GL_Clear( true, false, false, 0, 0.13f, 0.14f, 0.15f, 1.0f );
 }
 
 /*
