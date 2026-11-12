@@ -377,9 +377,9 @@ void idRender::RenderScene( idRenderWorldLocal * renderWorld, idRenderWorldCommi
 	int windowWidth = tr.GetWidth();
 	int windowHeight = tr.GetHeight();
 	tr.PerformResolutionScaling( windowWidth, windowHeight );
-	if ( r_screenFraction.GetInteger() != 100 ) {
-		windowWidth = ( windowWidth * r_screenFraction.GetInteger() ) / 100;
-		windowHeight = ( windowHeight * r_screenFraction.GetInteger() ) / 100;
+	if ( r_renderFraction.GetInteger() != 100 ) {
+		windowWidth = ( windowWidth * r_renderFraction.GetInteger() ) / 100;
+		windowHeight = ( windowHeight * r_renderFraction.GetInteger() ) / 100;
 	}
 	tr.CropRenderSize( windowWidth, windowHeight );
 	tr.GetCroppedViewport( &parms->viewport );
