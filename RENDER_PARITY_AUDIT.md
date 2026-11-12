@@ -61,11 +61,15 @@ Real engine work, contained, no content dependency.
    modelOcclusionQuery slot and skips the whole dim shadow when the previous frame's query was
    empty and the volume is not near the camera. The stage 3 occlusion system in this engine only
    wires world and subview models. Extend it to view entities and thread the result into the dim
-   shadow caster loop. GL 3.3 core only.
+   shadow caster loop. GL 3.3 core only. Done in the dim shadow pass itself: r_dimShadowUseQuery
+   issues a samples passed query around a depth only box of the extruded volume and skips the
+   caster when the previous result was empty and the volume stays off the near camera.
 2. Group master/slave dim shadow chaining. Attachments, weapons and held items link to their
    group master's dim shadow through groupMasterIndex and a flag, so one shadow target covers the
    whole group. Needs the group master index on viewEntity_t and slave linkage in the caster
-   collection.
+   collection. Done on the merged groupMasterIndex plumbing: r_dimShadowGroupSlaves renders group
+   slaves into their master's dim shadow target with the master's light matrix and master bounds,
+   slaves without a casting master get no dim shadow, matching the decompiled reference.
 3. Full lightClass routing. PR #40 ports the enum plus the two clean consumers (dynamic only
    lights out of the approximate lighting queries, prelight only lights out of the view). TNO
    also splits area references into draw and approximate lighting lists and routes the slowlight,
