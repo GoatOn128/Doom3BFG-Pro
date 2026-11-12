@@ -114,12 +114,26 @@ Real engine work, contained, no content dependency.
    pyramid fill in UpdatePageTables_PC stays available but the runtime feeds the module a dirty
    rectangle instead; the mappings image slot stays unused because the engine runtime has no
    mappings image.
-7. Depth prepass (renderdepth, rendersortdepth). TNO runs a dedicated depth job that the sorted
-   and post passes build on. This engine fills depth during the ambient draw. Contained but it
-   touches every draw path.
-8. Fog job parity check. TNO implements fog lights in a dedicated renderfog job. This engine
-   draws fog lights through the interaction path inherited from BFG. Verify visual parity before
-   considering a port; it may already be equivalent.
+7. Depth prepass (renderdepth, rendersortdepth). Done as a parity check: this engine already runs
+   a dedicated depth fill pass, RB_FillDepthBufferFast with the GL_StartDepthPass /
+   GL_FinishDepthPass hooks, before the occlusion queries, dim shadows, interactions and shader
+   passes, with subview guard surfaces, depth only opaque draws and deferred perforated draws.
+   That is the same front to back role the TNO renderdepth job plays before its sorted and post
+   passes; the earlier claim that this engine only fills depth during the ambient draw was wrong.
+   What remains TNO specific is architecture or blocked elsewhere: the doPreZMask scheduling that
+   splits the PreZ draw across jobified passes, rendersortdepth model range sorting and the
+   depthKey composition it feeds (front end jobification, see the note below), and the
+   progPreZSecondary, progPreZWound and progPreZAlpha program buckets, which need the stMap
+   secondary bucket, the wound system and the model fade path listed under large effort.
+8. Fog job parity check. Done as a parity check: the surviving renderfog.cpp reference is not a
+   per light fog volume pass, it draws a single fullscreen unit square with progGlobalFog, a
+   screen space global fog program whose shader and parm block contents are not among the
+   surviving extracts. This engine keeps the BFG per fog light path, RB_FogAllLights and
+   RB_FogPass: each fog light draws its interaction surfaces with fog plane texgen plus its
+   frustum bounding cube with depthfunc less, and blend lights likewise. These are different
+   techniques, not equivalent implementations, and the reference program needed for a faithful
+   port does not exist in the extracts. Keeping the engine path; revisiting this needs the
+   progGlobalFog program semantics and a runnable visual comparison.
 
 Note: the reference jobifies the whole front end (renderwalkbsp, rendercull, renderdrawsurf,
 renderstate, rendersort, setupmodelmvp, parmstate). This engine keeps the classic BFG front end
