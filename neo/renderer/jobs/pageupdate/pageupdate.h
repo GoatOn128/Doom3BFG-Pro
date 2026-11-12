@@ -66,7 +66,7 @@ struct pageImagesUpdateParms_t {
 	bool					skipPhysicalTextureUploads;
 };
 
-void CopyImageRect( byte * destination, const byte * source, int numScanlines, int byteWidth, int bytePitch );
+void CopyImageRect( byte * destination, int destinationPitch, const byte * source, int sourcePitch, int numScanlines, int byteWidth );
 void UpdatePageMappings_PC( const pageImagesUpdateParms_t * parms );
 void UpdatePageTables_PC( const pageImagesUpdateParms_t * parms );
 void UpdatePageImagesJob( const pageImagesUpdateParms_t * parms );

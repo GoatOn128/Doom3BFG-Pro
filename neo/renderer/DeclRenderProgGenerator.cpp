@@ -400,6 +400,10 @@ attribInfo_t attribsPC[] = {
 	{ "half4", "htexcoord7", "TEXCOORD7", "vofi_TexCoord7", 0, AT_PS_IN, 0 },
 	{ "half4", "htexcoord8", "TEXCOORD8", "vofi_TexCoord8", 0, AT_PS_IN, 0 },
 	{ "half4", "htexcoord9", "TEXCOORD9", "vofi_TexCoord9", 0, AT_PS_IN, 0 },
+	// model space position varying used by the self shadow programs; it
+	// shares the TEXCOORD0 slot, so the plain texcoord rows must stay
+	// ahead of it and keep resolving first
+	{ "float3", "modelPos", "TEXCOORD0", "vofi_TexCoord0", 0, AT_VS_OUT | AT_PS_IN, 0 },
 	{ "float", "fog", "FOG", "vofi_Fog", 0, AT_VS_OUT, 0 },
 	{ "float4", "fog", "FOG", "vofi_Fog", 0, AT_PS_IN, 0 },
 	{ nullptr, nullptr, nullptr, nullptr, 0, 0, 0 },
