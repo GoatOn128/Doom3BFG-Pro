@@ -2703,5 +2703,3 @@ void RB_ShutdownDebugTools() {
 		rb_debugPolygons[i].winding.Clear();
 	}
 }
-
-<<<END>>>
