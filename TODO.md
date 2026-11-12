@@ -1,157 +1,151 @@
-# TODO: Remaining TNO dim shadow features
+# Render parity audit: Darklight vs Wolfenstein: The New Order tech5
 
-Status of the Wolfenstein: The New Order dim shadow features that are not yet ported to Darklight.
-Stages 1 through 11 are merged and verified. Everything below is documented as a gap with rationale,
-not as scheduled work. Reference code lives under references/wolftno/ (do not copy, GPL).
+Baseline: main at 2c1c9b32, with PR #39 (debug tool skinning fix) and PR #40 (committed model
+and light parms) pending CI. This audit compares the engine renderer (neo/renderer) against the
+reference of record under references/wolftno/src/engine/renderer. The reference is decompiled
+retail code and GPL incompatible; it was used for semantics and feature inventory only, nothing
+was copied from it.
 
-The engine baseline is OpenGL 3.3 core (checked in R_CheckPortableExtensions, neo/renderer/RenderSystem_init.cpp).
-The TNO dim shadow shaders are #version 150, so no remaining item needs a higher GL version than the
-engine already requires. The gaps are one extension, plus data and engine architecture.
+## Already ported and merged
 
-## Depth bounds test (portable, optional optimization)
+- renderprog architecture: DeclRenderProg, DeclRenderProgGenerator, render parm decls
+  (RenderProgParm), ParmBlock, GL upload in gl_declrenderprog_ogl_pc.cpp.
+- OpenGL 3.3 core via glad 2.0.8, GraphicsAPIWrapper abstraction, render destinations.
+- Shadow buffer split (rendershadowbuffer.cpp/.h) with caster sorting, facing options, per light
+  polygon offsets and suppressShadowInViewID.
+- TNO global shadows: shadowmapcpu plus the .globalShadows2.bin loader, 4-slice parallel cascade,
+  shadow buffer split and build fixes.
+- TNO approximate lighting: per model prime light accumulation, approximateLighting_t, the
+  committed world (idRenderWorldCommitted) with ApproximateLightingForBounds and
+  ApproximateAmbientForBounds query APIs, and the committed debug layer
+  (r_showDynamicLighting, r_showAmbientLighting).
+- TNO ambient lighting: ambientmapcpu plus the .ambient loader with layout static_asserts.
+- TNO dim shadows stages 1 through 11: per model dim shadows from the prime light, lixel
+  resolution, alpha tested caster buckets, mid and high quality dithered PCF draws, clip plane
+  fade, occlusion gating for world and subview models.
+- Self shadows (renderselfshadows.cpp).
+- GPU occlusion culling of world models (occlusionQueryState).
+- Virtual textures: virtualtexturesystem, virtualmaterialatlas, preloader, encoder, plus the
+  pageminlod, pagesort and transcode jobs.
+- Debug tools rounds 1 through 5: immediate mode tools on the shader pipeline, per vertex tools
+  that follow the animated pose via CPU skinning, committed lighting debug draws.
+- Resolution scale and the quake style viewport shrink with centering.
+- renderdeform and tr_trace operating on the committed pose.
+- Easy ports batch: dim shadow depth bounds test, r_dimShadowSingleModel filter, the
+  r_showPVS / r_showRuler / r_showModelGroupMasters / r_showVmtrChannel / r_drawLoadedImages
+  overlays, and r_captureFrames frame capture.
 
-TNO calls GL_DepthBoundsTest(depthMinimum, depthMaximum) twice per model in renderdimshadows.cpp,
-around the occlusion query draw and around the final screen-space sample draw. The min/max comes from
-idRenderMatrix::DepthBoundsForExtrudedBounds over the extruded reference bounds and the clip plane.
-Purpose is fill-rate culling: fragments outside the model's extruded depth range are rejected before
-the fragment shader runs.
+## Easy ports (implemented)
 
-GL requirement: GL_EXT_depth_bounds_test. Never promoted to core desktop OpenGL in any version.
-Core in Vulkan 1.0, available in D3D11.1, but in GL it is extension or nothing.
+Small, self-contained, no new GL requirements, no data or content dependency. All four are done.
 
-Current state: Darklight already probes the extension into glConfig.depthBoundsTestAvailable and uses
-it for lights via r_useLightDepthBounds. The stage 10 inside gate on shadowCoord.z rejects the same
-fragments in-shader, functionally equivalent but it pays the fragment shader cost first.
+1. Depth bounds test around the two dim shadow draws. GL_EXT_depth_bounds_test is already probed
+   into glConfig.depthBoundsTestAvailable and used for lights. Wrap the occlusion query draw and
+   the screen space sample draw with GL_DepthBoundsTest using the stage 10 extruded bounds. Fill
+   rate culling only, correctness neutral. Done as r_dimShadowDepthBounds around the screen space
+   sample draw of each caster.
+2. singleDimShadow debug filter. TNO's settings field filters the dim shadow casters to exactly
+   one model for debugging. Done as the r_dimShadowSingleModel cvar on the caster index in
+   RB_RenderDimShadows. The master/slave chaining around it is a separate, larger item.
+3. Committed debug overlays from the reference tool set: r_showPVS, r_showRuler,
+   r_showModelGroupMasters, r_showVmtrChannel, r_drawLoadedImages. Done in gl_RenderDebug.cpp;
+   r_showModelGroupMasters reads the new renderEntity_t::groupMasterIndex.
+4. Frame capture (rendercapture). A readback plus file write of the current framebuffer. Done as
+   the r_captureFrames cvar in the back end, one numbered TGA per executed frame.
 
-Ported: r_dimShadowDepthBounds wraps the screen space sample draw of each dim shadow caster
-with GL_DepthBoundsTest over the projected extruded bounds, gated on
-glConfig.depthBoundsTestAvailable. The occlusion query draw renders into the caster's own
-sub-viewport where depth bounds are meaningless, so only the sample draw is wrapped.
+## Lacking: medium effort
 
-Port plan if wanted: add a cvar similar to r_useLightDepthBounds, guard on
-glConfig.depthBoundsTestAvailable, wrap the two existing dim shadow draws with GL_DepthBoundsTest
-using the stage 10 extruded bounds. Small, self-contained, correctness-neutral.
+Real engine work, contained, no content dependency.
 
-## Per-view-entity occlusion gating (portable, engine work)
+1. Per-view-entity occlusion gating for dim shadows. TNO gives every committed model a
+   modelOcclusionQuery slot and skips the whole dim shadow when the previous frame's query was
+   empty and the volume is not near the camera. The stage 3 occlusion system in this engine only
+   wires world and subview models. Extend it to view entities and thread the result into the dim
+   shadow caster loop. GL 3.3 core only. Done in the dim shadow pass itself: r_dimShadowUseQuery
+   issues a samples passed query around a depth only box of the extruded volume and skips the
+   caster when the previous result was empty and the volume stays off the near camera.
+2. Group master/slave dim shadow chaining. Attachments, weapons and held items link to their
+   group master's dim shadow through groupMasterIndex and a flag, so one shadow target covers the
+   whole group. Needs the group master index on viewEntity_t and slave linkage in the caster
+   collection. Done on the merged groupMasterIndex plumbing: r_dimShadowGroupSlaves renders group
+   slaves into their master's dim shadow target with the master's light matrix and unioned bounds.
+3. Full lightClass routing. PR #40 ports the enum plus the two clean consumers (dynamic only
+   lights out of the approximate lighting queries, prelight only lights out of the view). TNO
+   also splits area references into draw and approximate lighting lists and routes the slowlight,
+   private prime and blended only classes through them. Faithful routing means restructuring the
+   committed area reference lists.
+4. modelDepthSort. TNO's per model depth sort enum (portal inside and plane, view head and body,
+   scene, after world, sky, transparent) drives the sort pipeline. This engine sorts by material
+   sort values; per model overrides touch the draw surf sort and the sort pass.
+5. Per model viewport. TNO's idRenderModelParms carries an idScreenRect viewport per model. This
+   engine has per view and per light scissors; per model scissoring touches
+   R_LinkDrawSurfToView and the back end scissor state.
+6. Virtual texture pageupdate job. The engine has pageminlod, pagesort and transcode but not
+   TNO's pageupdate scheduling; residency updates currently go through the preloader path.
+7. Depth prepass (renderdepth, rendersortdepth). TNO runs a dedicated depth job that the sorted
+   and post passes build on. This engine fills depth during the ambient draw. Contained but it
+   touches every draw path.
+8. Fog job parity check. TNO implements fog lights in a dedicated renderfog job. This engine
+   draws fog lights through the interaction path inherited from BFG. Verify visual parity before
+   considering a port; it may already be equivalent.
 
-TNO gives every committed render model a modelOcclusionQuery slot in occlusionState_t. The job reads
-GL_GetDeferredQueryResult for the previous frame's query, begins a fresh query around a debug-box draw
-of the extrude volume, and skips the whole dim shadow when queryResult <= 0 and the volume is not near
-the camera (depthMinimum >= 0.1), unless dimShadowUseQuery is off or the model has flag 0x40.
+Note: the reference jobifies the whole front end (renderwalkbsp, rendercull, renderdrawsurf,
+renderstate, rendersort, setupmodelmvp, parmstate). This engine keeps the classic BFG front end
+with the committed world boundary. That is architecture, not a missing feature, and is not worth
+porting unless full jobification becomes a goal.
 
-GL requirement: none beyond GL 3.3 core. Occlusion queries are core since GL 1.5, conditional
-rendering since GL 3.0.
+## Lacking: large effort or blocked on data, content or game systems
 
-Current state: Darklight's stage 3 occlusion system wires query slots for world and subview models
-only. View entities (idRenderEntityLocal side) have no per-entity query result the dim shadow pass
-can read.
+1. Model fade render path. modelFade and fadeVisibilityOver are stored as of PR #40. TNO fades
+   models through a dedicated material coverage path plus shader support this engine lacks. Both
+   the gradual distance fade and game driven fades need it.
+2. Highlight render pass. highlightColor is stored as of PR #40. TNO draws highlighted items
+   through the highlightColor and highlightScale renderparms in a dedicated pass. New pass plus
+   game plumbing.
+3. Dim shadow secondary bucket. Needs a second UV channel in idDrawVert, model compiler and asset
+   toolchain changes, transmap content, and the 5-tap tex2DGrad blur program. Blocked on data,
+   not code.
+4. Dim shadow wound bucket. Needs a wound gameplay system first (per joint wound spheres, wound
+   textures). The shader port itself is trivial once the data exists. Out of scope for a renderer
+   port.
+5. Post process stack. The reference has renderpostprocess, setupcolorgrading,
+   renderdynamiccolorcorrection, renderglare, rendergodrays and renderhazeflare, driven by
+   renderparms for exposure, radialBlurCenter, globalBlur, doubleVision, the dof family,
+   brightnessScale and the fog family. This engine has only the resolution scale post pass and
+   motion blur. Each effect is a screen space pass with its own renderparms; the stack is the
+   single largest remaining block of renderer work and should be staged effect by effect.
+6. Screen space reflections (renderscreenspacereflections). Needs depth and normal buffers plus
+   the reflection pass. Large.
+7. Dynamic environment rendering (renderdynamicenv). TNO updates environment probes dynamically.
+   This engine has no environment probe system. Large.
+8. Skin blending and wrinkles (useSkinBlending, wrinkleScale, wrinkleFactor0-3). Character
+   material systems tied to the animation pipeline. Large.
+9. Bink video overlays (ingamevideo, rendervideooverlay, videotranscode job). The engine plays
+   RoQ cinematics through Cinematic.cpp. Bink adds a licensed codec plus the overlay model.
+   Probably skip.
+10. Texture atlas streaming (idAtlasResource). TNO streams atlas pages as resources. The virtual
+    texture system covers the main use case; the atlas resource layer is separate infrastructure.
+11. Fracture decals (the rp_fracture renderparm family). TNO's destructible fracture system.
+    Needs the game system first.
+12. Imposters (imposterParent, imposterNext in idRenderModelParms). A new model representation
+    for distant LOD. Large, low priority.
+13. maxTexelDensity. Per model texture density scaling tied to the virtual texture system.
+    Medium-large, VT integration.
+14. Offline compiler tools. The .ambient octree compiler and the .globalShadows2.bin depth
+    renderer. Both loaders are ported; the tools are standalone programs. Tool-side effort, not
+    renderer-side.
 
-Port plan if wanted: extend renderocclusion to allocate and begin queries per view entity, thread the
-result into the dim shadow caster loop. Real engine work, zero new GL requirements.
+## GL requirements
 
-Ported: the dim shadow pass issues its own samples passed query around a depth only box draw of the
-extruded volume against the main view depth (r_dimShadowUseQuery, default on, needs
-glConfig.occlusionQueryAvailable). A caster whose previous query reported no samples and whose
-extruded volume does not reach near the camera (projected depth minimum >= 0.1) is skipped for that
-frame. Results in flight or older than two frames never cull, the same freshness rule the stage 3
-entity culling uses.
+Everything above fits the GL 3.3 core floor except the optional depth bounds test
+(GL_EXT_depth_bounds_test, already probed; in GL it is extension or nothing). No item requires a
+GL upgrade.
 
-## Secondary bucket (blocked on data and vertex format)
+## Suggested order
 
-TNO routes a surface to progDimShadowCreateSecondary whenever surface->stMap is non-null, a
-per-surface second UV-mapped texture (the transition map used for decals and blending). The vertex
-shader pipes in_TexCoord1, a second UV channel, into the fragment stage. The fragment shader does a
-5-tap tex2DGrad blur on samp_transmap1 using dFdx/dFdy gradients of that second UV, averages, then
-clip(coverage.w - 0.3) so low-coverage texels punch holes in the shadow.
-
-Blocked because: idDrawVert has exactly one texCoord set and the BFG asset pipeline emits no transmap.
-The bucket would always be empty here.
-
-Port plan if ever wanted: add a second UV channel to the vertex format, the model compiler, and the
-asset toolchain, then author transition map content. That is new content infrastructure, not a
-renderer port.
-
-## Wound bucket (blocked on a missing gameplay system)
-
-TNO routes a surface to progDimShadowCreateWound when the model has flag 0x04 on r.flags2 and the
-material has flag 0x04 on flags1. The vertex shader evaluates ten wound spheres (parms 9 through 18,
-xyz center, w scale, per-vertex distance length((center - pos) * scale) - 1) plus one ellipsoid
-(parms 19 through 21 forming an inverse ellipsoid matrix), takes the minimum into vofi_TexCoord6.w.
-The fragment shader samples samp_woundtexture and clips on texCoord6.w + (woundMap.w - 0.5) * 0.1.
-The TNO wound decal systems populate those parms per joint.
-
-Blocked because: Darklight has no wound representation at all. There is no source for the parms or
-the texture.
-
-Port plan if ever wanted: design a wound feature first (parms population, wound textures, per-joint
-data), then the shader port itself is trivial. Out of scope for a renderer port.
-
-## Group master/slave chaining and singleDimShadow (blocked on structure)
-
-TNO builds a linked list in dimShadowModelSlaves: entities with a groupMasterIndex and flag 0x10 on
-flags4 (attachments, weapons, held items) walk up the master chain and link themselves to the master's
-dim shadow, so the caster render loop walks committedRenderModels and renders all slaves under one
-shadow target with the master's light matrix. singleDimShadow is a settings field that filters to
-exactly one model index for debugging.
-
-Blocked because: viewEntity_t has no groupMasterIndex or slave linkage, and the dim shadow caster
-collection is per view entity with no committed-model indirection.
-
-Port plan if ever wanted: an approximation where attachments inherit their owner's dim shadow via the
-entity hierarchy is possible but is a new feature decision, not a port.
-
-Ported debug filter: singleDimShadow exists as the r_dimShadowSingleModel cvar, which limits the
-dim shadow casters to exactly one entity index for debugging. renderEntity_t and viewEntity_t now
-carry groupMasterIndex for the r_showModelGroupMasters overlay and future slave chaining.
-
-Ported chaining: view entities whose groupMasterIndex points at another entity in the view render
-into that master's dim shadow target with the master's light matrix (r_dimShadowGroupSlaves,
-default on). The caster bounds are the union of the master and its slaves so one target covers the
-whole group, and a slave whose master casts no dim shadow falls back to casting its own.
-
-## Summary of GL requirements
-
-- Depth bounds test: GL 3.3 plus GL_EXT_depth_bounds_test (already probed, optional to wire).
-- Occlusion gating: GL 3.3 core only, pure engine work.
-- Secondary bucket, wound bucket, master/slave chaining, singleDimShadow: no GL requirement at all,
-  blocked by vertex data, asset content, and engine structure respectively.
-
-Nothing left requires an OpenGL upgrade. The 3.3 floor is sufficient for everything TNO's dim
-shadows do.
-
-## Offline lighting tools
-
-The engine consumes two offline produced lighting files that Tech5 shipped with standalone
-compiler tools. The engine side of both loaders is ported; the compiler tools are not.
-
-- .ambient: the ambient lighting octree loaded by idAmbientLighting::LoadAmbientLighting
-  (<map>.ambient, magic 0x21155701, big endian header, nodes and samples, layout checked by
-  static_asserts in ambientmapcpu.h). Needs a tool that samples ambient lighting per grid cell
-  over the map and writes the octree.
-- .globalShadows2.bin: the global shadow depth map loaded by idGlobalShadows::LoadGlobalShadows
-  (<map>.globalShadows2.bin, 64 byte light matrix plus 1024x1024 16 bit depth). Needs a tool
-  that renders the map's static geometry from the sun into that depth map.
-
-## Committed model and light parms gaps
-
-TNO's idRenderModelParms carries per model fields this engine's renderEntity_t does not have:
-castDimShadows quality selection, modelFade, maxVisibleRange, fadeVisibilityOver, highlightColor,
-and localLightPositionOverride. The dim shadow and approximate lighting passes gate on cvars and
-bounds instead. Porting these means adding fields to renderEntity_t plus game side plumbing.
-
-Ported: renderEntity_t now carries castDimShadows (DIMSHADOW_DEFAULT keeps the old cvar driven
-behavior), modelFade, maxVisibleRange, fadeVisibilityOver, highlightColor and
-localLightPositionOverride, and renderLight_t carries lightClass, maxVisibleRange and
-fadeVisibilityOver. Wired so far: castDimShadows gates and quality selects the dim shadow casters,
-maxVisibleRange and fadeVisibilityOver hard cull models and lights past their range in the portal
-walk, localLightPositionOverride moves the committed lighting sample point, lightClass keeps
-dynamic only lights out of the approximate lighting queries and prelight only lights out of the
-view. The gradual model fade and the highlight render path do not exist yet, so modelFade and
-highlightColor are stored for game plumbing until those paths are ported.
-
-The game facing approximate lighting query APIs exist now (idRenderWorld::
-ApproximateLightingForBounds and ApproximateAmbientForBounds, implemented on the committed world),
-so model code that Tech5 lights through approximateLighting_t (glass, transparency, tools) has a
-direct integration point. The committed debug layer (r_showDynamicLighting,
-r_showDynamicLightingSingleModel, r_showAmbientLighting) replaces TNO's ShowApproximateLighting
-and finally wires idAmbientLighting::DebugDrawAmbientLightingSamples into the debug tools.
+1. Easy list: depth bounds test, singleDimShadow, the debug overlays, frame capture.
+2. Medium list by value: per-view-entity occlusion gating, group master/slave dim shadow
+   chaining, full lightClass routing, then modelDepthSort, per model viewport, pageupdate,
+   depth prepass.
+3. Large list only on demand: the post process stack staged effect by effect is the biggest
+   block; everything else is blocked on data, content or game systems and should wait for those.

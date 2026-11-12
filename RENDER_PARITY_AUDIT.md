@@ -68,7 +68,8 @@ Real engine work, contained, no content dependency.
    group master's dim shadow through groupMasterIndex and a flag, so one shadow target covers the
    whole group. Needs the group master index on viewEntity_t and slave linkage in the caster
    collection. Done on the merged groupMasterIndex plumbing: r_dimShadowGroupSlaves renders group
-   slaves into their master's dim shadow target with the master's light matrix and unioned bounds.
+   slaves into their master's dim shadow target with the master's light matrix and master bounds,
+   slaves without a casting master get no dim shadow, matching the decompiled reference.
 3. Full lightClass routing. PR #40 ports the enum plus the two clean consumers (dynamic only
    lights out of the approximate lighting queries, prelight only lights out of the view). TNO
    also splits area references into draw and approximate lighting lists and routes the slowlight,

@@ -70,8 +70,9 @@ from the near plane skips its dim shadow that frame, r_dimShadowUseQuery.
 
 Group chaining: view entities whose groupMasterIndex points at another
 entity in the view render into the master dim shadow target with the
-master light matrix, r_dimShadowGroupSlaves, so one target covers the
-whole group.
+master light matrix and master bounds, r_dimShadowGroupSlaves, so one
+target covers the whole group. Slaves never cast their own dim shadow,
+matching the TNO dimShadowModelSlaves semantics.
 
 ================================================================================================
 */
@@ -550,8 +551,6 @@ void RB_RenderDimShadows() {
 	// group slaves wait here until their master caster shows up, the TNO
 	// dimShadowModelSlaves semantics on the view entity list
 	const viewEntity_t * pendingSlaves[MAX_DIM_SHADOW_CASTERS];
-	idBounds pendingSlaveBounds[MAX_DIM_SHADOW_CASTERS];
-	idVec3 pendingSlaveDirs[MAX_DIM_SHADOW_CASTERS];
 	int numPendingSlaves = 0;
 	for ( const viewEntity_t * vEntity = backEnd.viewDef->viewEntitys; vEntity != NULL; vEntity = vEntity->next ) {
 		if ( vEntity->isGuiSurface || vEntity->weaponDepthHack ) {
@@ -593,6 +592,17 @@ void RB_RenderDimShadows() {
 		}
 		// per model prime light from the front end approximate lighting pass,
 		// falling back to the dominant parallel shadow light of the view
+		// attachments, weapons and held items chain to their group master
+		// before the prime light gates, the TNO slave linkage runs on the
+		// dim shadow model list before the lighting checks
+		if ( r_dimShadowGroupSlaves.GetBool()
+				&& vEntity->groupMasterIndex != 0
+				&& vEntity->groupMasterIndex != vEntity->entityDef->index ) {
+			if ( numPendingSlaves < MAX_DIM_SHADOW_CASTERS ) {
+				pendingSlaves[numPendingSlaves++] = vEntity;
+			}
+			continue;
+		}
 		idVec3 casterDir;
 		if ( vEntity->primeLightWeight > 0.0f ) {
 			// TNO: models whose accumulated approximate lighting is brighter
@@ -606,18 +616,6 @@ void RB_RenderDimShadows() {
 		} else {
 			continue;
 		}
-		// attachments, weapons and held items chain to their group master
-		if ( r_dimShadowGroupSlaves.GetBool()
-				&& vEntity->groupMasterIndex != 0
-				&& vEntity->groupMasterIndex != vEntity->entityDef->index ) {
-			if ( numPendingSlaves < MAX_DIM_SHADOW_CASTERS ) {
-				pendingSlaves[numPendingSlaves] = vEntity;
-				pendingSlaveBounds[numPendingSlaves] = worldBounds;
-				pendingSlaveDirs[numPendingSlaves] = casterDir;
-				numPendingSlaves++;
-			}
-			continue;
-		}
 		if ( numCasters >= MAX_DIM_SHADOW_CASTERS ) {
 			continue;
 		}
@@ -627,31 +625,39 @@ void RB_RenderDimShadows() {
 		casters[numCasters].numSlaves = 0;
 		numCasters++;
 	}
-	// one shadow target covers the whole group: union the slave bounds into
-	// the master caster, slaves without a caster master fall back to
-	// casting their own dim shadow
+	// resolve the slave chains against the collected casters: walk up the
+	// group master chain like TNO, then link the slave to the top master
+	// caster. A slave whose master casts no dim shadow gets none either,
+	// matching the TNO dimShadowModelSlaves semantics.
 	for ( int s = 0; s < numPendingSlaves; s++ ) {
-		dimShadowCaster_t * master = NULL;
+		int masterIndex = pendingSlaves[s]->groupMasterIndex;
+		const viewEntity_t * masterEntity = NULL;
+		for ( int hop = 0; hop < 8; hop++ ) {
+			masterEntity = NULL;
+			for ( const viewEntity_t * ve = backEnd.viewDef->viewEntitys; ve != NULL; ve = ve->next ) {
+				if ( ve->entityDef != NULL && ve->entityDef->index == masterIndex ) {
+					masterEntity = ve;
+					break;
+				}
+			}
+			if ( masterEntity == NULL ) {
+				break;
+			}
+			const int next = masterEntity->groupMasterIndex;
+			if ( next == 0 || next == masterEntity->entityDef->index ) {
+				break;
+			}
+			masterIndex = next;
+		}
+		if ( masterEntity == NULL ) {
+			continue;
+		}
 		for ( int c = 0; c < numCasters; c++ ) {
-			if ( casters[c].vEntity->entityDef->index == pendingSlaves[s]->groupMasterIndex ) {
-				master = &casters[c];
+			if ( casters[c].vEntity->entityDef->index == masterIndex && casters[c].numSlaves < MAX_DIM_SHADOW_SLAVES ) {
+				casters[c].slaves[casters[c].numSlaves++] = pendingSlaves[s];
 				break;
 			}
 		}
-		if ( master != NULL && master->numSlaves < MAX_DIM_SHADOW_SLAVES ) {
-			master->worldBounds.AddPoint( pendingSlaveBounds[s][0] );
-			master->worldBounds.AddPoint( pendingSlaveBounds[s][1] );
-			master->slaves[master->numSlaves++] = pendingSlaves[s];
-			continue;
-		}
-		if ( numCasters >= MAX_DIM_SHADOW_CASTERS ) {
-			continue;
-		}
-		casters[numCasters].vEntity = pendingSlaves[s];
-		casters[numCasters].worldBounds = pendingSlaveBounds[s];
-		casters[numCasters].dir = pendingSlaveDirs[s];
-		casters[numCasters].numSlaves = 0;
-		numCasters++;
 	}
 	if ( numCasters == 0 ) {
 		return;
