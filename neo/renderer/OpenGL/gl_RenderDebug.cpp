@@ -335,6 +335,9 @@ void RB_PolygonClear() {
 						0.0f, 0.0f, 0.1f, 0.0f,
 						0.0f, 0.0f, 0.0f, 1.0f );
 	RB_SetMVP( mvp );
+	// the glBegin path transforms with the GLim matrix stacks, so load
+	// the ortho there too or the polygon lands outside clip space
+	RB_ImmediateMVP( mvp );
 	renderProgManager.BindShader_Color();
 
 	// the callers set rpColor through GL_Color right before this, and
@@ -380,8 +383,14 @@ void RB_ScanStencilBuffer() {
 
 	memset( counts, 0, sizeof( counts ) );
 
+	// the pixel pack buffer may still be bound from regular rendering, and
+	// the default 4 byte pack alignment would run past the tightly sized
+	// buffer when the width is not a multiple of 4
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
+	glPixelStorei( GL_PACK_ALIGNMENT, 1 );
 	stencilReadback = (byte *)R_StaticAlloc( renderSystem->GetWidth() * renderSystem->GetHeight(), TAG_RENDER_TOOLS );
 	glReadPixels( 0, 0, renderSystem->GetWidth(), renderSystem->GetHeight(), GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, stencilReadback );
+	glPixelStorei( GL_PACK_ALIGNMENT, 4 );
 
 	for ( i = 0; i < renderSystem->GetWidth() * renderSystem->GetHeight(); i++ ) {
 		counts[ stencilReadback[i] ]++;
@@ -412,8 +421,14 @@ static void RB_CountStencilBuffer() {
 	byte	*stencilReadback;
 
 
+	// the pixel pack buffer may still be bound from regular rendering, and
+	// the default 4 byte pack alignment would run past the tightly sized
+	// buffer when the width is not a multiple of 4
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
+	glPixelStorei( GL_PACK_ALIGNMENT, 1 );
 	stencilReadback = (byte *)R_StaticAlloc( renderSystem->GetWidth() * renderSystem->GetHeight(), TAG_RENDER_TOOLS );
 	glReadPixels( 0, 0, renderSystem->GetWidth(), renderSystem->GetHeight(), GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, stencilReadback );
+	glPixelStorei( GL_PACK_ALIGNMENT, 4 );
 
 	count = 0;
 	for ( i = 0; i < renderSystem->GetWidth() * renderSystem->GetHeight(); i++ ) {
@@ -483,7 +498,13 @@ void RB_ShowOverdraw() {
 	// exist in the game resources. Brightness now reads as overdraw weight.
 	GL_State( GLS_DEPTHFUNC_EQUAL | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE );
 	GL_Cull( CT_TWO_SIDED );
-	renderProgManager.BindShader_Color();
+
+	// the plain color program fails the joint verify on skinned surfaces,
+	// so the program is switched per surface below; the white texture and
+	// SVC_IGNORE parms make both programs output solid rpColor
+	GL_SelectTexture( 0 );
+	globalImages->whiteImage->Bind();
+	RB_SetVertexColorParms( SVC_IGNORE );
 
 	if ( mode == 1 || mode == 3 ) {
 		for ( int i = 0; i < backEnd.viewDef->numDrawSurfs; i++ ) {
@@ -497,6 +518,11 @@ void RB_ShowOverdraw() {
 				c = 1.0f;
 			}
 			GL_Color( c, c, c );
+			if ( surf->jointCache ) {
+				renderProgManager.BindShader_TextureVertexColorSkinned();
+			} else {
+				renderProgManager.BindShader_Color();
+			}
 			renderProgManager.CommitUniforms();
 			RB_DrawElementsWithCounters( surf );
 		}
@@ -516,6 +542,11 @@ void RB_ShowOverdraw() {
 						c = 1.0f;
 					}
 					GL_Color( c, c, c );
+					if ( surf->jointCache ) {
+						renderProgManager.BindShader_TextureVertexColorSkinned();
+					} else {
+						renderProgManager.BindShader_Color();
+					}
 					renderProgManager.CommitUniforms();
 					RB_DrawElementsWithCounters( surf );
 				}
@@ -543,6 +574,8 @@ static void RB_ShowIntensity() {
 		return;
 	}
 
+	// the pixel pack buffer may still be bound from regular rendering
+	GL_BindBuffer( BUFFER_TARGET_PIXEL_PACK, 0 );
 	colorReadback = (byte *)R_StaticAlloc( renderSystem->GetWidth() * renderSystem->GetHeight() * 4, TAG_RENDER_TOOLS );
 	glReadPixels( 0, 0, renderSystem->GetWidth(), renderSystem->GetHeight(), GL_RGBA, GL_UNSIGNED_BYTE, colorReadback );
 
@@ -923,6 +956,10 @@ static void RB_ShowViewEntitys( viewEntity_t *vModels ) {
 	if ( r_showViewEntitys.GetInteger() >= 2 ) {
 		common->Printf( "view entities: " );
 		for ( const viewEntity_t * vModel = vModels; vModel; vModel = vModel->next ) {
+			// entityDef can be NULL for defs without a committed def
+			if ( vModel->entityDef == NULL ) {
+				continue;
+			}
 			if ( vModel->entityDef->IsDirectlyVisible() ) {
 				common->Printf( "<%i> ", vModel->entityDef->index );
 			} else {
@@ -1555,7 +1592,7 @@ Debugging tool
 =====================
 */
 static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
-	int			i, j, k, m, n, o;
+	int			i, j, k, m, n;
 	drawSurf_t	*drawSurf;
 	const srfTriangles_t	*tri;
 	const silEdge_t			*edge;
@@ -1577,11 +1614,30 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 		idDrawVert *ac = (idDrawVert *)tri->verts;
 
+		if ( tri->numIndexes == 0 ) {
+			continue;
+		}
+
 		RB_SimpleSurfaceSetup( drawSurf );
 
 		// line colors go through the COLOR0 attribute with the vertex
 		// color program
 		RB_BindImmediateColorShader();
+
+		// hash every directed edge by its first vertex index so the
+		// reversed pair search below does not rescan all indexes for
+		// each edge
+		const int hashSize = tri->numIndexes;
+		int * hashHeads = (int *)R_StaticAlloc( hashSize * sizeof( int ), TAG_RENDER_TOOLS );
+		int * hashNext = (int *)R_StaticAlloc( tri->numIndexes * sizeof( int ), TAG_RENDER_TOOLS );
+		for ( j = 0; j < hashSize; j++ ) {
+			hashHeads[j] = -1;
+		}
+		for ( j = 0; j < tri->numIndexes; j++ ) {
+			m = tri->indexes[j] % hashSize;
+			hashNext[j] = hashHeads[m];
+			hashHeads[m] = j;
+		}
 
 		// draw non-shared edges in yellow
 		glColor3f( 1, 1, 0 );
@@ -1595,20 +1651,18 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 				i2 = tri->indexes[j+l];
 
 				// if these are used backwards, the edge is shared
-				for ( m = 0; m < tri->numIndexes; m += 3 ) {
-					for ( n = 0; n < 3; n++ ) {
-						o = ( n == 2 ) ? 0 : n + 1;
-						if ( tri->indexes[m+n] == i2 && tri->indexes[m+o] == i1 ) {
-							break;
-						}
+				for ( m = hashHeads[ i2 % hashSize ]; m >= 0; m = hashNext[m] ) {
+					if ( tri->indexes[m] != i2 ) {
+						continue;
 					}
-					if ( n != 3 ) {
+					n = ( ( m % 3 ) == 2 ) ? m - 2 : m + 1;
+					if ( tri->indexes[n] == i1 ) {
 						break;
 					}
 				}
 
 				// if we didn't find a backwards listing, draw it in yellow
-				if ( m == tri->numIndexes ) {
+				if ( m < 0 ) {
 					glVertex3fv( ac[ i1 ].xyz.ToFloatPtr() );
 					glVertex3fv( ac[ i2 ].xyz.ToFloatPtr() );
 				}
@@ -1617,6 +1671,9 @@ static void RB_ShowEdges( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 
 		glEnd();
+
+		R_StaticFree( hashHeads );
+		R_StaticFree( hashNext );
 
 		// draw dangling sil edges in red
 		if ( !tri->silEdges ) {
