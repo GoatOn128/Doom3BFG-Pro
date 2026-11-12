@@ -31,23 +31,27 @@ was copied from it.
   that follow the animated pose via CPU skinning, committed lighting debug draws.
 - Resolution scale and the quake style viewport shrink with centering.
 - renderdeform and tr_trace operating on the committed pose.
+- Easy ports batch: dim shadow depth bounds test, r_dimShadowSingleModel filter, the
+  r_showPVS / r_showRuler / r_showModelGroupMasters / r_showVmtrChannel / r_drawLoadedImages
+  overlays, and r_captureFrames frame capture.
 
-## Lacking: easy ports
+## Easy ports (implemented)
 
-Small, self-contained, no new GL requirements, no data or content dependency.
+Small, self-contained, no new GL requirements, no data or content dependency. All four are done.
 
 1. Depth bounds test around the two dim shadow draws. GL_EXT_depth_bounds_test is already probed
    into glConfig.depthBoundsTestAvailable and used for lights. Wrap the occlusion query draw and
    the screen space sample draw with GL_DepthBoundsTest using the stage 10 extruded bounds. Fill
-   rate culling only, correctness neutral. TODO.md carries the plan.
+   rate culling only, correctness neutral. Done as r_dimShadowDepthBounds around the screen space
+   sample draw of each caster.
 2. singleDimShadow debug filter. TNO's settings field filters the dim shadow casters to exactly
-   one model for debugging. A cvar on the caster index in RB_RenderDimShadows. Trivial. The
-   master/slave chaining around it is a separate, larger item.
+   one model for debugging. Done as the r_dimShadowSingleModel cvar on the caster index in
+   RB_RenderDimShadows. The master/slave chaining around it is a separate, larger item.
 3. Committed debug overlays from the reference tool set: r_showPVS, r_showRuler,
-   r_showModelGroupMasters, r_showVmtrChannel, r_drawLoadedImages. Each is a small debug draw
-   against state the engine already has.
-4. Frame capture (rendercapture). A readback plus file write of the current framebuffer. The
-   engine already does readbacks for the debug tools and screenshots.
+   r_showModelGroupMasters, r_showVmtrChannel, r_drawLoadedImages. Done in gl_RenderDebug.cpp;
+   r_showModelGroupMasters reads the new renderEntity_t::groupMasterIndex.
+4. Frame capture (rendercapture). A readback plus file write of the current framebuffer. Done as
+   the r_captureFrames cvar in the back end, one numbered TGA per executed frame.
 
 ## Lacking: medium effort
 
