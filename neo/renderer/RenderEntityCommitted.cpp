@@ -57,11 +57,19 @@ void idRenderEntityCommitted::PostCommit() {
 ==================
 idRenderEntityCommitted::GetLightingPoint
 
-Tech5 keeps an optional lighting point override per model, this engine
-derives the point from the global reference bounds like the default case.
+Tech5 lighting sample point: the game can override it per model with
+parms.localLightPositionOverride in local space, otherwise it comes from
+the global reference bounds like the default case.
 ==================
 */
 idVec3 idRenderEntityCommitted::GetLightingPoint() const {
+	const idVec3 & overridePoint = parms.localLightPositionOverride;
+	if ( overridePoint.x != 0.0f || overridePoint.y != 0.0f || overridePoint.z != 0.0f ) {
+		return idVec3(
+			overridePoint.x * modelRenderMatrix[0][0] + overridePoint.y * modelRenderMatrix[1][0] + overridePoint.z * modelRenderMatrix[2][0] + modelRenderMatrix[3][0],
+			overridePoint.x * modelRenderMatrix[0][1] + overridePoint.y * modelRenderMatrix[1][1] + overridePoint.z * modelRenderMatrix[2][1] + modelRenderMatrix[3][1],
+			overridePoint.x * modelRenderMatrix[0][2] + overridePoint.y * modelRenderMatrix[1][2] + overridePoint.z * modelRenderMatrix[2][2] + modelRenderMatrix[3][2] );
+	}
 	return globalReferenceBounds.GetCenter();
 }
 

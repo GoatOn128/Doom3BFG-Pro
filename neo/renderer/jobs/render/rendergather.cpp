@@ -476,6 +476,7 @@ void R_AddSingleModel( viewEntity_t * vEntity ) {
 	//---------------------------
 	vEntity->modelDepthHack = renderEntity->modelDepthHack;
 	vEntity->weaponDepthHack = renderEntity->weaponDepthHack;
+	vEntity->castDimShadows = renderEntity->castDimShadows;
 	vEntity->skipMotionBlur = renderEntity->skipMotionBlur;
 
 	memcpy( vEntity->modelMatrix, entityDef->modelMatrix, sizeof( vEntity->modelMatrix ) );
