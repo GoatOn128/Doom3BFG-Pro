@@ -400,9 +400,11 @@ void idRender::RenderScene( idRenderWorldLocal * renderWorld, idRenderWorldCommi
 		const int offX = ( tr.GetWidth() - windowWidth ) / 2;
 		const int offY = ( tr.GetHeight() - windowHeight ) / 2;
 		parms->viewport.x1 += offX;
-		parms->viewport.y1 += offY;
+		// the crop anchors the smaller rect at y2, so centering moves it
+		// back by half the leftover space, not further along y
+		parms->viewport.y1 -= offY;
 		parms->viewport.x2 += offX;
-		parms->viewport.y2 += offY;
+		parms->viewport.y2 -= offY;
 	}
 	parms->isSubview = false;
 	parms->initialViewAreaOrigin = renderView->vieworg;
