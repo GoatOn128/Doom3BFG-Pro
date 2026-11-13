@@ -1,6 +1,6 @@
 # Build digest
 
-commit: a5cbf11f7775
+commit: 9a095218d332
 
 - windows-x86-Debug: success
 - windows-x86-Release: success
@@ -10,7 +10,7 @@ commit: a5cbf11f7775
 status: success
 
 errors: 0
-warnings: 508 in 8 kinds
+warnings: 511 in 8 kinds
 
 ### errors
 
@@ -30,7 +30,7 @@ warnings: 508 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\framework\TokenParser.cpp(181,28): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\RenderLog.h(98,16): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\sys_local.h(42,30): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-- [140x] C5208
+- [143x] C5208
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(117,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\qertypes.h(231,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [50x] C4005
@@ -49,20 +49,20 @@ warnings: 508 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\fdct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(7,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(8,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(9,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(10,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(11,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(12,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(13,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\jobs\transcode\image\baredct\idct_ap922_int_w.cpp(14,3): warning C5051: attribute [[maybe_unused]] requires at least '/std:c++17'; ignored [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [12x] C4595
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\idlib\Heap.h(120,17): warning C4595: 'operator new': non-member operator new or delete functions may not be declared inline [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\game\game.vcxproj]
@@ -82,9 +82,9 @@ warnings: 508 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(190,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1447,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [3x] C4644
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(636,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(641,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(646,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(243,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(248,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(253,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [2x] C4091
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\CapDialog.h(44,15): warning C4091: 'static ': ignored on left of 'CCapDialog::<unnamed-enum-BEVEL>' when no variable is declared [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 
@@ -93,7 +93,7 @@ warnings: 508 in 8 kinds
 status: success
 
 errors: 0
-warnings: 508 in 8 kinds
+warnings: 511 in 8 kinds
 
 ### errors
 
@@ -113,7 +113,7 @@ warnings: 508 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\framework\TokenParser.cpp(181,28): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\RenderLog.h(98,16): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\sys_local.h(42,30): warning C4467: usage of ATL attributes is deprecated [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-- [140x] C5208
+- [143x] C5208
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_local.h(117,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\qertypes.h(231,16): warning C5208: unnamed class used in typedef name cannot declare members other than non-static data members, member enumerations, or member classes [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [50x] C4005
@@ -165,9 +165,9 @@ warnings: 508 in 8 kinds
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(190,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\renderer\virtualtexturesystem.cpp(1447,16): warning C4018: '>': signed/unsigned mismatch [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [3x] C4644
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(636,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(641,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
-  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input.cpp(646,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(243,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(248,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
+  - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\sys\win32\win_input_mouse.cpp(253,9): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 - [2x] C4091
   - D:\a\Doom3BFG-Pro\Doom3BFG-Pro\neo\tools\idstudio\CapDialog.h(44,15): warning C4091: 'static ': ignored on left of 'CCapDialog::<unnamed-enum-BEVEL>' when no variable is declared [D:\a\Doom3BFG-Pro\Doom3BFG-Pro\out\Darklight.vcxproj]
 
