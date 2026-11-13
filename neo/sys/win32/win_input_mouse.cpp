@@ -33,6 +33,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #define DINPUT_BUFFERSIZE           256
 
+static DIDEVICEOBJECTDATA polled_didod[ DINPUT_BUFFERSIZE ];  // Receives buffered data
+
 /*
 ============================================================
 
