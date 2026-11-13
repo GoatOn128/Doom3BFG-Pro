@@ -1006,8 +1006,14 @@ style entities.
 ==================
 */
 bool R_BoundsForAreaWalk( const idBounds & bounds, idBounds & walkBounds ) {
-	if ( bounds.IsCleared() || !bounds.IsFinite() ) {
+	if ( bounds.IsCleared() ) {
 		return false;
+	}
+	// reject non finite bounds, NaN or infinity on any component
+	for ( int i = 0; i < 3; i++ ) {
+		if ( !( bounds[0][i] > -idMath::INFINITY ) || !( bounds[1][i] < idMath::INFINITY ) ) {
+			return false;
+		}
 	}
 	if ( bounds[0][0] > bounds[1][0] || bounds[0][1] > bounds[1][1] || bounds[0][2] > bounds[1][2] ) {
 		return false;
