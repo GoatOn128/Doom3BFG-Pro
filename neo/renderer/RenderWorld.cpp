@@ -1019,7 +1019,8 @@ bool R_BoundsForAreaWalk( const idBounds & bounds, idBounds & walkBounds ) {
 		return false;
 	}
 	walkBounds = bounds;
-	const float maxExtent = 9000.0f;
+	// half extent under the 1e4 limit the BoundsInAreas assert enforces
+	const float maxExtent = 4999.0f;
 	for ( int i = 0; i < 3; i++ ) {
 		if ( walkBounds[1][i] - walkBounds[0][i] >= maxExtent ) {
 			const float center = 0.5f * ( walkBounds[0][i] + walkBounds[1][i] );
