@@ -265,7 +265,7 @@ int idStackTracer::Trace( idStackTrace &trace, int ignoreFrames, bool outputToCo
 	for ( USHORT i = 0; i < count; i++ ) {
 		char text[256];
 		ResolveFrame( (UINT64)(DWORD_PTR)frames[i], text, sizeof( text ), true );
-		trace.stack.Alloc().SetData( text );
+		trace.stack.Alloc()->SetData( text );
 		if ( outputToConsole ) {
 			idLib::Printf( "%s\n", text );
 		}
@@ -328,7 +328,7 @@ bool idStackTracer::Trace( HANDLE thread, CONTEXT *context, idStackTrace &trace,
 		if ( frame.AddrPC.Offset != 0 ) {
 			char text[256];
 			ResolveFrame( frame.AddrPC.Offset, text, sizeof( text ), getSourceFileInfo );
-			trace.stack.Alloc().SetData( text );
+			trace.stack.Alloc()->SetData( text );
 			ok = true;
 			if ( outputToConsole ) {
 				idLib::Printf( "%s\n", text );
