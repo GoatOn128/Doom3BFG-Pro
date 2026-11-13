@@ -44,7 +44,10 @@ static idStr CrashDirectory() {
 		CreateDirectoryA( configured, NULL );
 		return idStr( configured );
 	}
-	return idStr( Sys_Cwd() );
+	char cwd[MAX_OSPATH];
+	GetCurrentDirectoryA( sizeof( cwd ) - 1, cwd );
+	cwd[sizeof( cwd ) - 1] = '\0';
+	return idStr( cwd );
 }
 
 /*
