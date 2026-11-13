@@ -28,15 +28,21 @@ If you have questions concerning this license or the applicable additional terms
 
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
+#include "../sys_session_local.h"
 
 #include "win_local.h"
 
 #define DINPUT_BUFFERSIZE           256
 
+static DIDEVICEOBJECTDATA polled_didod[ DINPUT_BUFFERSIZE ];  // Receives buffered data 
+
+static int diFetch;
+static byte toggleFetch[2][ 256 ];
+
 /*
 ============================================================
 
-DIRECT INPUT KEYBOARD CONTROL
+  DIRECT INPUT KEYBOARD CONTROL
 
 ============================================================
 */
@@ -149,14 +155,6 @@ void IN_DeactivateKeyboard() {
 	win32.g_pKeyboard->Unacquire( );
 }
 
-//=====================================================================================
-
-static DIDEVICEOBJECTDATA polled_didod[ DINPUT_BUFFERSIZE ];  // Receives buffered data 
-
-static int diFetch;
-static byte toggleFetch[2][ 256 ];
-
-
 #if 1
 // I tried doing the full-state get to address a keyboard problem on one system,
 // but it didn't make any difference
@@ -186,8 +184,6 @@ int Sys_PollKeyboardInputEvents() {
         // interruption, or because the buffer overflowed
         // and some events were lost.
         hr = win32.g_pKeyboard->Acquire();
-
-		
 
 		// nuke the garbage
 		if (!FAILED(hr)) {
@@ -270,7 +266,7 @@ int Sys_PollKeyboardInputEvents() {
 
 /*
 ====================
-Sys_PollKeyboardInputEvents
+Sys_ReturnKeyboardInputEvent
 ====================
 */
 int Sys_ReturnKeyboardInputEvent( const int n, int &ch, bool &state ) {
@@ -289,4 +285,3 @@ int Sys_ReturnKeyboardInputEvent( const int n, int &ch, bool &state ) {
 
 void Sys_EndKeyboardInputEvents() {
 }
-

@@ -28,44 +28,22 @@ If you have questions concerning this license or the applicable additional terms
 
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
+#include "../sys_session_local.h"
 
 #include "win_local.h"
+#include "../../tools/idstudio/StudioPublic.h"
 
 #define DINPUT_BUFFERSIZE           256
 
-static DIDEVICEOBJECTDATA polled_didod[ DINPUT_BUFFERSIZE ];  // Receives buffered data
+static DIDEVICEOBJECTDATA polled_didod[ DINPUT_BUFFERSIZE ];  // Receives buffered data 
 
 /*
 ============================================================
 
-DIRECT INPUT MOUSE CONTROL
+  DIRECT INPUT MOUSE CONTROL
 
 ============================================================
 */
-
-/*
-========================
-IN_InitDirectInput
-========================
-*/
-
-void IN_InitDirectInput() {
-    HRESULT		hr;
-
-	common->Printf( "Initializing DirectInput...\n" );
-
-	if ( win32.g_pdi != NULL ) {
-		win32.g_pdi->Release();			// if the previous window was destroyed we need to do this
-		win32.g_pdi = NULL;
-	}
-
-    // Register with the DirectInput subsystem and get a pointer
-    // to a IDirectInput interface we can use.
-    // Create the base DirectInput object
-	if ( FAILED( hr = DirectInput8Create( GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&win32.g_pdi, NULL ) ) ) {
-		common->Printf ("DirectInputCreate failed\n");
-    }
-}
 
 /*
 ========================
@@ -142,7 +120,7 @@ bool IN_InitDIMouse() {
 
 /*
 ==========================
-IN_ActivateMouse
+IN_ConstrainCursorToRenderWindow
 ==========================
 */
 void IN_ConstrainCursorToRenderWindow() {
@@ -153,6 +131,11 @@ void IN_ConstrainCursorToRenderWindow() {
 	::ClipCursor( &clip );
 }
 
+/*
+==========================
+IN_ActivateMouse
+==========================
+*/
 void IN_ActivateMouse() {
 	int i;
 	HRESULT hr;
@@ -213,9 +196,11 @@ void IN_DeactivateMouseIfWindowed() {
 	}
 }
 
-//=====================================================================================
-
-
+/*
+====================
+Sys_PollMouseInputEvents
+====================
+*/
 int Sys_PollMouseInputEvents( int mouseEvents[MAX_MOUSE_EVENTS][2] ) {
 	DWORD				dwElements;
 	HRESULT				hr;
@@ -284,4 +269,3 @@ int Sys_PollMouseInputEvents( int mouseEvents[MAX_MOUSE_EVENTS][2] ) {
 
 	return dwElements;
 }
-

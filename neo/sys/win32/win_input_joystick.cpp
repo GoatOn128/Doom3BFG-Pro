@@ -66,7 +66,7 @@ void JoystickSamplingThread( void *data ) {
 	static int prevTime = 0;
 	static uint64 nextCheck[MAX_JOYSTICKS] = { 0 };
 	const uint64 waitTime = 5000000; // poll every 5 seconds to see if a controller was connected
-	while( 1 ) {
+	while( win32.g_Joystick.running.load() != 0 ) {
 		// hopefully we see close to 4000 usec each loop
 		int	now = Sys_Microseconds();
 		int	delta;
@@ -118,11 +118,6 @@ void JoystickSamplingThread( void *data ) {
 				// Switch from using cs->current to current to reduce chance of Load-Hit-Store on consoles
 
 				threadPacket[threadCount&255] = current.dwPacketNumber;
-#if 0
-				if ( xis.dwPacketNumber == oldXis[ inputDeviceNum ].dwPacketNumber ) {
-					return numEvents;
-				}
-#endif
 				cs->buttonBits |= current.Gamepad.wButtons;
 			}
 		}
@@ -130,6 +125,9 @@ void JoystickSamplingThread( void *data ) {
 		// we want this to be processed at least 250 times a second
 		WaitForSingleObject( win32.g_Joystick.timer, INFINITE );
 	}
+
+	// let Shutdown() know the controller state is no longer being touched
+	win32.g_Joystick.running.store( -1 );
 }
 
 
@@ -138,7 +136,8 @@ void JoystickSamplingThread( void *data ) {
 idJoystickWin32::idJoystickWin32
 ========================
 */
-idJoystickWin32::idJoystickWin32() {
+idJoystickWin32::idJoystickWin32() : running( 0 ) {
+	timer = NULL;
 	numEvents = 0;
 	memset( &events, 0, sizeof( events ) );
 	memset( &controllers, 0, sizeof( controllers ) );
@@ -154,19 +153,56 @@ idJoystickWin32::Init
 bool idJoystickWin32::Init() {
 	idJoystick::Init();
 
+	// a restart may be re-initializing after a Shutdown()
+	Shutdown();
+
 	// setup the timer that the high frequency thread will wait on
 	// to fire every 4 msec
-	timer = CreateWaitableTimer( NULL, FALSE, "JoypadTimer" );
+	if ( timer == NULL ) {
+		timer = CreateWaitableTimer( NULL, FALSE, "JoypadTimer" );
+	}
 	LARGE_INTEGER dueTime;
 	dueTime.QuadPart = -1;
-	if ( !SetWaitableTimer( timer, &dueTime, 4, NULL, NULL, FALSE ) ) {
+	if ( timer == NULL || !SetWaitableTimer( timer, &dueTime, 4, NULL, NULL, FALSE ) ) {
 		idLib::FatalError( "SetWaitableTimer for joystick failed" );
 	}
 
+	for ( int i = 0; i < MAX_JOYSTICKS; i++ ) {
+		memset( &controllers[i], 0, sizeof( controllers[i] ) );
+	}
+
 	// spawn the high frequency joystick reading thread
+	running.store( 1 );
 	Sys_CreateThread( (xthread_t)JoystickSamplingThread, NULL, THREAD_HIGHEST, "Joystick", CORE_1A );
 
 	return false;
+}
+
+/*
+========================
+idJoystickWin32::Shutdown
+
+Stops the sampling thread and silences rumble. The waitable timer is kept
+around so a later Init() can re-arm it without racing a still exiting thread.
+========================
+*/
+void idJoystickWin32::Shutdown() {
+	// signal the sampling thread to exit and wake it so it notices quickly
+	if ( running.exchange( 0 ) != 0 && timer != NULL ) {
+		LARGE_INTEGER dueTime;
+		dueTime.QuadPart = 0;
+		SetWaitableTimer( timer, &dueTime, 0, NULL, NULL, FALSE );
+	}
+
+	// wait a short, bounded time for the sampling thread to finish
+	for ( int i = 0; i < 10 && running.load() != -1; i++ ) {
+		Sys_Sleep( 1 );
+	}
+
+	// silence any controllers that are still rumbling
+	for ( int i = 0; i < MAX_JOYSTICKS; i++ ) {
+		SetRumble( i, 0, 0 );
+	}
 }
 
 /*
@@ -247,10 +283,6 @@ int idJoystickWin32::PollInputEvents( int inputDeviceNum ) {
 
 	assert( inputDeviceNum < 4 );
 
-//	if ( inputDeviceNum > in_joystick.GetInteger() ) {
-//		return numEvents;
-//	}
-
 	controllerState_t *cs = &controllers[ inputDeviceNum ];
 
 	// grab the current packet under a critical section
@@ -266,11 +298,6 @@ int idJoystickWin32::PollInputEvents( int inputDeviceNum ) {
 		orBits = cs->buttonBits;
 		cs->buttonBits = 0;
 	}
-#if 0
-	if ( XInputGetState( inputDeviceNum, &xis ) != ERROR_SUCCESS ) {
-		return numEvents;
-	}
-#endif
 	for ( int i = 0 ; i < 32 ; i++ ) {
 		int	bit = 1<<i;
 
@@ -299,7 +326,7 @@ int idJoystickWin32::PollInputEvents( int inputDeviceNum ) {
 	// Check the digital buttons
 	for ( int i = 0; i < 16; i++ ) {
 		int mask = ( 1 << i );
-		if ( ( xis.Gamepad.wButtons & mask ) != ( old.Gamepad.wButtons & mask ) ) {
+		if ( ( xis.Gamepad.wButtons & mask ) != ( old.Gamepad.wButtons & mass ) ) {
 			PostInputEvent( inputDeviceNum, joyRemap[i], ( xis.Gamepad.wButtons & mask ) > 0 );
 		}
 	}

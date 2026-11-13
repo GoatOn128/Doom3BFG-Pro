@@ -36,11 +36,38 @@ If you have questions concerning this license or the applicable additional terms
 /*
 ============================================================
 
-  MOUSE CONTROL
+  INPUT CORE
+
+  Input startup, shutdown and the per frame mouse grab logic.
+  Device specific code lives in win_input_keyboard.cpp,
+  win_input_mouse.cpp and win_input_joystick.cpp.
 
 ============================================================
 */
 
+/*
+========================
+IN_InitDirectInput
+========================
+*/
+
+void IN_InitDirectInput() {
+    HRESULT		hr;
+
+	common->Printf( "Initializing DirectInput...\n" );
+
+	if ( win32.g_pdi != NULL ) {
+		win32.g_pdi->Release();			// if the previous window was destroyed we need to do this
+		win32.g_pdi = NULL;
+	}
+
+    // Register with the DirectInput subsystem and get a pointer
+    // to a IDirectInput interface we can use.
+    // Create the base DirectInput object
+	if ( FAILED( hr = DirectInput8Create( GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&win32.g_pdi, NULL ) ) ) {
+		common->Printf ("DirectInputCreate failed\n");
+    }
+}
 
 /*
 ===========
@@ -48,6 +75,9 @@ Sys_ShutdownInput
 ===========
 */
 void Sys_ShutdownInput() {
+	// stop the high frequency controller sampling thread before releasing the devices
+	win32.g_Joystick.Shutdown();
+
 	IN_DeactivateMouse();
 	IN_DeactivateKeyboard();
 	if ( win32.g_pKeyboard ) {
@@ -131,13 +161,6 @@ void IN_Frame() {
 			IN_DeactivateMouse();
 		} else {
 			IN_ActivateMouse();
-
-#if 0	// if we can't reacquire, try reinitializing
-			if ( !IN_InitDIMouse() ) {
-				win32.in_mouse.SetBool( false );
-				return;
-			}
-#endif
 		}
 	}
 	if ( shouldGrab && win32.mouseGrabbed && ( com_editors & EDITOR_RADIANT ) ) {
@@ -153,4 +176,3 @@ void	Sys_GrabMouseCursor( bool grabIt ) {
 		IN_Frame();
 	}
 }
-

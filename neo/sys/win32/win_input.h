@@ -1,5 +1,5 @@
 /*
-===========================================================================
+========================================================================
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
@@ -28,11 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "../../idlib/precompiled.h"
 
-//#if defined( ID_VS2010 )
-//#include "../../../libs/dxsdk_June2010/include/xinput.h"
-//#else
 #include <Xinput.h>
-//#endif
+#include <atomic>
 
 static const int MAX_JOYSTICKS = 4;
 
@@ -67,6 +64,7 @@ public:
 					idJoystickWin32();
 
 	virtual bool	Init();
+	virtual void	Shutdown();
 	virtual void	SetRumble( int deviceNum, int rumbleLow, int rumbleHigh );
 	virtual int		PollInputEvents( int inputDeviceNum );
 	virtual int		ReturnInputEvent( const int n, int &action, int &value );
@@ -78,25 +76,37 @@ protected:
 	void 			PushButton( int inputDeviceNum, int key, bool value );
 	void 			PostInputEvent( int inputDeviceNum, int event, int value, int range = 16384 );
 
-	idSysMutex				mutexXis;		// lock this before using currentXis or stickIntegrations
-	HANDLE					timer;			// fire every 4 msec
+	idSysMutex					mutexXis;		// lock this before using currentXis or stickIntegrations
+	HANDLE						timer;			// fire every 4 msec
+	std::atomic<int>			running;		// sampling thread state: 1 = running, 0 = stop requested, -1 = exited
 
-	int						numEvents;
+	int							numEvents;
 
 	struct {
 		int event;
 		int value;
-	}						events[ MAX_JOY_EVENT ];
+	}							events[ MAX_JOY_EVENT ];
 
-	controllerState_t		controllers[ MAX_JOYSTICKS ];
+	controllerState_t			controllers[ MAX_JOYSTICKS ];
 
 	// should these be per-controller?
-	bool					buttonStates[MAX_INPUT_DEVICES][K_LAST_KEY];	// For keeping track of button up/down events
-	int						joyAxis[MAX_INPUT_DEVICES][MAX_JOYSTICK_AXIS];			// For keeping track of joystick axises
+	bool						buttonStates[MAX_INPUT_DEVICES][K_LAST_KEY];	// For keeping track of button up/down events
+	int							joyAxis[MAX_INPUT_DEVICES][MAX_JOYSTICK_AXIS];	// For keeping track of joystick axises
 };
-// Entry points shared across the split win32 input files
-void IN_InitDirectInput();
-void IN_ConstrainCursorToRenderWindow();
-bool IN_StartupKeyboard();
-void IN_DeactivateKeyboard();
-bool IN_InitDIMouse();
+
+/*
+================================================================================================
+
+	Input module entry points
+
+	Implemented across win_input.cpp (core), win_input_keyboard.cpp,
+	win_input_mouse.cpp and win_input_joystick.cpp.
+
+================================================================================================
+*/
+
+void	IN_InitDirectInput();
+void	IN_StartupKeyboard();
+void	IN_DeactivateKeyboard();
+bool	IN_InitDIMouse();
+void	IN_ConstrainCursorToRenderWindow();
