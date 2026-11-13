@@ -223,6 +223,8 @@ add_subdirectory(game)
 
 # Engine sources
 file(GLOB DARKLIGHT_SOURCES CONFIGURE_DEPENDS
+	"${CMAKE_CURRENT_SOURCE_DIR}/aas/*.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/aas/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/cm/*.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/cm/*.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/framework/*.cpp"
