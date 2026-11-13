@@ -326,7 +326,7 @@ int idJoystickWin32::PollInputEvents( int inputDeviceNum ) {
 	// Check the digital buttons
 	for ( int i = 0; i < 16; i++ ) {
 		int mask = ( 1 << i );
-		if ( ( xis.Gamepad.wButtons & mask ) != ( old.Gamepad.wButtons & mass ) ) {
+		if ( ( xis.Gamepad.wButtons & mask ) != ( old.Gamepad.wButtons & mask ) ) {
 			PostInputEvent( inputDeviceNum, joyRemap[i], ( xis.Gamepad.wButtons & mask ) > 0 );
 		}
 	}

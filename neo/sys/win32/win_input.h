@@ -106,7 +106,7 @@ protected:
 */
 
 void	IN_InitDirectInput();
-void	IN_StartupKeyboard();
+bool	IN_StartupKeyboard();
 void	IN_DeactivateKeyboard();
 bool	IN_InitDIMouse();
 void	IN_ConstrainCursorToRenderWindow();
