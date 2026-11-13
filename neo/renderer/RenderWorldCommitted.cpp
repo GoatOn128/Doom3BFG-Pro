@@ -111,7 +111,13 @@ void idRenderWorldCommitted::ApproximateLightingForBounds( const idBounds & boun
 	const idRenderLightCommitted * lights[128];
 	int numLights = 0;
 	int areas[128];
-	const int numAreas = world->BoundsInAreas( bounds, areas, 128 );
+	idBounds walkBounds;
+	// oversized or invalid bounds cannot walk the area tree, the query
+	// then falls back to ambient only
+	int numAreas = 0;
+	if ( R_BoundsForAreaWalk( bounds, walkBounds ) ) {
+		numAreas = world->BoundsInAreas( walkBounds, areas, 128 );
+	}
 	for ( int i = 0; i < numAreas && numLights < maxLights; i++ ) {
 		const portalArea_t * area = &world->portalAreas[areas[i]];
 		for ( const areaReference_t * ref = area->approxLightRefs.areaNext; ref != &area->approxLightRefs; ref = ref->areaNext ) {

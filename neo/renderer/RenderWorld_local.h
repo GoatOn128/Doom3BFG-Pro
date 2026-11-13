@@ -278,6 +278,8 @@ public:
 
 void R_ListRenderLightDefs_f( const idCmdArgs &args );
 void R_ListRenderEntityDefs_f( const idCmdArgs &args );
+// validates bounds for BoundsInAreas and clamps oversized extents
+bool R_BoundsForAreaWalk( const idBounds & bounds, idBounds & walkBounds );
 
 #endif /* !__RENDERWORLDLOCAL_H__ */
 
