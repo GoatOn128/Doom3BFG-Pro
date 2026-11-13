@@ -46,6 +46,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "../sys_local.h"
 #include "win_local.h"
+#include "win_crashhandler.h"
 #include "../../renderer/tr_local.h"
 #include "../../tools/idstudio/StudioPublic.h"
 
@@ -1477,6 +1478,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 #endif
 
 	win32.hInstance = hInstance;
+
+	// install the unhandled exception filter before anything else can fail
+	idCrashHandler crashHandler;
 	idStr::Copynz( sys_cmdline, lpCmdLine, sizeof( sys_cmdline ) );
 
 	// done before Com/Sys_Init since we need this for error output
