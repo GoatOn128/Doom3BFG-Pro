@@ -228,8 +228,14 @@ void R_ApproximateLighting() {
 		// TNO private prime lights only feed the prime light accumulation,
 		// they are not drawn as view lights
 		if ( tr.primaryWorld != NULL && tr.primaryWorld->portalAreas != NULL ) {
+			idBounds walkBounds;
 			int primeAreas[128];
-			const int numPrimeAreas = tr.primaryWorld->BoundsInAreas( globalBounds, primeAreas, 128 );
+			// oversized model bounds (world model, sky boxes) cannot walk
+			// the area tree, they just get no private prime light
+			int numPrimeAreas = 0;
+			if ( R_BoundsForAreaWalk( globalBounds, walkBounds ) ) {
+				numPrimeAreas = tr.primaryWorld->BoundsInAreas( walkBounds, primeAreas, 128 );
+			}
 			const idRenderLightCommitted * primeLights[64];
 			int numPrimeLights = 0;
 			for ( int i = 0; i < numPrimeAreas && numPrimeLights < 64; i++ ) {

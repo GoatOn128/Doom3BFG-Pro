@@ -995,6 +995,36 @@ int idRenderWorldLocal::BoundsInAreas( const idBounds &bounds, int *areas, int m
 }
 
 /*
+==================
+R_BoundsForAreaWalk
+
+Prepares bounds for BoundsInAreas: returns false when the bounds are
+not usable (cleared, not finite or reversed), and clamps oversized
+extents around the center so the tree walk stays in the range the
+walk accepts. Oversized bounds come from world model or sky box
+style entities.
+==================
+*/
+bool R_BoundsForAreaWalk( const idBounds & bounds, idBounds & walkBounds ) {
+	if ( bounds.IsCleared() || !bounds.IsFinite() ) {
+		return false;
+	}
+	if ( bounds[0][0] > bounds[1][0] || bounds[0][1] > bounds[1][1] || bounds[0][2] > bounds[1][2] ) {
+		return false;
+	}
+	walkBounds = bounds;
+	const float maxExtent = 9000.0f;
+	for ( int i = 0; i < 3; i++ ) {
+		if ( walkBounds[1][i] - walkBounds[0][i] >= maxExtent ) {
+			const float center = 0.5f * ( walkBounds[0][i] + walkBounds[1][i] );
+			walkBounds[0][i] = center - maxExtent;
+			walkBounds[1][i] = center + maxExtent;
+		}
+	}
+	return true;
+}
+
+/*
 ================
 idRenderWorldLocal::GuiTrace
 
