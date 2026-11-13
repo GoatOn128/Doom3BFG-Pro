@@ -11,3 +11,8 @@ add_library(idlib STATIC ${IDLIB_SOURCES})
 darklight_configure_target(idlib)
 darklight_set_folder(idlib "libs")
 target_compile_definitions(idlib PRIVATE __IDLIB__)
+
+# The Windows stack tracer resolves symbols through dbghelp.
+if(WIN32)
+    target_link_libraries(idlib PRIVATE dbghelp)
+endif()

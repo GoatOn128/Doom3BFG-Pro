@@ -21,6 +21,7 @@ details.
 
 #include "win_local.h"
 #include "win_crashhandler.h"
+#include "../../idlib/sys/win32/win_stacktracer.h"
 
 idCVar com_enableCrashHandler( "com_enableCrashHandler", "1", CVAR_SYSTEM | CVAR_BOOL | CVAR_ARCHIVE, "install the unhandled exception filter" );
 idCVar win_crashDmp_path( "win_crashDmp_path", "", CVAR_SYSTEM | CVAR_ARCHIVE, "directory in which crash reports are written" );
@@ -230,47 +231,24 @@ thread, so the crashing frames are still on the stack below us.
 void idCrashHandler::GetCallstackInfo( CONTEXT *context, idStr &out ) {
 	out.Clear();
 
-	HANDLE process = GetCurrentProcess();
-	SymSetOptions( SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES );
-	if ( !SymInitialize( process, NULL, TRUE ) ) {
+	if ( !idStackTracer::Init() ) {
 		out = "Symbol resolution unavailable";
 		return;
 	}
 
-	void *frames[32];
-	// skip this function and CaptureStackBackTrace itself
-	USHORT count = CaptureStackBackTrace( 2, 32, frames, NULL );
-	for ( USHORT i = 0; i < count; i++ ) {
-		char symbolBuffer[ sizeof( SYMBOL_INFO ) + 256 ];
-		SYMBOL_INFO *symbol = (SYMBOL_INFO *)symbolBuffer;
-		symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
-		symbol->MaxNameLen = 255;
+	static idStackTrace trace;
+	idStackTracer::Trace( GetCurrentThread(), context, trace, 0, false, true );
+	if ( trace.stack.Num() == 0 ) {
+		out = "No stack frames captured";
+		return;
+	}
 
+	for ( int i = 0; i < trace.stack.Num(); i++ ) {
 		idStr line;
-		line.Format( "  %2u  %p", (unsigned int)i, frames[i] );
-
-		DWORD64 displacement = 0;
-		if ( SymFromAddr( process, (DWORD64)frames[i], &displacement, symbol ) ) {
-			idStr name;
-			name.Format( "  %s+0x%llx", symbol->Name, (unsigned long long)displacement );
-			line.Append( name );
-		}
-
-		IMAGEHLP_LINE64 lineInfo;
-		memset( &lineInfo, 0, sizeof( lineInfo ) );
-		lineInfo.SizeOfStruct = sizeof( lineInfo );
-		DWORD lineDisplacement = 0;
-		if ( SymGetLineFromAddr64( process, (DWORD64)frames[i], &lineDisplacement, &lineInfo ) ) {
-			idStr location;
-			location.Format( "  (%s:%lu)", lineInfo.FileName, lineInfo.LineNumber );
-			line.Append( location );
-		}
-
+		line.Format( "  %2d  %s", i, trace.stack[i].GetData() );
 		out.Append( line );
 		out.Append( "\n" );
 	}
-
-	SymCleanup( process );
 }
 
 /*
