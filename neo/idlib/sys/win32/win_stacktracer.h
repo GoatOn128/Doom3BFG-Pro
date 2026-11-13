@@ -19,7 +19,7 @@ details.
 #ifdef _WIN32
 
 #include "../../containers/StaticList.h"
-#include "../../containers/Str.h"
+#include "../../Str.h"
 
 // One resolved stack frame, kept as plain text so it survives a crash.
 class idStackItem {
